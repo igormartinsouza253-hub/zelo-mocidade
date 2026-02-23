@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Edit, AlertTriangle, Users, MoreVertical, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -30,6 +32,10 @@ interface Membro {
   observacoes: string | null;
   telefone: string | null;
   status_telefone: string | null;
+  ativo?: boolean;
+  inativado_em?: string | null;
+  inativado_motivo?: string | null;
+  inativado_observacao?: string | null;
 }
 
 interface Estatisticas {
@@ -59,8 +65,13 @@ const VisualizarMembro = () => {
 
   useEffect(() => {
     loadMembro();
-    loadEstatisticas();
   }, [id]);
+
+  useEffect(() => {
+    if (!membro) return;
+    if (membro.ativo === false) return;
+    loadEstatisticas();
+  }, [membro?.id, membro?.ativo]);
 
   const handleDelete = useCallback(() => {
     if (!membro) return;
@@ -303,6 +314,74 @@ const VisualizarMembro = () => {
   if (!membro) return null;
 
   const dataAniversarioTexto = getDataAniversarioTexto(membro);
+
+  const formatarDataInativacao = (valor?: string | null) => {
+    if (!valor) return "—";
+    try {
+      return format(parseISO(valor), "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return valor;
+    }
+  };
+
+  if (membro.ativo === false) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 max-w-2xl">
+          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 backdrop-blur-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base md:text-lg">Membro inativo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="rounded-full p-1.5 bg-accent/60 border border-border/80">
+                  <Avatar className="h-16 w-16 md:h-20 md:w-20">
+                    <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xl md:text-2xl">
+                      {membro.nome.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-lg md:text-xl font-semibold truncate">{membro.nome}</p>
+                  <Badge variant="destructive" className="mt-1 rounded-full">Inativo</Badge>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Motivo</p>
+                  <p className="font-medium">{membro.inativado_motivo || "—"}</p>
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Observação</p>
+                  <p className="font-medium whitespace-pre-wrap">{membro.inativado_observacao || "—"}</p>
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Data</p>
+                  <p className="font-medium">{formatarDataInativacao(membro.inativado_em)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <InactivateMemberDialog
+          open={inactivateOpen}
+          onOpenChange={(open) => {
+            if (!open && !inactivating) setInactivateOpen(false);
+          }}
+          title="Inativar membro"
+          confirmLabel="Inativar"
+          loading={inactivating}
+          onConfirm={handleConfirmInactivate}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
