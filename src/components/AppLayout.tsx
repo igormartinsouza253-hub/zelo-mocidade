@@ -120,6 +120,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const isDashboard = location.pathname === "/";
   const isChatRoute = location.pathname.startsWith("/chat");
   const [isLandscapeMobile, setIsLandscapeMobile] = useState(false);
+  const [hideMobileDockOverride, setHideMobileDockOverride] = useState(false);
 
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [preferredOpenMode, setPreferredOpenModeState] = useState<"panel" | "page">(() => {
@@ -127,6 +128,29 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     const raw = window.localStorage.getItem("chatPreferredOpenMode");
     return raw === "page" ? "page" : "panel";
   });
+
+  // Permite que telas mobile peçam para esconder/mostrar a dock inferior.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const e = event as CustomEvent<{ hidden?: boolean }>;
+      setHideMobileDockOverride(!!e.detail?.hidden);
+    };
+
+    window.addEventListener("mobileDockVisibility", handler as EventListener);
+    return () => window.removeEventListener("mobileDockVisibility", handler as EventListener);
+  }, []);
+
+  // Tenta travar em retrato quando o navegador/OS suporta (PWA/Android costuma suportar).
+  useEffect(() => {
+    if (!isMobileMode) return;
+
+    const orientation = (screen as any)?.orientation;
+    if (orientation?.lock) {
+      void orientation.lock("portrait").catch(() => {
+        // Nem todos os navegadores permitem — fallback é o overlay de landscape.
+      });
+    }
+  }, [isMobileMode]);
 
   const setPreferredOpenMode = (mode: "panel" | "page") => {
     setPreferredOpenModeState(mode);
@@ -485,7 +509,9 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         </div>
 
         {/* Mobile Bottom Navigation */}
-        {isMobileMode && !shouldHideMobileDock(location.pathname) && <MobileBottomNav />}
+        {isMobileMode &&
+          !shouldHideMobileDock(location.pathname) &&
+          !hideMobileDockOverride && <MobileBottomNav />}
       </div>
 
       {/* Legenda global do grupo ativo (somente desktop/tablet) */}
