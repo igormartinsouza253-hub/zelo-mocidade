@@ -38,16 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { InactivateMemberDialog } from "@/components/membros/InactivateMemberDialog";
 import { toast } from "sonner";
 import { MemberDetailPanel } from "@/components/membros/MemberDetailPanel";
 import { cn } from "@/lib/utils";
@@ -101,7 +92,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [inactivateDialogOpen, setInactivateDialogOpen] = useState(false);
+  const [inactivateTargetIds, setInactivateTargetIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [listMode, setListMode] = useState<"compact" | "comfortable">("comfortable");
   const [selectedMembro, setSelectedMembro] = useState<Membro | null>(null);
@@ -313,7 +305,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               <DropdownMenuItem
                 className="text-destructive"
                 disabled={selectedIds.length === 0 || deleting}
-                onClick={() => setConfirmDeleteOpen(true)}
+                onClick={() => openInactivateDialog(selectedIds)}
               >
                 Excluir selecionados
               </DropdownMenuItem>
@@ -489,16 +481,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     }
   };
 
-  const handleDeleteSelected = async () => {
-    if (selectedIds.length === 0) return;
+  const openInactivateDialog = (ids: string[]) => {
+    setInactivateTargetIds(ids);
+    setInactivateDialogOpen(true);
+  };
 
-    const motivo = window.prompt(
-      `Motivo da inativação para ${selectedIds.length} membro(s) (Teste, Mudou de comum, Casou, Não congrega mais, Outro):`,
-    );
-    if (!motivo || !motivo.trim()) return;
-
-    const obs = motivo.trim() === "Outro" ? window.prompt("Descreva a justificativa:") : "";
-    if (motivo.trim() === "Outro" && (!obs || !obs.trim())) return;
+  const handleConfirmInactivate = async ({ reason, note }: { reason: string; note: string | null }) => {
+    if (inactivateTargetIds.length === 0) return;
 
     setDeleting(true);
 
@@ -508,55 +497,31 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
         .update({
           ativo: false,
           inativado_em: new Date().toISOString(),
-          inativado_motivo: motivo.trim(),
-          inativado_observacao: obs?.trim() || null,
+          inativado_motivo: reason,
+          inativado_observacao: note,
         })
-        .in("id", selectedIds);
+        .in("id", inactivateTargetIds);
 
       if (membrosError) throw membrosError;
 
-      toast.success("Membros inativados com sucesso.");
+      toast.success(
+        inactivateTargetIds.length === 1 ? "Membro inativado com sucesso." : "Membros inativados com sucesso.",
+      );
+
+      // se o membro aberto no painel foi inativado, fechamos o painel
+      if (selectedMembro && inactivateTargetIds.includes(selectedMembro.id)) {
+        setSelectedMembro(null);
+      }
+
       setSelectedIds([]);
       await loadMembros();
     } catch (error) {
-      console.error("Erro ao inativar membros selecionados:", error);
-      toast.error("Erro ao inativar membros selecionados");
+      console.error("Erro ao inativar membro(s):", error);
+      toast.error("Erro ao inativar membro(s)");
     } finally {
       setDeleting(false);
-      setConfirmDeleteOpen(false);
-    }
-  };
-
-  const handleDeleteMembro = async (id: string) => {
-    const motivo = window.prompt(
-      "Motivo da inativação (Teste, Mudou de comum, Casou, Não congrega mais, Outro):",
-    );
-    if (!motivo || !motivo.trim()) return;
-
-    const obs = motivo.trim() === "Outro" ? window.prompt("Descreva a justificativa:") : "";
-    if (motivo.trim() === "Outro" && (!obs || !obs.trim())) return;
-
-    try {
-      const { error: membrosError } = await supabase
-        .from("membros")
-        .update({
-          ativo: false,
-          inativado_em: new Date().toISOString(),
-          inativado_motivo: motivo.trim(),
-          inativado_observacao: obs?.trim() || null,
-        })
-        .eq("id", id);
-
-      if (membrosError) throw membrosError;
-
-      toast.success("Membro inativado com sucesso.");
-      if (selectedMembro?.id === id) {
-        setSelectedMembro(null);
-      }
-      await loadMembros();
-    } catch (error) {
-      console.error("Erro ao inativar membro:", error);
-      toast.error("Erro ao inativar membro");
+      setInactivateDialogOpen(false);
+      setInactivateTargetIds([]);
     }
   };
 
@@ -764,7 +729,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                   ? "bg-destructive text-destructive-foreground border-destructive/80"
                   : "bg-background text-muted-foreground border-border",
               )}
-              onClick={() => setConfirmDeleteOpen(true)}
+              onClick={() => openInactivateDialog(selectedIds)}
               disabled={!hasSelected || deleting}
             >
               <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -914,7 +879,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-destructive"
-                                  onClick={() => handleDeleteMembro(membro.id)}
+                                  onClick={() => openInactivateDialog([membro.id])}
                                 >
                                   Excluir
                                 </DropdownMenuItem>
@@ -1108,7 +1073,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onClick={() => handleDeleteMembro(membro.id)}
+                                onClick={() => openInactivateDialog([membro.id])}
                               >
                                 Excluir
                               </DropdownMenuItem>
@@ -1168,7 +1133,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             size="icon"
                             className="h-9 w-9 rounded-xl"
                             aria-label="Excluir membro"
-                            onClick={() => handleDeleteMembro(membro.id)}
+                            onClick={() => openInactivateDialog([membro.id])}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1220,7 +1185,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             )}
                             aria-label="Excluir selecionados"
                             disabled={deleting}
-                            onClick={() => setConfirmDeleteOpen(true)}
+                            onClick={() => openInactivateDialog(selectedIds)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1255,34 +1220,23 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
           </button>
         )}
 
-        {/* Diálogo de confirmação de exclusão */}
-        <AlertDialog
-          open={confirmDeleteOpen}
+        <InactivateMemberDialog
+          open={inactivateDialogOpen}
           onOpenChange={(open) => {
             if (!open && !deleting) {
-              setConfirmDeleteOpen(false);
+              setInactivateDialogOpen(false);
+              setInactivateTargetIds([]);
             }
           }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir membros selecionados</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir todos os membros selecionados? Esta ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteSelected}
-                disabled={deleting || !hasSelected}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {deleting ? "Excluindo..." : "Excluir"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          title={
+            inactivateTargetIds.length <= 1
+              ? "Inativar membro"
+              : `Inativar ${inactivateTargetIds.length} membros`
+          }
+          confirmLabel="Inativar"
+          loading={deleting}
+          onConfirm={handleConfirmInactivate}
+        />
 
       </div>
     </div>

@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InactivateMemberDialog } from "@/components/membros/InactivateMemberDialog";
 
 interface Membro {
   id: string;
@@ -53,42 +54,48 @@ const VisualizarMembro = () => {
     alertaAusencias: false,
   });
   const { setConfig } = usePageHeader();
+  const [inactivateOpen, setInactivateOpen] = useState(false);
+  const [inactivating, setInactivating] = useState(false);
 
   useEffect(() => {
     loadMembro();
     loadEstatisticas();
   }, [id]);
 
-  const handleDelete = useCallback(async () => {
+  const handleDelete = useCallback(() => {
     if (!membro) return;
+    setInactivateOpen(true);
+  }, [membro]);
 
-    const motivo = window.prompt(
-      "Motivo da inativação (Teste, Mudou de comum, Casou, Não congrega mais, Outro):",
-    );
-    if (!motivo || !motivo.trim()) return;
+  const handleConfirmInactivate = useCallback(
+    async ({ reason, note }: { reason: string; note: string | null }) => {
+      if (!membro) return;
 
-    const obs = motivo.trim() === "Outro" ? window.prompt("Descreva a justificativa:") : "";
-    if (motivo.trim() === "Outro" && (!obs || !obs.trim())) return;
+      try {
+        setInactivating(true);
+        const { error: membroError } = await supabase
+          .from("membros")
+          .update({
+            ativo: false,
+            inativado_em: new Date().toISOString(),
+            inativado_motivo: reason,
+            inativado_observacao: note,
+          })
+          .eq("id", membro.id);
+        if (membroError) throw membroError;
 
-    try {
-      const { error: membroError } = await supabase
-        .from("membros")
-        .update({
-          ativo: false,
-          inativado_em: new Date().toISOString(),
-          inativado_motivo: motivo.trim(),
-          inativado_observacao: obs?.trim() || null,
-        })
-        .eq("id", membro.id);
-      if (membroError) throw membroError;
-
-      toast.success("Membro inativado com sucesso.");
-      navigate("/membros");
-    } catch (error) {
-      console.error("Erro ao inativar membro:", error);
-      toast.error("Erro ao inativar membro");
-    }
-  }, [membro, navigate]);
+        toast.success("Membro inativado com sucesso.");
+        navigate("/membros");
+      } catch (error) {
+        console.error("Erro ao inativar membro:", error);
+        toast.error("Erro ao inativar membro");
+      } finally {
+        setInactivating(false);
+        setInactivateOpen(false);
+      }
+    },
+    [membro, navigate],
+  );
 
   useEffect(() => {
     if (!membro) return;
@@ -298,55 +305,68 @@ const VisualizarMembro = () => {
   const dataAniversarioTexto = getDataAniversarioTexto(membro);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 max-w-2xl md:pb-8">
-        {/* Cabeçalho principal agora é controlado pelo layout */}
+    <>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 max-w-2xl md:pb-8">
+          {/* Cabeçalho principal agora é controlado pelo layout */}
 
-        {/* Topo: Nome (esq) + Foto (dir) */}
-        <div className="mb-4 md:mb-6">
-          <MemberProfileTopCard
-            nome={membro.nome}
-            fotoUrl={membro.foto_url}
-            cargos={membro.cargos}
-            faixaEtaria={membro.faixa_etaria}
-            idade={calcularIdade(membro.data_nascimento)}
+          {/* Topo: Nome (esq) + Foto (dir) */}
+          <div className="mb-4 md:mb-6">
+            <MemberProfileTopCard
+              nome={membro.nome}
+              fotoUrl={membro.foto_url}
+              cargos={membro.cargos}
+              faixaEtaria={membro.faixa_etaria}
+              idade={calcularIdade(membro.data_nascimento)}
+            />
+          </div>
+
+          {/* Alerta de Ausências */}
+          {estatisticas.alertaAusencias && (
+            <Card className="shadow-[var(--shadow-soft)] border-destructive/50 bg-destructive/5 mb-4 md:mb-6">
+              <CardContent className="pt-4 flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <p className="text-sm text-destructive font-medium">
+                  Atenção: Faltou 3 ou mais reuniões consecutivas
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bloco abaixo: informações do membro */}
+          <div className="mb-4 md:mb-6">
+            <MemberProfileInfoCard
+              telefone={membro.telefone}
+              statusTelefone={membro.status_telefone}
+              dataAniversarioTexto={dataAniversarioTexto}
+              observacoes={membro.observacoes}
+            />
+          </div>
+
+          {/* Logo abaixo: estatísticas de frequência */}
+          <MemberProfileFrequencyCard
+            presencas={estatisticas.presencas}
+            totalReunioes={estatisticas.totalReunioes}
+            taxaGeralPorcentagem={estatisticas.taxaGeralPorcentagem}
+            taxaMensalPorcentagem={estatisticas.taxaMensalPorcentagem}
+            ultimasPresencas={estatisticas.ultimasPresencas}
+            alertaAusencias={estatisticas.alertaAusencias}
+            formatarData={formatarData}
           />
         </div>
-
-        {/* Alerta de Ausências */}
-        {estatisticas.alertaAusencias && (
-          <Card className="shadow-[var(--shadow-soft)] border-destructive/50 bg-destructive/5 mb-4 md:mb-6">
-            <CardContent className="pt-4 flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <p className="text-sm text-destructive font-medium">
-                Atenção: Faltou 3 ou mais reuniões consecutivas
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Bloco abaixo: informações do membro */}
-        <div className="mb-4 md:mb-6">
-          <MemberProfileInfoCard
-            telefone={membro.telefone}
-            statusTelefone={membro.status_telefone}
-            dataAniversarioTexto={dataAniversarioTexto}
-            observacoes={membro.observacoes}
-          />
-        </div>
-
-        {/* Logo abaixo: estatísticas de frequência */}
-        <MemberProfileFrequencyCard
-          presencas={estatisticas.presencas}
-          totalReunioes={estatisticas.totalReunioes}
-          taxaGeralPorcentagem={estatisticas.taxaGeralPorcentagem}
-          taxaMensalPorcentagem={estatisticas.taxaMensalPorcentagem}
-          ultimasPresencas={estatisticas.ultimasPresencas}
-          alertaAusencias={estatisticas.alertaAusencias}
-          formatarData={formatarData}
-        />
       </div>
-    </div>
+
+      <InactivateMemberDialog
+        open={inactivateOpen}
+        onOpenChange={(open) => {
+          if (!open && !inactivating) setInactivateOpen(false);
+        }}
+        title="Inativar membro"
+        confirmLabel="Inativar"
+        loading={inactivating}
+        onConfirm={handleConfirmInactivate}
+      />
+    </>
   );
 };
 
