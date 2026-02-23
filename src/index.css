@@ -8,91 +8,135 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 98%;
+    --foreground: 220 13% 18%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 13% 18%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 13% 18%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 158 64% 52%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 13% 95%;
+    --secondary-foreground: 220 13% 18%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 158 64% 96%;
+    --accent-foreground: var(--primary);
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 158 64% 52%;
+ 
+     --radius: 0.75rem;
+ 
+     --gradient-primary: linear-gradient(135deg, hsl(158 64% 52%), hsl(158 64% 42%));
+     --gradient-mobile: linear-gradient(135deg, hsl(248 84% 58%), hsl(263 90% 67%));
+     --shadow-soft: 0 1px 3px 0 hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+     --shadow-elevated: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
+     --shadow-card: 0 1px 3px 0 hsl(220 13% 18% / 0.05);
+     --shadow-mobile: 0 8px 16px -4px hsl(248 84% 58% / 0.2);
+ 
+     --sidebar-background: 0 0% 100%;
+     --sidebar-foreground: 220 13% 18%;
+     --sidebar-primary: 158 64% 52%;
+     --sidebar-primary-foreground: 0 0% 100%;
+     --sidebar-accent: 158 64% 96%;
+     --sidebar-accent-foreground: var(--sidebar-primary);
+     --sidebar-border: 220 13% 91%;
+     --sidebar-ring: 158 64% 52%;
+ 
+     --chart-1: var(--faixa-mocos);
+     --chart-2: var(--faixa-mocas);
+     --chart-3: var(--faixa-meninos);
+     --chart-4: var(--faixa-meninas);
+     --chart-5: var(--faixa-criancas);
+     --chart-muted: 210 5% 44%;
+ 
+     --sidebar: 0 0% 98%;
+ 
+     /* Faixa Etária Colors (fixas para todos os temas)
+        Saturação moderada para bom contraste no claro/escuro */
+     --faixa-criancas: 48 90% 55%;
+     --faixa-meninos: 145 45% 40%;
+     --faixa-mocos: 210 60% 52%;
+     --faixa-meninas: 285 55% 48%;
+     --faixa-mocas: 335 70% 52%;
+     --faixa-visitas: 30 90% 52%;
+     --faixa-recitativos: 210 6% 50%;
 
-    --radius: 0.5rem;
+    --font-sans: 'Work Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-serif: 'Lora', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --font-mono: 'Inconsolata', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
-    --sidebar-background: 0 0% 98%;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
+    --tracking-normal: 0em;
+     --spacing: 0.25rem;
+ 
+     --info-card-bg: 210 20% 98%;
+     --info-card-foreground: 0 0% 0%;
+   }
+ 
+   .dark {
+     --background: 220 13% 9%;
+     --foreground: 0 0% 98%;
+ 
+     --card: 220 13% 12%;
+     --card-foreground: 0 0% 98%;
+ 
+     --popover: 220 13% 12%;
+     --popover-foreground: 0 0% 98%;
+ 
+     --primary: 158 64% 52%;
+     --primary-foreground: 0 0% 100%;
+ 
+     --secondary: 220 13% 18%;
+     --secondary-foreground: 0 0% 98%;
+ 
+     --muted: 220 13% 18%;
+     --muted-foreground: 220 9% 65%;
+ 
+     --accent: 158 64% 15%;
+     --accent-foreground: var(--primary);
+ 
+     --destructive: 0 72% 51%;
+     --destructive-foreground: 0 0% 100%;
+ 
+     --border: 220 13% 18%;
+     --input: 220 13% 18%;
+     --ring: 158 64% 52%;
+ 
+     --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3);
+ 
+     --sidebar-background: 220 13% 12%;
+     --sidebar-foreground: 0 0% 98%;
+     --sidebar-primary: 158 64% 52%;
+     --sidebar-primary-foreground: 0 0% 100%;
+     --sidebar-accent: 158 64% 15%;
+     --sidebar-accent-foreground: var(--sidebar-primary);
+     --sidebar-border: 220 13% 18%;
+     --sidebar-ring: 158 64% 52%;
+ 
+     --info-card-bg: 220 13% 16%;
+     --info-card-foreground: 0 0% 98%;
+   }
+ }
 
 @layer base {
   * {
@@ -100,6 +144,149 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--primary-bg));
+    overflow: hidden;
+  }
+
+  .dark body {
+    background-color: hsl(var(--primary-bg-dark));
+  }
+
+  html[data-theme-preset="amarelo"] {
+    --primary-foreground: 0 0% 0%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --accent-foreground: 0 0% 0%;
   }
 }
+
+/* Tiptap Editor Styles */
+.ProseMirror {
+  @apply outline-none;
+}
+
+.ProseMirror p {
+  @apply my-2;
+}
+
+.ProseMirror h1 {
+  @apply text-2xl font-bold my-4;
+}
+
+.ProseMirror h2 {
+  @apply text-xl font-bold my-3;
+}
+
+.ProseMirror h3 {
+  @apply text-lg font-bold my-2;
+}
+
+.ProseMirror strong {
+  @apply font-bold;
+}
+
+.ProseMirror em {
+  @apply italic;
+}
+
+.ProseMirror u {
+  @apply underline;
+}
+
+.ProseMirror mark {
+  @apply rounded px-1;
+}
+
+.ProseMirror ul {
+  @apply list-disc pl-6 my-2;
+}
+
+.ProseMirror ol {
+  @apply list-decimal pl-6 my-2;
+}
+
+.ProseMirror li {
+  @apply my-1;
+}
+
+.ProseMirror li p {
+  @apply inline;
+}
+
+.ProseMirror .mention {
+  @apply bg-primary/20 text-primary rounded px-1 py-0.5 cursor-pointer hover:underline;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-muted-foreground;
+  content: attr(data-placeholder);
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0);
+    border-radius: 9999px;
+    transition: background-color 150ms ease-out;
+  }
+
+  .scrollbar-thin:hover {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+  }
+
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb,
+  .scrollbar-thin:active::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.35);
+  }
+
+  /* Esconde totalmente o scrollbar (útil no mobile quando queremos rolagem “limpa”) */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@media (max-width: 767px) {
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.08) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.08);
+    border-radius: 9999px;
+  }
+}
+
+@media (max-height: 800px) {
+  .member-detail-panel {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-height: 720px) {
+  .member-detail-panel {
+    gap: 0.25rem;
+  }
+}
+
