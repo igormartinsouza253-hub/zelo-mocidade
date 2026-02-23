@@ -74,6 +74,7 @@ const DetalhesReuniao = () => {
   const [cargosDisponiveis, setCargosDisponiveis] = useState<Cargo[]>([]);
   const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
   const [selectedFaixas, setSelectedFaixas] = useState<string[]>([]);
+  const [reuniaoGroupId, setReuniaoGroupId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     data: "",
     tema: "",
@@ -175,6 +176,8 @@ const DetalhesReuniao = () => {
         quem_atendeu: reuniao.quem_atendeu || "",
         palavra_referencia: reuniao.palavra_referencia || "",
       });
+      setReuniaoGroupId(reuniao.group_id ?? null);
+
 
       // Carregar orações se existirem
       const { data: presencas, error: presencasError } = await supabase
@@ -258,11 +261,22 @@ const DetalhesReuniao = () => {
     [membrosQueOraram]
   );
 
+  const presenceCounts = useMemo(() => {
+    const presentes = selectedMembros.length + (formData.numero_visitas || 0);
+    const total = presentes + (formData.recitativos_individuais || 0);
+    return { presentes, total };
+  }, [selectedMembros, formData.numero_visitas, formData.recitativos_individuais]);
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      if (!reuniaoGroupId) {
+        throw new Error("missing_group_id");
+      }
+
       const { error: reuniaoError } = await supabase
         .from("reunioes")
         .update({
@@ -280,19 +294,22 @@ const DetalhesReuniao = () => {
       if (reuniaoError) throw reuniaoError;
 
       // Remover todas as presenças antigas
-      await supabase.from("presencas").delete().eq("reuniao_id", id);
+      const { error: deletePresencasError } = await supabase
+        .from("presencas")
+        .delete()
+        .eq("reuniao_id", id);
+      if (deletePresencasError) throw deletePresencasError;
 
       // Adicionar novas presenças
       if (selectedMembros.length > 0) {
         const presencas = selectedMembros.map((membroId) => ({
+          group_id: reuniaoGroupId,
           reuniao_id: id,
           membro_id: membroId,
           orou: membrosQueOraramSet.has(membroId),
         }));
 
-        const { error: presencasError } = await supabase
-          .from("presencas")
-          .insert(presencas);
+        const { error: presencasError } = await supabase.from("presencas").insert(presencas);
 
         if (presencasError) throw presencasError;
       }
@@ -383,43 +400,46 @@ const DetalhesReuniao = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="numero_visitas">Número de Visitas</Label>
-                      <Input
-                        id="numero_visitas"
-                        type="number"
-                        min="0"
-                        value={formData.numero_visitas}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            numero_visitas: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        placeholder="Número de visitantes presentes"
-                      />
-                    </div>
+                  {!isMobile && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="numero_visitas">Número de Visitas</Label>
+                        <Input
+                          id="numero_visitas"
+                          type="number"
+                          min="0"
+                          value={formData.numero_visitas}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              numero_visitas: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Número de visitantes presentes"
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="recitativos_individuais">
-                        Recitativos Individuais (Opcional)
-                      </Label>
-                      <Input
-                        id="recitativos_individuais"
-                        type="number"
-                        min="0"
-                        value={formData.recitativos_individuais}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            recitativos_individuais: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        placeholder="Número de recitativos individuais"
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="recitativos_individuais">
+                          Recitativos Individuais (Opcional)
+                        </Label>
+                        <Input
+                          id="recitativos_individuais"
+                          type="number"
+                          min="0"
+                          value={formData.recitativos_individuais}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              recitativos_individuais: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Número de recitativos individuais"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+
 
                   <div className="space-y-2">
                     <Label htmlFor="quem_atendeu">Quem Atendeu (Opcional)</Label>
@@ -463,17 +483,18 @@ const DetalhesReuniao = () => {
             <div className="md:flex-[1.1] md:min-h-0">
               <Card className="h-full shadow-[var(--shadow-soft)] border-border/50">
                 <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <CardTitle className={isMobile ? "text-base" : ""}>
-                        Presenças
-                        {isMobile && (
-                          <p className="text-xs font-normal text-muted-foreground mt-1">
-                            (membros + visitas = total)
-                          </p>
-                        )}
-                      </CardTitle>
-                    </div>
-                  {!isMobile && (
+                  <div className="flex items-start justify-between gap-3">
+                    <CardTitle className={isMobile ? "text-base" : ""}>Presenças</CardTitle>
+                  </div>
+
+                  {isMobile ? (
+                    <p className="text-xs font-normal text-muted-foreground mt-1">
+                      Presentes:{" "}
+                      <span className="font-semibold text-foreground tabular-nums">{presenceCounts.presentes}</span>
+                      {" "}• Total:{" "}
+                      <span className="font-semibold text-foreground tabular-nums">{presenceCounts.total}</span>
+                    </p>
+                  ) : (
                     <p className="text-sm text-muted-foreground">
                       {selectedMembros.length} membros + {formData.numero_visitas} visitas ={" "}
                       {selectedMembros.length + formData.numero_visitas} total
@@ -481,12 +502,43 @@ const DetalhesReuniao = () => {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <PrayerMemberPicker
-                    members={membros}
-                    presentMemberIds={selectedMembros}
-                    prayingMemberIds={membrosQueOraram}
-                    onChange={setMembrosQueOraram}
-                  />
+                  {isMobile && (
+                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/40 bg-card p-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="numero_visitas">Número de visitas</Label>
+                        <Input
+                          id="numero_visitas"
+                          type="number"
+                          min="0"
+                          value={formData.numero_visitas}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              numero_visitas: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Visitantes"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="recitativos_individuais">Recitativos individuais</Label>
+                        <Input
+                          id="recitativos_individuais"
+                          type="number"
+                          min="0"
+                          value={formData.recitativos_individuais}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              recitativos_individuais: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Recitativos"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Search and Filters */}
                   <div className="space-y-3">
@@ -641,6 +693,13 @@ const DetalhesReuniao = () => {
                       </p>
                     )}
                   </div>
+
+                  <PrayerMemberPicker
+                    members={membros}
+                    presentMemberIds={selectedMembros}
+                    prayingMemberIds={membrosQueOraram}
+                    onChange={setMembrosQueOraram}
+                  />
                 </CardContent>
               </Card>
             </div>
