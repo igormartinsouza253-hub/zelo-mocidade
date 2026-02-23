@@ -22,6 +22,10 @@ interface MemberDetailProps {
     faixa_etaria: string;
     foto_url: string | null;
     telefone?: string | null;
+    ativo?: boolean;
+    inativado_em?: string | null;
+    inativado_motivo?: string | null;
+    inativado_observacao?: string | null;
   };
   onEdit?: (id: string) => void;
   onDeleted?: (id: string) => void;
@@ -42,6 +46,8 @@ export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailPro
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    if (membro.ativo === false) return;
+
     let isMounted = true;
 
     const loadEstatisticas = async () => {
@@ -287,6 +293,86 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
 
   const idade = calcularIdade(membro.data_nascimento);
   const dataAniversarioTexto = getDataAniversarioTexto();
+
+  if (membro.ativo === false) {
+    const formatarDataInativacao = (valor?: string | null) => {
+      if (!valor) return "—";
+      try {
+        return format(parseISO(valor), "dd/MM/yyyy", { locale: ptBR });
+      } catch {
+        return valor;
+      }
+    };
+
+    return (
+      <div className="h-full min-h-0 flex flex-col gap-3 md:gap-4 lg:gap-5 animate-slide-in-right member-detail-panel overflow-hidden">
+        <div className="flex items-center justify-between text-[11px] md:text-xs text-muted-foreground mb-0.5 md:mb-1">
+          <p>
+            <span>Membros</span>
+            <span className="mx-1">›</span>
+            <span className="font-medium text-foreground truncate inline-block max-w-[180px] sm:max-w-xs">
+              {membro.nome}
+            </span>
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="destructive" className="rounded-full">Inativo</Badge>
+          </div>
+        </div>
+
+        <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 backdrop-blur-sm flex-shrink-0">
+          <CardContent className="pt-3.5 md:pt-4 pb-3.5 md:pb-4 flex items-center gap-3 md:gap-4">
+            <div className="relative">
+              <div className="rounded-full p-1.5 bg-accent/60 border border-border/80">
+                <Avatar className="h-16 w-16 md:h-20 md:w-20">
+                  <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xl md:text-2xl">
+                    {membro.nome.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl md:text-2xl font-semibold truncate">{membro.nome}</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Este membro foi inativado e não exibe mais detalhes.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 flex-1 min-h-0 overflow-y-auto pr-1 md:pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30">
+          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs md:text-sm">Motivo</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm font-medium">
+              {membro.inativado_motivo || "—"}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs md:text-sm">Observação</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm font-medium whitespace-pre-wrap">
+              {membro.inativado_observacao || "—"}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs md:text-sm">Data</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm font-medium">
+              {formatarDataInativacao(membro.inativado_em)}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 md:gap-4 lg:gap-5 animate-slide-in-right member-detail-panel overflow-hidden">
       <div className="flex items-center justify-between text-[11px] md:text-xs text-muted-foreground mb-0.5 md:mb-1">

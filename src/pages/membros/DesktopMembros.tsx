@@ -58,6 +58,10 @@ interface Membro {
   cargos: string[] | null;
   faixa_etaria: string;
   foto_url: string | null;
+  ativo?: boolean;
+  inativado_em?: string | null;
+  inativado_motivo?: string | null;
+  inativado_observacao?: string | null;
   observacoes?: string | null;
   telefone?: string | null;
   status_telefone?: string | null;
@@ -75,6 +79,10 @@ type SortDirection = "asc" | "desc";
 const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; __forceDesktop?: boolean } = {}) => {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(() => {
+    const saved = localStorage.getItem("membros_show_inactive");
+    return saved ? saved === "true" : false;
+  });
   const [sortBy, setSortBy] = useState<SortOption>(() => {
     return (localStorage.getItem("membros_sort") as SortOption) || "nome";
   });
@@ -121,6 +129,10 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   useEffect(() => {
     localStorage.setItem("membros_sort_direction", sortDirection);
   }, [sortDirection]);
+
+  useEffect(() => {
+    localStorage.setItem("membros_show_inactive", String(showInactive));
+  }, [showInactive]);
 
   useEffect(() => {
     localStorage.setItem("membros_filters_cargos", JSON.stringify(selectedCargos));
@@ -211,9 +223,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               >
                 <Filter className="h-4 w-4" />
                 Filtros
-                {(selectedCargos.length > 0 || selectedFaixas.length > 0) && (
+                {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
                   <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                    {selectedCargos.length + selectedFaixas.length}
+                    {selectedCargos.length + selectedFaixas.length + (showInactive ? 1 : 0)}
                   </span>
                 )}
               </Button>
@@ -274,6 +286,20 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                         </label>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Exibição</Label>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="filter-show-inactive"
+                      checked={showInactive}
+                      onCheckedChange={(checked) => setShowInactive(Boolean(checked))}
+                    />
+                    <label htmlFor="filter-show-inactive" className="text-sm leading-none cursor-pointer">
+                      Mostrar inativos
+                    </label>
                   </div>
                 </div>
               </div>
@@ -430,6 +456,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
   const filteredMembros = sortMembros(
     membros.filter((membro) => {
+      if (!showInactive && membro.ativo === false) return false;
+
       const termo = search.toLowerCase().trim();
       const matchesSearch =
         !termo ||
@@ -591,9 +619,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             <Filter className="h-3.5 w-3.5" />
                             Filtros
                           </span>
-                          {(selectedCargos.length > 0 || selectedFaixas.length > 0) && (
+                          {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
                             <span className="px-1.5 py-0.5 text-[10px] bg-primary text-primary-foreground rounded-full">
-                              {selectedCargos.length + selectedFaixas.length}
+                              {selectedCargos.length + selectedFaixas.length + (showInactive ? 1 : 0)}
                             </span>
                           )}
                         </button>
@@ -602,10 +630,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <h4 className="font-semibold text-sm">Filtros</h4>
-                            {(selectedCargos.length > 0 || selectedFaixas.length > 0) && (
+                            {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
                               <button
                                 className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
-                                onClick={clearFilters}
+                                onClick={() => {
+                                  clearFilters();
+                                  setShowInactive(false);
+                                }}
                               >
                                 Limpar
                               </button>
@@ -653,6 +684,23 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               ))}
                             </div>
                           </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Exibição</Label>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="filter-show-inactive-mobile"
+                                checked={showInactive}
+                                onCheckedChange={(checked) => setShowInactive(Boolean(checked))}
+                              />
+                              <label
+                                htmlFor="filter-show-inactive-mobile"
+                                className="text-sm leading-none cursor-pointer"
+                              >
+                                Mostrar inativos
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </PopoverContent>
                     </Popover>
@@ -672,7 +720,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               </DropdownMenu>
             </div>
 
-            {(selectedCargos.length > 0 || selectedFaixas.length > 0) && (
+            {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
               <div className="flex flex-wrap gap-2">
                 {selectedCargos.map((cargo) => (
                   <Badge key={cargo} variant="secondary" className="gap-1">
@@ -686,13 +734,19 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                     <X className="h-3 w-3 cursor-pointer" onClick={() => removeFaixa(faixa)} />
                   </Badge>
                 ))}
+                {showInactive && (
+                  <Badge variant="secondary" className="gap-1">
+                    Inativos
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => setShowInactive(false)} />
+                  </Badge>
+                )}
               </div>
             )}
           </div>
         )}
 
         {/* Chips de filtros (Desktop): mantém visível sem duplicar botões */}
-        {!isMobile && (selectedCargos.length > 0 || selectedFaixas.length > 0) && (
+        {!isMobile && (selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
           <div className="mb-3 flex flex-wrap gap-2">
             {selectedCargos.map((cargo) => (
               <Badge key={cargo} variant="secondary" className="gap-1">
@@ -706,6 +760,12 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                 <X className="h-3 w-3 cursor-pointer" onClick={() => removeFaixa(faixa)} />
               </Badge>
             ))}
+            {showInactive && (
+              <Badge variant="secondary" className="gap-1">
+                Inativos
+                <X className="h-3 w-3 cursor-pointer" onClick={() => setShowInactive(false)} />
+              </Badge>
+            )}
           </div>
         )}
 
@@ -812,9 +872,16 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground truncate text-sm md:text-base">
-                              {membro.nome}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-foreground truncate text-sm md:text-base">
+                                {membro.nome}
+                              </h3>
+                              {membro.ativo === false && (
+                                <Badge variant="destructive" className="h-5 px-2 text-[10px] rounded-full">
+                                  Inativo
+                                </Badge>
+                              )}
+                            </div>
                             {listMode === "comfortable" ? (
                               <>
                                 <div className="flex gap-1.5 md:gap-2 text-[11px] md:text-xs text-muted-foreground flex-wrap">
@@ -1005,9 +1072,16 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground truncate text-sm md:text-base">
-                          {membro.nome}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-foreground truncate text-sm md:text-base">
+                            {membro.nome}
+                          </h3>
+                          {membro.ativo === false && (
+                            <Badge variant="destructive" className="h-5 px-2 text-[10px] rounded-full">
+                              Inativo
+                            </Badge>
+                          )}
+                        </div>
                         {listMode === "comfortable" ? (
                           <>
                             <div className="flex gap-1.5 md:gap-2 text-[11px] md:text-xs text-muted-foreground flex-wrap">
