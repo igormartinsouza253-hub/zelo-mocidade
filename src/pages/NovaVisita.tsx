@@ -290,13 +290,8 @@ const NovaVisita = () => {
   );
 
   return (
-    <div className="w-full h-full flex justify-start bg-background">
-      <div
-        className={
-          "w-full px-4 md:px-6 py-4 md:py-6 " +
-          (isMobile ? "pb-[calc(env(safe-area-inset-bottom)+9rem)]" : "")
-        }
-      >
+    <div className="w-full min-h-full flex justify-start bg-background">
+      <div className="w-full px-4 md:px-6 py-4 md:py-6">
         {/* No mobile, o header (voltar+título) vem da barra superior do layout */}
         {!isMobile && (
           <div className="flex items-center gap-4 mb-6">
