@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Users, Plus } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -292,7 +291,12 @@ const NovaVisita = () => {
 
   return (
     <div className="w-full h-full flex justify-start bg-background">
-      <div className={"w-full px-4 md:px-6 py-4 md:py-6 " + (isMobile ? "pb-32" : "")}>
+      <div
+        className={
+          "w-full px-4 md:px-6 py-4 md:py-6 " +
+          (isMobile ? "pb-[calc(env(safe-area-inset-bottom)+9rem)]" : "")
+        }
+      >
         {/* No mobile, o header (voltar+título) vem da barra superior do layout */}
         {!isMobile && (
           <div className="flex items-center gap-4 mb-6">
@@ -313,8 +317,7 @@ const NovaVisita = () => {
           <div className="md:flex-1 md:min-h-0">
             <Card className="h-full shadow-[var(--shadow-soft)] border-border/50">
               <CardHeader className="flex flex-row items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Plus className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base md:text-lg">
                   {editingId ? "Informações da visita" : "Registrar visita"}
                 </CardTitle>
               </CardHeader>
@@ -380,7 +383,6 @@ const NovaVisita = () => {
                   <div className="space-y-1.5">
                     <Label className="text-xs md:text-sm">Data e hora</Label>
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       <div className="flex items-center gap-2 flex-1">
                         <Input
                           type="date"
@@ -421,10 +423,7 @@ const NovaVisita = () => {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <Label className="text-xs md:text-sm flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      Membros presentes na visita
-                    </Label>
+                    <Label className="text-xs md:text-sm">Membros presentes na visita</Label>
                     {tipoVisita === "futura" && (
                       <span className="text-[10px] md:text-xs text-muted-foreground">
                         Opcional para visitas futuras

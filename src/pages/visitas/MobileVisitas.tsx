@@ -224,6 +224,23 @@ export default function MobileVisitas() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
+  // Quando em modo seleção, esconde a dock inferior do app (deixa só a barra de ação).
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("mobileDockVisibility", {
+        detail: { hidden: selectionMode },
+      }),
+    );
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("mobileDockVisibility", {
+          detail: { hidden: false },
+        }),
+      );
+    };
+  }, [selectionMode]);
+
   // confirmação de exclusão
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [idsToDelete, setIdsToDelete] = useState<string[]>([]);
@@ -474,8 +491,14 @@ export default function MobileVisitas() {
   };
 
   return (
-    <main className="h-full w-full bg-background">
-      <section className="mx-auto w-full max-w-4xl px-3 pb-28 pt-4 space-y-3">
+    <main className={cn("h-full w-full bg-background", selectionMode && "relative")}> 
+      {selectionMode && (
+        <div
+          className="md:hidden fixed inset-0 bg-primary/40 mix-blend-multiply pointer-events-none"
+          aria-hidden="true"
+        />
+      )}
+      <section className="relative mx-auto w-full max-w-4xl px-3 pb-28 pt-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
             <TabsList className="h-9">
