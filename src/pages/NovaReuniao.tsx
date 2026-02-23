@@ -110,6 +110,7 @@ interface Membro {
   cargos: string[];
   faixa_etaria: string;
   foto_url: string | null;
+  ativo: boolean;
 }
 
 interface Cargo {
@@ -179,7 +180,8 @@ const NovaReuniao = () => {
     try {
       const { data, error } = await supabase
         .from("membros")
-        .select("id, nome, cargos, faixa_etaria, foto_url")
+        .select("id, nome, cargos, faixa_etaria, foto_url, ativo")
+        .eq("ativo", true)
         .order("nome");
 
       if (error) throw error;
@@ -324,12 +326,20 @@ const NovaReuniao = () => {
       if (reuniaoError) throw reuniaoError;
 
       if (selectedMembros.length > 0) {
-        const presencas = selectedMembros.map((membroId) => ({
-          group_id: activeGroupId,
-          reuniao_id: reuniao.id,
-          membro_id: membroId,
-          orou: membrosQueOraramSet.has(membroId),
-        }));
+        const memberById = new Map(membros.map((m) => [m.id, m] as const));
+
+        const presencas = selectedMembros.map((membroId) => {
+          const membro = memberById.get(membroId);
+          return {
+            group_id: activeGroupId,
+            reuniao_id: reuniao.id,
+            membro_id: membroId,
+            orou: membrosQueOraramSet.has(membroId),
+            membro_nome: membro?.nome ?? null,
+            membro_faixa_etaria: membro?.faixa_etaria ?? null,
+            membro_cargos: membro?.cargos ?? null,
+          };
+        });
 
         const { error: presencasError } = await supabase
           .from("presencas")

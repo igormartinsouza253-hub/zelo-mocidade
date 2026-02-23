@@ -25,6 +25,7 @@ interface Membro {
   id: string;
   nome: string;
   faixa_etaria: string;
+  ativo?: boolean;
 }
 
 interface Oracao {
@@ -111,57 +112,87 @@ const VisualizarReuniao = () => {
 
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
-        .select("membro_id")
+        .select("membro_id, membro_nome, membro_faixa_etaria")
         .eq("reuniao_id", id);
 
       if (presencasError) throw presencasError;
 
-      const membroIds = presencas?.map(p => p.membro_id) || [];
+      const membroIds = presencas?.map((p) => p.membro_id) || [];
+
+      // tenta usar snapshot primeiro; se faltar (dados antigos), faz fallback no cadastro atual
+      let membrosList: Membro[] = (presencas || [])
+        .filter((p) => Boolean(p.membro_id))
+        .map((p: any) => ({
+          id: p.membro_id,
+          nome: p.membro_nome || "(sem nome)",
+          faixa_etaria: p.membro_faixa_etaria || "",
+        }));
+
+      const needsFallback = membrosList.some((m) => !m.faixa_etaria || m.nome === "(sem nome)");
+
       if (membroIds.length > 0) {
-        const { data: membros, error: membrosError } = await supabase
+        const { data: membrosStatus, error: membrosStatusError } = await supabase
           .from("membros")
-          .select("id, nome, faixa_etaria")
+          .select("id, nome, faixa_etaria, ativo")
           .in("id", membroIds);
 
-        if (membrosError) throw membrosError;
-        setMembrosPresentes(membros || []);
+        if (membrosStatusError) throw membrosStatusError;
 
-        // Process data for chart
+        const byId = new Map((membrosStatus || []).map((m) => [m.id, m] as const));
+
+        membrosList = membrosList.map((m) => {
+          const current = byId.get(m.id);
+          const nome = m.nome && m.nome !== "(sem nome)" ? m.nome : (current?.nome ?? m.nome);
+          const faixa = m.faixa_etaria ? m.faixa_etaria : (current?.faixa_etaria ?? m.faixa_etaria);
+          return { id: m.id, nome, faixa_etaria: faixa, ativo: current?.ativo ?? undefined };
+        });
+
+        if (needsFallback && membrosList.length === 0) {
+          membrosList = (membrosStatus || []).map((m) => ({
+            id: m.id,
+            nome: m.nome,
+            faixa_etaria: m.faixa_etaria,
+            ativo: m.ativo,
+          }));
+        }
+
+        setMembrosPresentes(membrosList);
+
+        // Process data for chart (usa snapshot/faixa congelada)
         const faixasCount: Record<string, number> = {};
-        (membros || []).forEach(membro => {
+        membrosList.forEach((membro) => {
+          if (!membro.faixa_etaria) return;
           faixasCount[membro.faixa_etaria] = (faixasCount[membro.faixa_etaria] || 0) + 1;
         });
 
         const data: ChartData[] = Object.entries(faixasCount).map(([faixa, count]) => ({
           name: faixa,
           value: count,
-          color: AGE_GROUP_COLORS[faixa] || "hsl(var(--primary))"
+          color: AGE_GROUP_COLORS[faixa] || "hsl(var(--primary))",
         }));
 
         if (reuniaoData.numero_visitas > 0) {
           data.push({
             name: "Visitantes",
             value: reuniaoData.numero_visitas,
-            color: AGE_GROUP_COLORS["Visitantes"]
+            color: AGE_GROUP_COLORS["Visitantes"],
           });
         }
 
         setChartData(data);
 
-        // Create bar chart data
-        const { data: allMembros } = await supabase
-          .from("membros")
-          .select("faixa_etaria");
+        // Create bar chart data (mantém como está: total atual por faixa)
+        const { data: allMembros } = await supabase.from("membros").select("faixa_etaria");
 
         const faixasTotal: Record<string, number> = {};
-        (allMembros || []).forEach(membro => {
+        (allMembros || []).forEach((membro) => {
           faixasTotal[membro.faixa_etaria] = (faixasTotal[membro.faixa_etaria] || 0) + 1;
         });
 
-        const barData = Object.keys(faixasTotal).map(faixa => ({
+        const barData = Object.keys(faixasTotal).map((faixa) => ({
           faixa,
           total: faixasTotal[faixa],
-          presentes: faixasCount[faixa] || 0
+          presentes: faixasCount[faixa] || 0,
         }));
         setBarChartData(barData);
       } else {
@@ -170,7 +201,7 @@ const VisualizarReuniao = () => {
           data.push({
             name: "Visitantes",
             value: reuniaoData.numero_visitas,
-            color: AGE_GROUP_COLORS["Visitantes"]
+            color: AGE_GROUP_COLORS["Visitantes"],
           });
         }
         setChartData(data);
@@ -524,8 +555,16 @@ const VisualizarReuniao = () => {
                             className="flex items-center justify-between gap-2 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors text-left"
                             onClick={() => navigate(`/membros/visualizar/${membro.id}`)}
                           >
-                            <span className="font-medium text-sm truncate">{membro.nome}</span>
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: FAIXA_COLORS[membro.faixa_etaria] }} />
+                            <div className="min-w-0">
+                              <span className="font-medium text-sm truncate block">{membro.nome}</span>
+                              {membro.ativo === false ? (
+                                <span className="text-[10px] text-muted-foreground block">Não faz mais parte da mocidade</span>
+                              ) : null}
+                            </div>
+                            <span
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: FAIXA_COLORS[membro.faixa_etaria] }}
+                            />
                           </button>
                         ))}
                       </div>

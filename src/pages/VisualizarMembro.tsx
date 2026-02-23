@@ -62,29 +62,31 @@ const VisualizarMembro = () => {
   const handleDelete = useCallback(async () => {
     if (!membro) return;
 
-    const confirmed = window.confirm(
-      "Tem certeza que deseja excluir este membro? Esta ação não pode ser desfeita.",
+    const motivo = window.prompt(
+      "Motivo da inativação (Teste, Mudou de comum, Casou, Não congrega mais, Outro):",
     );
-    if (!confirmed) return;
+    if (!motivo || !motivo.trim()) return;
+
+    const obs = motivo.trim() === "Outro" ? window.prompt("Descreva a justificativa:") : "";
+    if (motivo.trim() === "Outro" && (!obs || !obs.trim())) return;
 
     try {
-      const { error: presencasError } = await supabase
-        .from("presencas")
-        .delete()
-        .eq("membro_id", membro.id);
-      if (presencasError) throw presencasError;
-
       const { error: membroError } = await supabase
         .from("membros")
-        .delete()
+        .update({
+          ativo: false,
+          inativado_em: new Date().toISOString(),
+          inativado_motivo: motivo.trim(),
+          inativado_observacao: obs?.trim() || null,
+        })
         .eq("id", membro.id);
       if (membroError) throw membroError;
 
-      toast.success("Membro excluído com sucesso.");
+      toast.success("Membro inativado com sucesso.");
       navigate("/membros");
     } catch (error) {
-      console.error("Erro ao excluir membro:", error);
-      toast.error("Erro ao excluir membro");
+      console.error("Erro ao inativar membro:", error);
+      toast.error("Erro ao inativar membro");
     }
   }, [membro, navigate]);
 

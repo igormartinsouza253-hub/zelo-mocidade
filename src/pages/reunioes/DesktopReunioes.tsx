@@ -154,9 +154,10 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
 
   const formatDateMobile = (date: string) => {
     const d = new Date(date + "T00:00:00");
-    const day = d.getDate();
-    const month = d.toLocaleDateString("pt-BR", { month: "short" });
-    return `${day} ${month}`;
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = d.toLocaleDateString("pt-BR", { month: "long" });
+    const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+    return `${day} de ${monthCap}`;
   };
 
   useEffect(() => {

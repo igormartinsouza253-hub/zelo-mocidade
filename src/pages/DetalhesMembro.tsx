@@ -43,6 +43,9 @@ const DetalhesMembro = () => {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [inativacaoMotivo, setInativacaoMotivo] = useState<string>("");
+  const [inativacaoObservacao, setInativacaoObservacao] = useState<string>("");
+  const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const [cargosDisponiveis, setCargosDisponiveis] = useState<Cargo[]>([]);
   const [cargosLoading, setCargosLoading] = useState(true);
   const [totalPresencas, setTotalPresencas] = useState(0);
@@ -126,6 +129,7 @@ const DetalhesMembro = () => {
         telefone: data.telefone || "",
         status_telefone: data.status_telefone || "",
       });
+      setMemberGroupId(data.group_id ?? null);
     } catch (error) {
       console.error("Erro ao carregar membro:", error);
       toast.error("Erro ao carregar dados do membro");
@@ -267,19 +271,54 @@ const DetalhesMembro = () => {
     }
   };
 
-  const handleDelete = async () => {
+  const handleInativar = async () => {
+    const motivo = inativacaoMotivo.trim();
+    const obs = inativacaoObservacao.trim();
+
+    if (!motivo) {
+      toast.error("Selecione um motivo");
+      return;
+    }
+
+    if (motivo === "Outro" && !obs) {
+      toast.error("Descreva a justificativa");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("membros").delete().eq("id", id);
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+
+      const { error } = await supabase
+        .from("membros")
+        .update({
+          ativo: false,
+          inativado_em: new Date().toISOString(),
+          inativado_motivo: motivo,
+          inativado_observacao: obs || null,
+        })
+        .eq("id", id);
 
       if (error) throw error;
 
-      toast.success("Membro excluído com sucesso!");
+      if (userId && memberGroupId) {
+        await supabase.from("member_edit_history").insert({
+          member_id: id,
+          group_id: memberGroupId,
+          user_id: userId,
+          action: "inactivate",
+          reason: motivo,
+          note: obs || null,
+        });
+      }
+
+      toast.success("Membro inativado com sucesso!");
       navigate("/membros");
     } catch (error) {
-      console.error("Erro ao excluir membro:", error);
-      toast.error("Erro ao excluir membro");
+      console.error("Erro ao inativar membro:", error);
+      toast.error("Erro ao inativar membro");
     } finally {
       setLoading(false);
     }
@@ -346,6 +385,33 @@ const DetalhesMembro = () => {
                     onChange={handlePhotoUpload}
                     disabled={uploadingPhoto}
                   />
+
+                  {formData.foto_url ? (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setTempImageSrc(formData.foto_url);
+                          setShowCropDialog(true);
+                        }}
+                        disabled={uploadingPhoto}
+                      >
+                        Editar foto atual
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        asChild
+                      >
+                        <a href={formData.foto_url} download>
+                          Baixar foto
+                        </a>
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex-1">
                   <h2 className="text-lg md:text-2xl font-semibold text-foreground mb-1 md:mb-2 truncate">
@@ -537,19 +603,47 @@ const DetalhesMembro = () => {
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogTitle>Inativar membro</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir este membro? Esta ação não pode ser
-                desfeita.
+                Informe o motivo. O membro não poderá ser selecionado em novas reuniões, mas continuará aparecendo nas reuniões antigas.
               </AlertDialogDescription>
             </AlertDialogHeader>
+
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Motivo</Label>
+                <Select value={inativacaoMotivo} onValueChange={setInativacaoMotivo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Teste">Teste</SelectItem>
+                    <SelectItem value="Mudou de comum">Mudou de comum</SelectItem>
+                    <SelectItem value="Casou">Casou</SelectItem>
+                    <SelectItem value="Não congrega mais">Não congrega mais</SelectItem>
+                    <SelectItem value="Outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Observação (opcional)</Label>
+                <Textarea
+                  value={inativacaoObservacao}
+                  onChange={(e) => setInativacaoObservacao(e.target.value)}
+                  placeholder={inativacaoMotivo === "Outro" ? "Descreva o motivo" : "Detalhes (se necessário)"}
+                  rows={3}
+                />
+              </div>
+            </div>
+
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                onClick={handleDelete}
+                onClick={handleInativar}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Excluir
+                Inativar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
