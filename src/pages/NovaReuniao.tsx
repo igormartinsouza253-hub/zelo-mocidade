@@ -262,6 +262,13 @@ const NovaReuniao = () => {
     [membrosQueOraram]
   );
 
+  const presenceCounts = useMemo(() => {
+    const presentes = selectedMembros.length + (formData.numero_visitas || 0);
+    const total = presentes + (formData.recitativos_individuais || 0);
+    return { presentes, total };
+  }, [selectedMembros, formData.numero_visitas, formData.recitativos_individuais]);
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -396,43 +403,46 @@ const NovaReuniao = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="numero_visitas">Número de Visitas</Label>
-                      <Input
-                        id="numero_visitas"
-                        type="number"
-                        min="0"
-                        value={formData.numero_visitas}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            numero_visitas: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        placeholder="Número de visitantes presentes"
-                      />
-                    </div>
+                  {!isMobile && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="numero_visitas">Número de Visitas</Label>
+                        <Input
+                          id="numero_visitas"
+                          type="number"
+                          min="0"
+                          value={formData.numero_visitas}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              numero_visitas: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Número de visitantes presentes"
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="recitativos_individuais">
-                        Recitativos Individuais (Opcional)
-                      </Label>
-                      <Input
-                        id="recitativos_individuais"
-                        type="number"
-                        min="0"
-                        value={formData.recitativos_individuais}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            recitativos_individuais: parseInt(e.target.value) || 0,
-                          })
-                        }
-                        placeholder="Número de recitativos individuais"
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="recitativos_individuais">
+                          Recitativos Individuais (Opcional)
+                        </Label>
+                        <Input
+                          id="recitativos_individuais"
+                          type="number"
+                          min="0"
+                          value={formData.recitativos_individuais}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              recitativos_individuais: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Número de recitativos individuais"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+
 
                   <div className="space-y-2">
                     <Label htmlFor="quem_atendeu">Quem Atendeu (Opcional)</Label>
@@ -477,16 +487,17 @@ const NovaReuniao = () => {
               <Card className="h-full rounded-3xl shadow-[var(--shadow-soft)] border-border/50">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
-                    <CardTitle className={isMobile ? "text-base" : ""}>
-                      Presenças
-                      {isMobile && (
-                        <p className="text-xs font-normal text-muted-foreground mt-1">
-                          (membros + visitas = total)
-                        </p>
-                      )}
-                    </CardTitle>
+                    <CardTitle className={isMobile ? "text-base" : ""}>Presenças</CardTitle>
                   </div>
-                  {!isMobile && (
+
+                  {isMobile ? (
+                    <p className="text-xs font-normal text-muted-foreground mt-1">
+                      Presentes:{" "}
+                      <span className="font-semibold text-foreground tabular-nums">{presenceCounts.presentes}</span>
+                      {" "}• Total:{" "}
+                      <span className="font-semibold text-foreground tabular-nums">{presenceCounts.total}</span>
+                    </p>
+                  ) : (
                     <p className="text-sm text-muted-foreground">
                       {selectedMembros.length} membros + {formData.numero_visitas} visitas ={" "}
                       {selectedMembros.length + formData.numero_visitas} total
@@ -502,12 +513,43 @@ const NovaReuniao = () => {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <PrayerMemberPicker
-                    members={membros}
-                    presentMemberIds={selectedMembros}
-                    prayingMemberIds={membrosQueOraram}
-                    onChange={setMembrosQueOraram}
-                  />
+                  {isMobile && (
+                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/40 bg-card p-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="numero_visitas">Número de visitas</Label>
+                        <Input
+                          id="numero_visitas"
+                          type="number"
+                          min="0"
+                          value={formData.numero_visitas}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              numero_visitas: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Visitantes"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="recitativos_individuais">Recitativos individuais</Label>
+                        <Input
+                          id="recitativos_individuais"
+                          type="number"
+                          min="0"
+                          value={formData.recitativos_individuais}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              recitativos_individuais: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="Recitativos"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -676,6 +718,13 @@ const NovaReuniao = () => {
                       </p>
                     )}
                   </div>
+
+                  <PrayerMemberPicker
+                    members={membros}
+                    presentMemberIds={selectedMembros}
+                    prayingMemberIds={membrosQueOraram}
+                    onChange={setMembrosQueOraram}
+                  />
                 </CardContent>
               </Card>
             </div>
