@@ -500,9 +500,17 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               isChatRoute
                 ? ""
                 : isMobileMode && shouldHideMobileDock(location.pathname)
-                  ? "pb-6"
+                  ? location.pathname === "/visitas/nova"
+                    ? "pb-[calc(env(safe-area-inset-bottom)+6.5rem)]"
+                    : "pb-6"
                   : "pb-24"
-            } md:px-6 md:pb-6 ${isMobileMode ? "scrollbar-thin" : ""}`}
+            } md:px-6 md:pb-6 ${
+              isMobileMode
+                ? location.pathname === "/visitas/nova"
+                  ? "scrollbar-none"
+                  : "scrollbar-thin"
+                : ""
+            }`}
           >
             {children}
           </main>
