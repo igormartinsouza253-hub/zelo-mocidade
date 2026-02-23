@@ -630,8 +630,51 @@ export type Database = {
         }
         Relationships: []
       }
+      member_edit_history: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          created_at: string
+          effective_at: string
+          group_id: string | null
+          id: string
+          member_id: string
+          note: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          effective_at?: string
+          group_id?: string | null
+          id?: string
+          member_id: string
+          note?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          effective_at?: string
+          group_id?: string | null
+          id?: string
+          member_id?: string
+          note?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       membros: {
         Row: {
+          ativo: boolean
           cargos: string[] | null
           created_at: string
           data_aniversario: string | null
@@ -640,12 +683,16 @@ export type Database = {
           foto_url: string | null
           group_id: string | null
           id: string
+          inativado_em: string | null
+          inativado_motivo: string | null
+          inativado_observacao: string | null
           nome: string
           observacoes: string | null
           status_telefone: string | null
           telefone: string | null
         }
         Insert: {
+          ativo?: boolean
           cargos?: string[] | null
           created_at?: string
           data_aniversario?: string | null
@@ -654,12 +701,16 @@ export type Database = {
           foto_url?: string | null
           group_id?: string | null
           id?: string
+          inativado_em?: string | null
+          inativado_motivo?: string | null
+          inativado_observacao?: string | null
           nome: string
           observacoes?: string | null
           status_telefone?: string | null
           telefone?: string | null
         }
         Update: {
+          ativo?: boolean
           cargos?: string[] | null
           created_at?: string
           data_aniversario?: string | null
@@ -668,6 +719,9 @@ export type Database = {
           foto_url?: string | null
           group_id?: string | null
           id?: string
+          inativado_em?: string | null
+          inativado_motivo?: string | null
+          inativado_observacao?: string | null
           nome?: string
           observacoes?: string | null
           status_telefone?: string | null
@@ -754,7 +808,10 @@ export type Database = {
           created_at: string
           group_id: string | null
           id: string
+          membro_cargos: string[] | null
+          membro_faixa_etaria: string | null
           membro_id: string
+          membro_nome: string | null
           orou: boolean
           reuniao_id: string
         }
@@ -762,7 +819,10 @@ export type Database = {
           created_at?: string
           group_id?: string | null
           id?: string
+          membro_cargos?: string[] | null
+          membro_faixa_etaria?: string | null
           membro_id: string
+          membro_nome?: string | null
           orou?: boolean
           reuniao_id: string
         }
@@ -770,7 +830,10 @@ export type Database = {
           created_at?: string
           group_id?: string | null
           id?: string
+          membro_cargos?: string[] | null
+          membro_faixa_etaria?: string | null
           membro_id?: string
+          membro_nome?: string | null
           orou?: boolean
           reuniao_id?: string
         }
