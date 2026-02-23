@@ -491,29 +491,36 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return;
+
+    const motivo = window.prompt(
+      `Motivo da inativação para ${selectedIds.length} membro(s) (Teste, Mudou de comum, Casou, Não congrega mais, Outro):`,
+    );
+    if (!motivo || !motivo.trim()) return;
+
+    const obs = motivo.trim() === "Outro" ? window.prompt("Descreva a justificativa:") : "";
+    if (motivo.trim() === "Outro" && (!obs || !obs.trim())) return;
+
     setDeleting(true);
 
     try {
-      const { error: presencasError } = await supabase
-        .from("presencas")
-        .delete()
-        .in("membro_id", selectedIds);
-
-      if (presencasError) throw presencasError;
-
       const { error: membrosError } = await supabase
         .from("membros")
-        .delete()
+        .update({
+          ativo: false,
+          inativado_em: new Date().toISOString(),
+          inativado_motivo: motivo.trim(),
+          inativado_observacao: obs?.trim() || null,
+        })
         .in("id", selectedIds);
 
       if (membrosError) throw membrosError;
 
-      toast.success("Membros selecionados excluídos com sucesso.");
+      toast.success("Membros inativados com sucesso.");
       setSelectedIds([]);
       await loadMembros();
     } catch (error) {
-      console.error("Erro ao excluir membros selecionados:", error);
-      toast.error("Erro ao excluir membros selecionados");
+      console.error("Erro ao inativar membros selecionados:", error);
+      toast.error("Erro ao inativar membros selecionados");
     } finally {
       setDeleting(false);
       setConfirmDeleteOpen(false);
@@ -521,31 +528,35 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   };
 
   const handleDeleteMembro = async (id: string) => {
-    const confirm = window.confirm(
-      "Tem certeza que deseja excluir este membro? Esta ação não pode ser desfeita.",
+    const motivo = window.prompt(
+      "Motivo da inativação (Teste, Mudou de comum, Casou, Não congrega mais, Outro):",
     );
-    if (!confirm) return;
+    if (!motivo || !motivo.trim()) return;
+
+    const obs = motivo.trim() === "Outro" ? window.prompt("Descreva a justificativa:") : "";
+    if (motivo.trim() === "Outro" && (!obs || !obs.trim())) return;
 
     try {
-      const { error: presencasError } = await supabase
-        .from("presencas")
-        .delete()
-        .eq("membro_id", id);
-
-      if (presencasError) throw presencasError;
-
-      const { error: membrosError } = await supabase.from("membros").delete().eq("id", id);
+      const { error: membrosError } = await supabase
+        .from("membros")
+        .update({
+          ativo: false,
+          inativado_em: new Date().toISOString(),
+          inativado_motivo: motivo.trim(),
+          inativado_observacao: obs?.trim() || null,
+        })
+        .eq("id", id);
 
       if (membrosError) throw membrosError;
 
-      toast.success("Membro excluído com sucesso.");
+      toast.success("Membro inativado com sucesso.");
       if (selectedMembro?.id === id) {
         setSelectedMembro(null);
       }
       await loadMembros();
     } catch (error) {
-      console.error("Erro ao excluir membro:", error);
-      toast.error("Erro ao excluir membro");
+      console.error("Erro ao inativar membro:", error);
+      toast.error("Erro ao inativar membro");
     }
   };
 
