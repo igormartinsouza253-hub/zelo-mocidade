@@ -323,7 +323,90 @@ export default function Notas() {
   return (
     <div className="h-full w-full bg-background overflow-hidden">
       <div className="flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 space-y-4">
-        {isSplitView ? (
+        {isMobile ? (
+          <div className="max-w-4xl mx-auto w-full flex flex-col min-h-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-foreground truncate">Notas</h2>
+                <p className="text-xs text-muted-foreground">
+                  {loading ? "Carregando…" : `${notas.length} nota${notas.length === 1 ? "" : "s"}`}
+                </p>
+              </div>
+
+              <Button size="sm" className="gap-2" onClick={() => navigate("/notas/nova")}>
+                <Plus className="h-4 w-4" />
+                Nova
+              </Button>
+            </div>
+
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-none">
+              {loading ? (
+                <div className="space-y-2">
+                  <div className="h-16 rounded-2xl border border-border bg-card/50" />
+                  <div className="h-16 rounded-2xl border border-border bg-card/50" />
+                  <div className="h-16 rounded-2xl border border-border bg-card/50" />
+                </div>
+              ) : notas.length === 0 ? (
+                <div className="rounded-3xl border border-border bg-card p-6">
+                  <p className="text-sm text-muted-foreground">ainda não há notas</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {notas.map((nota) => (
+                    <button
+                      key={nota.id}
+                      type="button"
+                      onClick={() => navigate(`/notas/editar/${nota.id}`)}
+                      className="w-full text-left rounded-3xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-soft)] active:scale-[0.99] transition"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-muted-foreground">{formatDate(nota.created_at)}</p>
+                          <p className="mt-1 text-sm font-semibold text-foreground truncate">
+                            {getTituloFromHtml(nota.conteudo)}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                            {getPreviewText(nota.conteudo)}
+                          </p>
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background hover:bg-accent/60 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                              aria-label="Ações"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </span>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>
+                              Abrir
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="h-[calc(env(safe-area-inset-bottom)+0.75rem)]" />
+          </div>
+        ) : isSplitView ? (
           <Card>
             <CardHeader>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -343,125 +426,100 @@ export default function Notas() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-            <ResizablePanelGroup
-              direction="horizontal"
-              className="min-h-[420px] md:min-h-[520px]"
-            >
-              <ResizablePanel defaultSize={40} minSize={28}>
-                <div className="space-y-3 p-3 pr-1 md:pr-2 h-full overflow-y-auto pb-16 md:pb-4 scrollbar-thin">
-                  {notasFiltradas.map((nota) => (
-                    <div
-                      key={nota.id}
-                      className={cn(
-                        "flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card",
-                        selectedNota?.id === nota.id && "border-primary/60 bg-accent/40",
-                      )}
-                    >
+              <ResizablePanelGroup direction="horizontal" className="min-h-[420px] md:min-h-[520px]">
+                <ResizablePanel defaultSize={40} minSize={28}>
+                  <div className="space-y-3 p-3 pr-1 md:pr-2 h-full overflow-y-auto pb-16 md:pb-4 scrollbar-thin">
+                    {notasFiltradas.map((nota) => (
                       <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => {
-                          if (isMobile) {
-                            navigate(`/notas/editar/${nota.id}`);
-                          } else {
-                            setSelectedNota(nota);
-                          }
-                        }}
-                        onDoubleClick={
-                          !isMobile ? () => navigate(`/notas/editar/${nota.id}`) : undefined
-                        }
-                      >
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {formatDate(nota.created_at)}
-                        </p>
-                        <p className="text-sm font-medium">
-                          {getTituloFromHtml(nota.conteudo)}
-                        </p>
-                        {(nota.membro_nome || nota.reuniao_data) && (
-                          <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-                            {nota.membro_nome && <p>Membro: {nota.membro_nome}</p>}
-                            {nota.reuniao_data && (
-                              <p>
-                                Reunião: {new Date(nota.reuniao_data).toLocaleDateString("pt-BR")}
-                                {nota.reuniao_tema ? ` - ${nota.reuniao_tema}` : ""}
-                              </p>
-                            )}
-                          </div>
+                        key={nota.id}
+                        className={cn(
+                          "flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card",
+                          selectedNota?.id === nota.id && "border-primary/60 bg-accent/40",
                         )}
-                      </div>
-                      <div className="flex items-start justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedNota(nota)}>
-                              Visualizar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => navigate(`/notas/editar/${nota.id}`)}
-                            >
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setNotaParaExcluir(nota)}
-                            >
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ResizablePanel>
-              <ResizableHandle />
-              <ResizablePanel defaultSize={60} minSize={40}>
-                <div className="h-full p-4 overflow-y-auto pb-16 md:pb-4 scrollbar-thin">
-                  {selectedNota ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(selectedNota.created_at)}
-                        </p>
-                        <div className="flex gap-2">
-                          {selectedNota.membro_id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => navigate(`/membros/visualizar/${selectedNota.membro_id}`)}
-                            >
-                              Membro
-                            </Button>
-                          )}
-                          {selectedNota.reuniao_id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => navigate(`/reunioes/visualizar/${selectedNota.reuniao_id}`)}
-                            >
-                              Reunião
-                            </Button>
+                      >
+                        <div
+                          className="flex-1 cursor-pointer"
+                          onClick={() => {
+                            if (isMobile) {
+                              navigate(`/notas/editar/${nota.id}`);
+                            } else {
+                              setSelectedNota(nota);
+                            }
+                          }}
+                          onDoubleClick={!isMobile ? () => navigate(`/notas/editar/${nota.id}`) : undefined}
+                        >
+                          <p className="text-xs text-muted-foreground mb-1">{formatDate(nota.created_at)}</p>
+                          <p className="text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                          {(nota.membro_nome || nota.reuniao_data) && (
+                            <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                              {nota.membro_nome && <p>Membro: {nota.membro_nome}</p>}
+                              {nota.reuniao_data && (
+                                <p>
+                                  Reunião: {new Date(nota.reuniao_data).toLocaleDateString("pt-BR")}
+                                  {nota.reuniao_tema ? ` - ${nota.reuniao_tema}` : ""}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
+                        <div className="flex items-start justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setSelectedNota(nota)}>Visualizar</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>Editar</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
-                      <div
-                        className="prose prose-sm max-w-none text-sm"
-                        dangerouslySetInnerHTML={{ __html: selectedNota.conteudo }}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Selecione uma nota na lista para visualizar aqui.
-                    </p>
-                  )}
-                </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+                    ))}
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel defaultSize={60} minSize={40}>
+                  <div className="h-full p-4 overflow-y-auto pb-16 md:pb-4 scrollbar-thin">
+                    {selectedNota ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">{formatDate(selectedNota.created_at)}</p>
+                          <div className="flex gap-2">
+                            {selectedNota.membro_id && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => navigate(`/membros/visualizar/${selectedNota.membro_id}`)}
+                              >
+                                Membro
+                              </Button>
+                            )}
+                            {selectedNota.reuniao_id && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => navigate(`/reunioes/visualizar/${selectedNota.reuniao_id}`)}
+                              >
+                                Reunião
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: selectedNota.conteudo }} />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Selecione uma nota na lista para visualizar aqui.</p>
+                    )}
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </CardContent>
           </Card>
         ) : (
@@ -485,14 +543,8 @@ export default function Notas() {
             </CardHeader>
             <CardContent className="space-y-3">
               {notasFiltradas.map((nota) => (
-                <div
-                  key={nota.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card"
-                >
-                  <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => navigate(`/notas/editar/${nota.id}`)}
-                  >
+                <div key={nota.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card">
+                  <div className="flex-1 cursor-pointer" onClick={() => navigate(`/notas/editar/${nota.id}`)}>
                     <p className="text-xs text-muted-foreground mb-1">{formatDate(nota.created_at)}</p>
                     <p className="text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
                     {(nota.membro_nome || nota.reuniao_data) && (
@@ -515,9 +567,7 @@ export default function Notas() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>
-                          Visualizar / Editar
-                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>Visualizar / Editar</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
                           Excluir
                         </DropdownMenuItem>

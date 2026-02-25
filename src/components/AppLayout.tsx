@@ -357,6 +357,10 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     // visualização: /visitas/:id
     if (/^\/visitas\/[^/]+$/.test(pathname) && pathname !== "/visitas/nova") return true;
 
+    // Notas (mobile): o rodapé vira toolbar do editor
+    if (pathname === "/notas/nova") return true;
+    if (/^\/notas\/editar\/[^/]+$/.test(pathname)) return true;
+
     // Chat mobile: a barra inferior vira a barra de mensagens
     if (pathname.startsWith("/chat")) return true;
 
