@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { endOfMonth, format } from "date-fns";
+import { Maximize2, SlidersHorizontal } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -21,8 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { resolveHslFromCssVar } from "@/lib/resolve-color";
+import { cn } from "@/lib/utils";
 
 type Stats = {
   mediaPorFaixa: { faixa: string; media: number; total: number; percentual: number }[];
@@ -47,6 +52,49 @@ type PrayerStats = {
   mediaPorReuniao: number;
   reunioesComPalavra: number;
 };
+
+type RankedPrayerMember = { id: string; nome: string; total: number; foto_url?: string | null };
+
+type TopFrequentMember = {
+  id: string;
+  nome: string;
+  presencas: number;
+  faixa_etaria: string;
+  foto_url?: string | null;
+};
+
+function FullscreenChartDialog({
+  title,
+  children,
+  className,
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("h-9 rounded-2xl", className)}
+          aria-label={`Abrir ${title} em tela cheia`}
+        >
+          <Maximize2 className="h-4 w-4" />
+          <span className="ml-2 text-xs">Tela cheia</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-[92vw] sm:max-w-2xl p-4">
+        <DialogHeader>
+          <DialogTitle className="text-base">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="mt-2">{children}</div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function MobileEstatisticasReunioes() {
   const navigate = useNavigate();
@@ -76,7 +124,12 @@ export default function MobileEstatisticasReunioes() {
   const [recentWords, setRecentWords] = useState<
     { id: string; data: string; tema: string | null; palavra_referencia: string }[]
   >([]);
-  const [topPrayerMembers, setTopPrayerMembers] = useState<{ id: string; nome: string; total: number }[]>([]);
+  const [topPrayerMembers, setTopPrayerMembers] = useState<RankedPrayerMember[]>([]);
+
+  // Seção "Membros" (mais frequentes + filtro por faixa)
+  const [membersPeriod, setMembersPeriod] = useState<"1m" | "3m" | "1y">("3m");
+  const [membersFaixa, setMembersFaixa] = useState<string>("all");
+  const [topFrequentMembers, setTopFrequentMembers] = useState<TopFrequentMember[]>([]);
 
   // Filtros (mantidos, mas apresentados de forma compacta)
   const [visibleCategories, setVisibleCategories] = useState<Record<string, boolean>>({});
@@ -104,7 +157,7 @@ export default function MobileEstatisticasReunioes() {
       backTo: "/",
     });
 
-    void Promise.all([loadStats(), loadRecentMeetings(), loadMainChartData(), loadPrayerAndWordStats()]);
+    void Promise.all([loadStats(), loadRecentMeetings(), loadMainChartData(), loadPrayerAndWordStats(), loadTopFrequentMembers()]);
   }, []);
 
   useEffect(() => {
@@ -116,6 +169,11 @@ export default function MobileEstatisticasReunioes() {
       void loadStats(avgStartPeriod, avgEndPeriod);
     }
   }, [avgStartPeriod, avgEndPeriod]);
+
+  useEffect(() => {
+    void loadTopFrequentMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [membersPeriod, membersFaixa]);
 
   useEffect(() => {
     if (availableDates.length > 0 && !avgStartPeriod && !avgEndPeriod) {
@@ -240,16 +298,78 @@ export default function MobileEstatisticasReunioes() {
       }
 
       const mediaPorReuniao = Math.round(totalOracoes / reunioes.length);
-      const top = Object.entries(prayerCountMap)
+      const topRaw = Object.entries(prayerCountMap)
         .sort((a, b) => b[1].total - a[1].total)
         .slice(0, 5)
         .map(([id, info]) => ({ id, nome: info.nome, total: info.total }));
+
+      const uuidCandidates = topRaw
+        .map((t) => t.id)
+        .filter((id) => typeof id === "string" && id.length >= 32 && id.includes("-"));
+
+      const { data: prayerMemberPhotos } = uuidCandidates.length
+        ? await supabase.from("membros").select("id, foto_url").in("id", uuidCandidates)
+        : { data: [] as { id: string; foto_url: string | null }[] };
+
+      const photoMap = new Map((prayerMemberPhotos || []).map((m) => [m.id, m.foto_url] as const));
+      const top: RankedPrayerMember[] = topRaw.map((t) => ({ ...t, foto_url: photoMap.get(t.id) ?? null }));
 
       setPrayerStats({ totalOracoes, mediaPorReuniao, reunioesComPalavra });
       setRecentWords(palavrasRecentes.slice(0, 5));
       setTopPrayerMembers(top);
     } catch (error) {
       console.error("Erro ao carregar estatísticas de orações e palavras:", error);
+    }
+  };
+
+  const loadTopFrequentMembers = async () => {
+    try {
+      const now = new Date();
+      let cutoffIso: string | null = null;
+
+      if (membersPeriod === "1m") {
+        const cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        cutoffIso = cutoff.toISOString().slice(0, 10);
+      } else if (membersPeriod === "3m") {
+        const cutoff = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+        cutoffIso = cutoff.toISOString().slice(0, 10);
+      }
+
+      let meetingIdSet: Set<string> | null = null;
+      if (cutoffIso) {
+        const { data: reunioesPeriodo } = await supabase.from("reunioes").select("id").gte("data", cutoffIso);
+        meetingIdSet = new Set((reunioesPeriodo || []).map((r) => r.id));
+      }
+
+      const { data: membros } = await supabase.from("membros").select("id, nome, faixa_etaria, foto_url");
+      const { data: presencas } = await supabase.from("presencas").select("membro_id, reuniao_id");
+
+      const membersFiltered = (membros || []).filter((m) => (membersFaixa === "all" ? true : m.faixa_etaria === membersFaixa));
+      const memberIdSet = new Set(membersFiltered.map((m) => m.id));
+
+      const counts: Record<string, number> = {};
+      (presencas || []).forEach((p) => {
+        if (!memberIdSet.has(p.membro_id)) return;
+        if (meetingIdSet && !meetingIdSet.has(p.reuniao_id)) return;
+        counts[p.membro_id] = (counts[p.membro_id] || 0) + 1;
+      });
+
+      const ranked: TopFrequentMember[] = membersFiltered
+        .map((m) => ({
+          id: m.id,
+          nome: m.nome,
+          faixa_etaria: m.faixa_etaria,
+          foto_url: m.foto_url,
+          presencas: counts[m.id] || 0,
+        }))
+        .filter((m) => m.presencas > 0)
+        .sort((a, b) => b.presencas - a.presencas)
+        .slice(0, 8);
+
+      setTopFrequentMembers(ranked);
+    } catch (error) {
+      console.error("Erro ao carregar membros mais frequentes (mobile):", error);
+      setTopFrequentMembers([]);
     }
   };
 
@@ -405,14 +525,14 @@ export default function MobileEstatisticasReunioes() {
 
         <section aria-label="Visão rápida">
           <div className="grid grid-cols-3 gap-2">
-            <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
+            <Card className="rounded-2xl border-border/50 bg-card shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
                 <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Média</p>
                 <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{stats.mediaTotal}</p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">por reunião</p>
               </CardContent>
             </Card>
-            <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
+            <Card className="rounded-2xl border-border/50 bg-card shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
                 <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Período</p>
                 <p className="mt-1 text-sm font-semibold text-foreground truncate">
@@ -421,7 +541,7 @@ export default function MobileEstatisticasReunioes() {
                 <p className="mt-0.5 text-[10px] text-muted-foreground">gráfico</p>
               </CardContent>
             </Card>
-            <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
+            <Card className="rounded-2xl border-border/50 bg-card shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
                 <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Orações</p>
                 <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{prayerStats.totalOracoes}</p>
@@ -432,7 +552,7 @@ export default function MobileEstatisticasReunioes() {
         </section>
 
         <section aria-label="Participação">
-          <Card className="bg-card text-card-foreground border-border/50 shadow-[var(--shadow-card)] rounded-[2.25rem] overflow-hidden">
+          <Card className="bg-card text-card-foreground border-border/50 shadow-[var(--shadow-card)] rounded-3xl overflow-hidden">
             <div className="p-3">
               <div className="flex items-end justify-between gap-3 px-1">
                 <div>
@@ -450,9 +570,53 @@ export default function MobileEstatisticasReunioes() {
                   <CarouselContent>
                     <CarouselItem>
                       <div className={slideHeightClass + " w-full min-w-0"}>
-                        <div className="px-1">
-                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Distribuição</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Toque para ver detalhes por reunião</p>
+                        <div className="px-1 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Distribuição</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Toque para ver detalhes por reunião</p>
+                          </div>
+                          <FullscreenChartDialog title="Distribuição por reunião" className="shrink-0" >
+                            <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                              <ResponsiveContainer width="100%" height={420}>
+                                <BarChart
+                                  data={getFilteredChartData()}
+                                  margin={{ top: 8, right: 12, left: 0, bottom: 32 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                                  <XAxis
+                                    dataKey="data"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    style={{ fontSize: "12px" }}
+                                    angle={-35}
+                                    textAnchor="end"
+                                    height={72}
+                                  />
+                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "var(--radius)",
+                                    }}
+                                  />
+                                  <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
+                                  {getVisibleCategories().map((category, index, array) => {
+                                    const isLast = index === array.length - 1;
+                                    return (
+                                      <Bar
+                                        key={category}
+                                        dataKey={category}
+                                        stackId="a"
+                                        fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")}
+                                        name={category}
+                                        radius={isLast ? [10, 10, 0, 0] : [0, 0, 0, 0]}
+                                      />
+                                    );
+                                  })}
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </FullscreenChartDialog>
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -486,59 +650,69 @@ export default function MobileEstatisticasReunioes() {
                           </div>
                         </div>
 
-                        <div className="mt-3 rounded-3xl border border-border/50 bg-muted/20 p-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            {allFaixas.slice(0, 4).map((faixa) => (
-                              <div key={faixa} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={`cat-${faixa}`}
-                                  checked={!!visibleCategories[faixa]}
-                                  onCheckedChange={() => toggleCategory(faixa)}
-                                />
-                                <label htmlFor={`cat-${faixa}`} className="text-xs font-medium text-foreground truncate">
-                                  {faixa}
-                                </label>
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="cat-visitas"
-                                checked={!!visibleCategories["Visitas"]}
-                                onCheckedChange={() => toggleCategory("Visitas")}
-                              />
-                              <label htmlFor="cat-visitas" className="text-xs font-medium text-foreground truncate">
-                                Visitas
-                              </label>
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
+                                Faixas visíveis
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {getVisibleCategories().length} categorias ativas
+                              </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="cat-recit"
-                                checked={!!visibleCategories["Recitativos Individuais"]}
-                                onCheckedChange={() => toggleCategory("Recitativos Individuais")}
-                              />
-                              <label htmlFor="cat-recit" className="text-xs font-medium text-foreground truncate">
-                                Recitativos
-                              </label>
-                            </div>
+
+                            <Sheet>
+                              <SheetTrigger asChild>
+                                <Button type="button" variant="outline" size="sm" className="h-9 rounded-2xl">
+                                  <SlidersHorizontal className="h-4 w-4" />
+                                  <span className="ml-2 text-xs">Selecionar</span>
+                                </Button>
+                              </SheetTrigger>
+                              <SheetContent side="bottom" className="rounded-t-3xl p-4">
+                                <SheetHeader className="text-left">
+                                  <SheetTitle className="text-base">Faixas visíveis</SheetTitle>
+                                </SheetHeader>
+
+                                <div className="mt-3 max-h-[56vh] overflow-auto pr-1 space-y-2 scrollbar-thin">
+                                  {allFaixas.map((faixa) => (
+                                    <label key={faixa} className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3">
+                                      <Checkbox checked={!!visibleCategories[faixa]} onCheckedChange={() => toggleCategory(faixa)} />
+                                      <span className="text-sm font-medium text-foreground truncate">{faixa}</span>
+                                    </label>
+                                  ))}
+
+                                  <label className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3">
+                                    <Checkbox
+                                      checked={!!visibleCategories["Visitas"]}
+                                      onCheckedChange={() => toggleCategory("Visitas")}
+                                    />
+                                    <span className="text-sm font-medium text-foreground">Visitas</span>
+                                  </label>
+
+                                  <label className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3">
+                                    <Checkbox
+                                      checked={!!visibleCategories["Recitativos Individuais"]}
+                                      onCheckedChange={() => toggleCategory("Recitativos Individuais")}
+                                    />
+                                    <span className="text-sm font-medium text-foreground">Recitativos Individuais</span>
+                                  </label>
+                                </div>
+                              </SheetContent>
+                            </Sheet>
                           </div>
-                          {allFaixas.length > 4 && (
-                            <p className="mt-2 text-[10px] text-muted-foreground">
-                              Para reduzir ruído no mobile, mostramos os principais atalhos aqui (as demais faixas seguem ativas).
-                            </p>
-                          )}
                         </div>
 
-                        <div className="mt-3">
-                          <ResponsiveContainer width="100%" height={220}>
-                            <BarChart data={getFilteredChartData()}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
+                          <ResponsiveContainer width="100%" height={260}>
+                            <BarChart data={getFilteredChartData()} margin={{ top: 6, right: 10, left: 0, bottom: 28 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
                               <XAxis
                                 dataKey="data"
                                 stroke="hsl(var(--muted-foreground))"
                                 style={{ fontSize: "11px" }}
                                 angle={-35}
                                 textAnchor="end"
-                                height={54}
+                                height={70}
                               />
                               <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
                               <Tooltip
@@ -556,9 +730,9 @@ export default function MobileEstatisticasReunioes() {
                                     key={category}
                                     dataKey={category}
                                     stackId="a"
-                                    fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")} 
+                                    fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")}
                                     name={category}
-                                    radius={isLast ? [8, 8, 0, 0] : [0, 0, 0, 0]}
+                                    radius={isLast ? [10, 10, 0, 0] : [0, 0, 0, 0]}
                                   />
                                 );
                               })}
@@ -570,12 +744,57 @@ export default function MobileEstatisticasReunioes() {
 
                     <CarouselItem>
                       <div className={slideHeightClass + " w-full min-w-0"}>
-                        <div className="px-1">
-                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Faixas</p>
-                          <h3 className="mt-1 text-sm font-semibold text-foreground">Média vs total de membros</h3>
+                        <div className="px-1 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Faixas</p>
+                            <h3 className="mt-1 text-sm font-semibold text-foreground">Média vs total de membros</h3>
+                          </div>
+                          <FullscreenChartDialog title="Média vs total de membros" className="shrink-0">
+                            <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                              <ResponsiveContainer width="100%" height={420}>
+                                <BarChart data={stats.mediaPorFaixa} margin={{ top: 6, right: 10, left: 0, bottom: 24 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                                  <XAxis
+                                    dataKey="faixa"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    style={{ fontSize: "12px" }}
+                                    interval={0}
+                                    angle={-15}
+                                    textAnchor="end"
+                                    height={64}
+                                  />
+                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "var(--radius)",
+                                    }}
+                                  />
+                                  <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.45} radius={[10, 10, 0, 0]}>
+                                    {stats.mediaPorFaixa.map((entry) => (
+                                      <Cell
+                                        key={`cell-total-${entry.faixa}`}
+                                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                        fillOpacity={0.45}
+                                      />
+                                    ))}
+                                  </Bar>
+                                  <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]}>
+                                    {stats.mediaPorFaixa.map((entry) => (
+                                      <Cell
+                                        key={`cell-media-${entry.faixa}`}
+                                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                      />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </FullscreenChartDialog>
                         </div>
 
-                        <div className="mt-3 rounded-3xl border border-border/50 bg-muted/20 p-3">
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <Select value={avgStartPeriod} onValueChange={setAvgStartPeriod}>
@@ -611,12 +830,20 @@ export default function MobileEstatisticasReunioes() {
                           </p>
                         </div>
 
-                        <div className="mt-3">
-                          <ResponsiveContainer width="100%" height={260}>
-                            <BarChart data={stats.mediaPorFaixa}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                              <XAxis dataKey="faixa" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
+                          <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={stats.mediaPorFaixa} margin={{ top: 6, right: 10, left: 0, bottom: 26 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                              <XAxis
+                                dataKey="faixa"
+                                stroke="hsl(var(--muted-foreground))"
+                                style={{ fontSize: "11px" }}
+                                interval={0}
+                                angle={-15}
+                                textAnchor="end"
+                                height={64}
+                              />
+                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
                               <Tooltip
                                 contentStyle={{
                                   backgroundColor: "hsl(var(--card))",
@@ -624,20 +851,20 @@ export default function MobileEstatisticasReunioes() {
                                   borderRadius: "var(--radius)",
                                 }}
                               />
-                              <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.45} radius={[8, 8, 0, 0]}>
+                              <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.45} radius={[10, 10, 0, 0]}>
                                 {stats.mediaPorFaixa.map((entry) => (
                                   <Cell
                                     key={`cell-total-${entry.faixa}`}
-                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")} 
+                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
                                     fillOpacity={0.45}
                                   />
                                 ))}
                               </Bar>
-                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]}>
+                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]}>
                                 {stats.mediaPorFaixa.map((entry) => (
                                   <Cell
                                     key={`cell-media-${entry.faixa}`}
-                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")} 
+                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
                                   />
                                 ))}
                               </Bar>
@@ -649,17 +876,38 @@ export default function MobileEstatisticasReunioes() {
 
                     <CarouselItem>
                       <div className={slideHeightClass + " w-full min-w-0"}>
-                        <div className="px-1">
-                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Tendência</p>
-                          <h3 className="mt-1 text-sm font-semibold text-foreground">Média mensal (12 meses)</h3>
+                        <div className="px-1 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Tendência</p>
+                            <h3 className="mt-1 text-sm font-semibold text-foreground">Média mensal (12 meses)</h3>
+                          </div>
+                          <FullscreenChartDialog title="Tendência (média mensal)" className="shrink-0">
+                            <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                              <ResponsiveContainer width="100%" height={420}>
+                                <BarChart data={stats.mediaPorMes} margin={{ top: 6, right: 10, left: 0, bottom: 18 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                                  <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "var(--radius)",
+                                    }}
+                                  />
+                                  <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]} name="Média" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </FullscreenChartDialog>
                         </div>
 
-                        <div className="mt-3">
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
                           <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={stats.mediaPorMes}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                              <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                            <BarChart data={stats.mediaPorMes} margin={{ top: 6, right: 10, left: 0, bottom: 18 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                              <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
+                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
                               <Tooltip
                                 contentStyle={{
                                   backgroundColor: "hsl(var(--card))",
@@ -667,7 +915,7 @@ export default function MobileEstatisticasReunioes() {
                                   borderRadius: "var(--radius)",
                                 }}
                               />
-                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} name="Média" />
+                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]} name="Média" />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -693,7 +941,7 @@ export default function MobileEstatisticasReunioes() {
         </section>
 
         <section aria-label="Orações e Palavra">
-          <Card className="bg-card text-card-foreground border-border/50 shadow-[var(--shadow-card)] rounded-[2.25rem] overflow-hidden">
+          <Card className="bg-card text-card-foreground border-border/50 shadow-[var(--shadow-card)] rounded-3xl overflow-hidden">
             <div className="p-3">
               <div className="px-1">
                 <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Oração & Palavra</p>
@@ -701,17 +949,17 @@ export default function MobileEstatisticasReunioes() {
               </div>
 
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-3xl border border-border/50 bg-muted/20 p-3">
+                <div className="rounded-2xl border border-border/50 bg-muted/20 p-3">
                   <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Média</p>
                   <p className="mt-1 text-lg font-bold tabular-nums">{prayerStats.mediaPorReuniao}</p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">por reunião</p>
                 </div>
-                <div className="rounded-3xl border border-border/50 bg-muted/20 p-3">
+                <div className="rounded-2xl border border-border/50 bg-muted/20 p-3">
                   <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Palavra</p>
                   <p className="mt-1 text-lg font-bold tabular-nums">{prayerStats.reunioesComPalavra}</p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">reuniões</p>
                 </div>
-                <div className="rounded-3xl border border-border/50 bg-muted/20 p-3">
+                <div className="rounded-2xl border border-border/50 bg-muted/20 p-3">
                   <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Top</p>
                   <p className="mt-1 text-lg font-bold tabular-nums">{topPrayerMembers[0]?.total ?? 0}</p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">orações</p>
@@ -732,35 +980,42 @@ export default function MobileEstatisticasReunioes() {
                           <h3 className="mt-1 text-sm font-semibold text-foreground">Quem mais ora</h3>
                         </div>
 
-                        <div className="mt-3 rounded-3xl border border-border/50 bg-muted/20 p-3">
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
                           {topPrayerMembers.length === 0 ? (
                             <p className="text-xs text-muted-foreground">Nenhuma oração vinculada a membros ainda.</p>
                           ) : (
-                            <div className="h-52">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                  layout="vertical"
-                                  data={topPrayerMembers}
-                                  margin={{ top: 0, right: 12, bottom: 0, left: 36 }}
-                                >
-                                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" hide />
-                                  <YAxis
-                                    type="category"
-                                    dataKey="nome"
-                                    stroke="hsl(var(--muted-foreground))"
-                                    width={80}
-                                    style={{ fontSize: "11px" }}
-                                  />
-                                  <Tooltip
-                                    contentStyle={{
-                                      backgroundColor: "hsl(var(--card))",
-                                      border: "1px solid hsl(var(--border))",
-                                      borderRadius: "var(--radius)",
-                                    }}
-                                  />
-                                  <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} name="Orações" />
-                                </BarChart>
-                              </ResponsiveContainer>
+                            <div className="space-y-1.5">
+                              {topPrayerMembers.map((membro, index) => {
+                                const canNavigate = typeof membro.id === "string" && membro.id.length >= 32 && membro.id.includes("-");
+                                const Wrapper: any = canNavigate ? "button" : "div";
+                                return (
+                                  <Wrapper
+                                    key={membro.id}
+                                    type={canNavigate ? "button" : undefined}
+                                    onClick={canNavigate ? () => navigate(`/membros/visualizar/${membro.id}`) : undefined}
+                                    className={cn(
+                                      "w-full flex items-center justify-between px-2.5 py-2 rounded-full transition-colors",
+                                      canNavigate ? "hover:bg-accent/60 active:bg-accent/70" : "bg-transparent",
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="relative">
+                                        <Avatar className="h-7 w-7">
+                                          <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
+                                          <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                                          {index + 1}
+                                        </div>
+                                      </div>
+                                      <span className="text-sm font-medium text-foreground truncate">{membro.nome}</span>
+                                    </div>
+                                    <span className="inline-flex items-center justify-center min-w-[28px] px-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground tabular-nums">
+                                      {membro.total}
+                                    </span>
+                                  </Wrapper>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -774,7 +1029,7 @@ export default function MobileEstatisticasReunioes() {
                           <h3 className="mt-1 text-sm font-semibold text-foreground">Palavras registradas</h3>
                         </div>
 
-                        <div className="mt-3 rounded-3xl border border-border/50 bg-muted/20 p-3">
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
                           {recentWords.length === 0 ? (
                             <p className="text-xs text-muted-foreground">Nenhuma palavra registrada ainda.</p>
                           ) : (
@@ -818,9 +1073,84 @@ export default function MobileEstatisticasReunioes() {
             </div>
           </Card>
         </section>
+        <section aria-label="Membros">
+          <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between gap-3 px-1">
+                <div>
+                  <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Membros</p>
+                  <h2 className="mt-1 text-sm font-semibold text-foreground">Mais frequentes</h2>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Select value={membersPeriod} onValueChange={(v) => setMembersPeriod(v as any)}>
+                  <SelectTrigger className="h-10 rounded-2xl">
+                    <SelectValue placeholder="Período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1m">Último mês</SelectItem>
+                    <SelectItem value="3m">Últimos 3 meses</SelectItem>
+                    <SelectItem value="1y">Todo período</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={membersFaixa} onValueChange={setMembersFaixa}>
+                  <SelectTrigger className="h-10 rounded-2xl">
+                    <SelectValue placeholder="Faixa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as faixas</SelectItem>
+                    {allFaixas.map((faixa) => (
+                      <SelectItem key={faixa} value={faixa}>
+                        {faixa}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
+                {topFrequentMembers.length === 0 ? (
+                  <p className="p-2 text-xs text-muted-foreground">Sem dados para este filtro.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {topFrequentMembers.map((membro, index) => (
+                      <button
+                        key={membro.id}
+                        type="button"
+                        onClick={() => navigate(`/membros/visualizar/${membro.id}`)}
+                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-full hover:bg-accent/60 active:bg-accent/70 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="relative">
+                            <Avatar className="h-7 w-7">
+                              <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
+                              <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                              {index + 1}
+                            </div>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{membro.nome}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{membro.faixa_etaria}</p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center justify-center min-w-[28px] px-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground tabular-nums">
+                          {membro.presencas}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
         <section aria-label="Últimas reuniões">
-          <Card className="rounded-[2.25rem] border-border/50 bg-card shadow-[var(--shadow-card)]">
+          <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
             <CardContent className="p-3">
               <div className="flex items-center justify-between gap-3 px-1">
                 <div>
