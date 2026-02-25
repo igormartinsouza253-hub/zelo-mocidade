@@ -19,6 +19,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
@@ -33,6 +34,8 @@ type Stats = {
   mediaPorFaixa: { faixa: string; media: number; total: number; percentual: number }[];
   mediaTotal: number;
   mediaPorMes: { mes: string; media: number }[];
+  totalReunioes: number;
+  percentualGeral: number;
 };
 
 type MainChartData = {
@@ -40,20 +43,6 @@ type MainChartData = {
   fullDate: string;
   [key: string]: number | string;
 };
-
-type Oracao = {
-  nome: string;
-  tipo: "membro" | "visita" | "nao_identificado";
-  membro_id?: string;
-};
-
-type PrayerStats = {
-  totalOracoes: number;
-  mediaPorReuniao: number;
-  reunioesComPalavra: number;
-};
-
-type RankedPrayerMember = { id: string; nome: string; total: number; foto_url?: string | null };
 
 type TopFrequentMember = {
   id: string;
@@ -78,12 +67,14 @@ function FullscreenChartDialog({
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className={cn("h-9 rounded-2xl", className)}
+          size="icon"
+          className={cn(
+            "h-9 w-9 rounded-full bg-card/70 backdrop-blur supports-[backdrop-filter]:bg-card/50",
+            className,
+          )}
           aria-label={`Abrir ${title} em tela cheia`}
         >
           <Maximize2 className="h-4 w-4" />
-          <span className="ml-2 text-xs">Tela cheia</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-[92vw] sm:max-w-2xl p-4">
@@ -110,21 +101,17 @@ export default function MobileEstatisticasReunioes() {
     "Recitativos Individuais": resolveHslFromCssVar("--faixa-recitativos", "210 5% 44%"),
   };
 
-  const [stats, setStats] = useState<Stats>({ mediaPorFaixa: [], mediaTotal: 0, mediaPorMes: [] });
+  const [stats, setStats] = useState<Stats>({
+    mediaPorFaixa: [],
+    mediaTotal: 0,
+    mediaPorMes: [],
+    totalReunioes: 0,
+    percentualGeral: 0,
+  });
   const [recentMeetings, setRecentMeetings] = useState<any[]>([]);
   const [mainChartData, setMainChartData] = useState<MainChartData[]>([]);
   const [allFaixas, setAllFaixas] = useState<string[]>([]);
   const [availableDates, setAvailableDates] = useState<{ year: string; month: string }[]>([]);
-
-  const [prayerStats, setPrayerStats] = useState<PrayerStats>({
-    totalOracoes: 0,
-    mediaPorReuniao: 0,
-    reunioesComPalavra: 0,
-  });
-  const [recentWords, setRecentWords] = useState<
-    { id: string; data: string; tema: string | null; palavra_referencia: string }[]
-  >([]);
-  const [topPrayerMembers, setTopPrayerMembers] = useState<RankedPrayerMember[]>([]);
 
   // Seção "Membros" (mais frequentes + filtro por faixa)
   const [membersPeriod, setMembersPeriod] = useState<"1m" | "3m" | "1y">("3m");
@@ -138,17 +125,14 @@ export default function MobileEstatisticasReunioes() {
   const [avgStartPeriod, setAvgStartPeriod] = useState<string>("");
   const [avgEndPeriod, setAvgEndPeriod] = useState<string>("");
 
-  // Carrosséis
+  // Carrossel
   const [participacaoApi, setParticipacaoApi] = useState<CarouselApi | null>(null);
   const [participacaoIndex, setParticipacaoIndex] = useState(0);
-  const [oracaoApi, setOracaoApi] = useState<CarouselApi | null>(null);
-  const [oracaoIndex, setOracaoIndex] = useState(0);
 
   const participacaoSlideCount = useMemo(
     () => participacaoApi?.scrollSnapList().length ?? 3,
     [participacaoApi],
   );
-  const oracaoSlideCount = useMemo(() => oracaoApi?.scrollSnapList().length ?? 2, [oracaoApi]);
 
   useEffect(() => {
     setConfig({
@@ -157,7 +141,7 @@ export default function MobileEstatisticasReunioes() {
       backTo: "/",
     });
 
-    void Promise.all([loadStats(), loadRecentMeetings(), loadMainChartData(), loadPrayerAndWordStats(), loadTopFrequentMembers()]);
+    void Promise.all([loadStats(), loadRecentMeetings(), loadMainChartData(), loadTopFrequentMembers()]);
   }, []);
 
   useEffect(() => {
@@ -195,17 +179,6 @@ export default function MobileEstatisticasReunioes() {
     };
   }, [participacaoApi]);
 
-  useEffect(() => {
-    if (!oracaoApi) return;
-    const update = () => setOracaoIndex(oracaoApi.selectedScrollSnap());
-    update();
-    oracaoApi.on("select", update);
-    oracaoApi.on("reInit", update);
-    return () => {
-      oracaoApi.off("select", update);
-      oracaoApi.off("reInit", update);
-    };
-  }, [oracaoApi]);
 
   const formatMonth = (monthString: string) => {
     const [year, month] = monthString.split("-");
@@ -256,71 +229,6 @@ export default function MobileEstatisticasReunioes() {
     setRecentMeetings(meetingsData);
   };
 
-  const loadPrayerAndWordStats = async () => {
-    try {
-      const { data: reunioes } = await supabase
-        .from("reunioes")
-        .select("id, data, tema, oracoes, palavra_referencia")
-        .order("data", { ascending: false });
-
-      if (!reunioes || reunioes.length === 0) {
-        setPrayerStats({ totalOracoes: 0, mediaPorReuniao: 0, reunioesComPalavra: 0 });
-        setRecentWords([]);
-        setTopPrayerMembers([]);
-        return;
-      }
-
-      let totalOracoes = 0;
-      let reunioesComPalavra = 0;
-      const palavrasRecentes: { id: string; data: string; tema: string | null; palavra_referencia: string }[] = [];
-      const prayerCountMap: Record<string, { nome: string; total: number }> = {};
-
-      for (const reuniao of reunioes as any[]) {
-        if (reuniao.palavra_referencia) {
-          reunioesComPalavra += 1;
-          palavrasRecentes.push({
-            id: reuniao.id,
-            data: reuniao.data,
-            tema: reuniao.tema ?? null,
-            palavra_referencia: reuniao.palavra_referencia,
-          });
-        }
-
-        const oracoesArray = Array.isArray(reuniao.oracoes) ? (reuniao.oracoes as Oracao[]) : [];
-        totalOracoes += oracoesArray.length;
-
-        oracoesArray.forEach((oracao) => {
-          if (oracao.tipo !== "membro") return;
-          const key = oracao.membro_id || oracao.nome.toLowerCase();
-          if (!prayerCountMap[key]) prayerCountMap[key] = { nome: oracao.nome, total: 0 };
-          prayerCountMap[key].total += 1;
-        });
-      }
-
-      const mediaPorReuniao = Math.round(totalOracoes / reunioes.length);
-      const topRaw = Object.entries(prayerCountMap)
-        .sort((a, b) => b[1].total - a[1].total)
-        .slice(0, 5)
-        .map(([id, info]) => ({ id, nome: info.nome, total: info.total }));
-
-      const uuidCandidates = topRaw
-        .map((t) => t.id)
-        .filter((id) => typeof id === "string" && id.length >= 32 && id.includes("-"));
-
-      const { data: prayerMemberPhotos } = uuidCandidates.length
-        ? await supabase.from("membros").select("id, foto_url").in("id", uuidCandidates)
-        : { data: [] as { id: string; foto_url: string | null }[] };
-
-      const photoMap = new Map((prayerMemberPhotos || []).map((m) => [m.id, m.foto_url] as const));
-      const top: RankedPrayerMember[] = topRaw.map((t) => ({ ...t, foto_url: photoMap.get(t.id) ?? null }));
-
-      setPrayerStats({ totalOracoes, mediaPorReuniao, reunioesComPalavra });
-      setRecentWords(palavrasRecentes.slice(0, 5));
-      setTopPrayerMembers(top);
-    } catch (error) {
-      console.error("Erro ao carregar estatísticas de orações e palavras:", error);
-    }
-  };
 
   const loadTopFrequentMembers = async () => {
     try {
@@ -389,7 +297,13 @@ export default function MobileEstatisticasReunioes() {
       const { data: reunioes } = await query;
 
       if (!reunioes || reunioes.length === 0) {
-        setStats({ mediaPorFaixa: [], mediaTotal: 0, mediaPorMes: [] });
+        setStats({
+          mediaPorFaixa: [],
+          mediaTotal: 0,
+          mediaPorMes: [],
+          totalReunioes: 0,
+          percentualGeral: 0,
+        });
         return;
       }
 
@@ -446,7 +360,18 @@ export default function MobileEstatisticasReunioes() {
         .reverse()
         .slice(0, 12);
 
-      setStats({ mediaPorFaixa, mediaTotal, mediaPorMes });
+      const totalMembros = membros?.length || 0;
+      const mediaMembros = totalPresencas / reunioes.length;
+      const percentualGeral = totalMembros ? Math.round((mediaMembros / totalMembros) * 100) : 0;
+      const percentualGeralClamped = Math.max(0, Math.min(100, percentualGeral));
+
+      setStats({
+        mediaPorFaixa,
+        mediaTotal,
+        mediaPorMes,
+        totalReunioes: reunioes.length,
+        percentualGeral: percentualGeralClamped,
+      });
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
     }
@@ -518,9 +443,7 @@ export default function MobileEstatisticasReunioes() {
     <div className="h-full w-full bg-background overflow-x-hidden">
       <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-24 space-y-3 scrollbar-none">
         <header className="px-0.5">
-          <p className="text-xs text-muted-foreground">
-            Visão geral de participação, faixas e registros de oração.
-          </p>
+          <p className="text-xs text-muted-foreground">Visão geral de participação, faixas e membros.</p>
         </header>
 
         <section aria-label="Visão rápida">
@@ -532,20 +455,22 @@ export default function MobileEstatisticasReunioes() {
                 <p className="mt-0.5 text-[10px] text-muted-foreground">por reunião</p>
               </CardContent>
             </Card>
+
             <Card className="rounded-2xl border-border/50 bg-card shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
-                <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Período</p>
-                <p className="mt-1 text-sm font-semibold text-foreground truncate">
-                  {startPeriod && endPeriod ? `${formatMonth(startPeriod)} → ${formatMonth(endPeriod)}` : "—"}
-                </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">gráfico</p>
+                <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Reuniões</p>
+                <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{getFilteredChartData().length}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">no período</p>
               </CardContent>
             </Card>
+
             <Card className="rounded-2xl border-border/50 bg-card shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
-                <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Orações</p>
-                <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{prayerStats.totalOracoes}</p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">registradas</p>
+                <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Frequência</p>
+                <p className="mt-1 text-xl font-bold text-foreground tabular-nums">{stats.percentualGeral}%</p>
+                <div className="mt-1">
+                  <Progress value={stats.percentualGeral} className="h-1.5 rounded-full bg-muted overflow-hidden" />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -570,53 +495,9 @@ export default function MobileEstatisticasReunioes() {
                   <CarouselContent>
                     <CarouselItem>
                       <div className={slideHeightClass + " w-full min-w-0"}>
-                        <div className="px-1 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Distribuição</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Toque para ver detalhes por reunião</p>
-                          </div>
-                          <FullscreenChartDialog title="Distribuição por reunião" className="shrink-0" >
-                            <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
-                              <ResponsiveContainer width="100%" height={420}>
-                                <BarChart
-                                  data={getFilteredChartData()}
-                                  margin={{ top: 8, right: 12, left: 0, bottom: 32 }}
-                                >
-                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
-                                  <XAxis
-                                    dataKey="data"
-                                    stroke="hsl(var(--muted-foreground))"
-                                    style={{ fontSize: "12px" }}
-                                    angle={-35}
-                                    textAnchor="end"
-                                    height={72}
-                                  />
-                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                                  <Tooltip
-                                    contentStyle={{
-                                      backgroundColor: "hsl(var(--card))",
-                                      border: "1px solid hsl(var(--border))",
-                                      borderRadius: "var(--radius)",
-                                    }}
-                                  />
-                                  <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
-                                  {getVisibleCategories().map((category, index, array) => {
-                                    const isLast = index === array.length - 1;
-                                    return (
-                                      <Bar
-                                        key={category}
-                                        dataKey={category}
-                                        stackId="a"
-                                        fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")}
-                                        name={category}
-                                        radius={isLast ? [10, 10, 0, 0] : [0, 0, 0, 0]}
-                                      />
-                                    );
-                                  })}
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </FullscreenChartDialog>
+                        <div className="px-1">
+                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Distribuição</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Toque para ver detalhes por reunião</p>
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -673,7 +554,7 @@ export default function MobileEstatisticasReunioes() {
                                   <SheetTitle className="text-base">Faixas visíveis</SheetTitle>
                                 </SheetHeader>
 
-                                <div className="mt-3 max-h-[56vh] overflow-auto pr-1 space-y-2 scrollbar-thin">
+                                <div className="mt-3 max-h-[56vh] overflow-auto pr-1 space-y-2 scrollbar-none">
                                   {allFaixas.map((faixa) => (
                                     <label key={faixa} className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3">
                                       <Checkbox checked={!!visibleCategories[faixa]} onCheckedChange={() => toggleCategory(faixa)} />
@@ -702,7 +583,7 @@ export default function MobileEstatisticasReunioes() {
                           </div>
                         </div>
 
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2 relative">
                           <ResponsiveContainer width="100%" height={260}>
                             <BarChart data={getFilteredChartData()} margin={{ top: 6, right: 10, left: 0, bottom: 28 }}>
                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
@@ -738,18 +619,135 @@ export default function MobileEstatisticasReunioes() {
                               })}
                             </BarChart>
                           </ResponsiveContainer>
+
+                          <FullscreenChartDialog title="Distribuição por reunião" className="absolute bottom-2 right-2">
+                            <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                              <ResponsiveContainer width="100%" height={420}>
+                                <BarChart data={getFilteredChartData()} margin={{ top: 8, right: 12, left: 0, bottom: 32 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                                  <XAxis
+                                    dataKey="data"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    style={{ fontSize: "12px" }}
+                                    angle={-35}
+                                    textAnchor="end"
+                                    height={72}
+                                  />
+                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      backgroundColor: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "var(--radius)",
+                                    }}
+                                  />
+                                  <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
+                                  {getVisibleCategories().map((category, index, array) => {
+                                    const isLast = index === array.length - 1;
+                                    return (
+                                      <Bar
+                                        key={category}
+                                        dataKey={category}
+                                        stackId="a"
+                                        fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")}
+                                        name={category}
+                                        radius={isLast ? [10, 10, 0, 0] : [0, 0, 0, 0]}
+                                      />
+                                    );
+                                  })}
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </FullscreenChartDialog>
                         </div>
                       </div>
                     </CarouselItem>
 
                     <CarouselItem>
                       <div className={slideHeightClass + " w-full min-w-0"}>
-                        <div className="px-1 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Faixas</p>
-                            <h3 className="mt-1 text-sm font-semibold text-foreground">Média vs total de membros</h3>
+                        <div className="px-1">
+                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Faixas</p>
+                          <h3 className="mt-1 text-sm font-semibold text-foreground">Média vs total de membros</h3>
+                        </div>
+
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Select value={avgStartPeriod} onValueChange={setAvgStartPeriod}>
+                                <SelectTrigger className="h-10 rounded-2xl">
+                                  <SelectValue placeholder="Início" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from(new Set(availableDates.map((d) => `${d.year}-${d.month}`))).map((date) => (
+                                    <SelectItem key={date} value={date}>
+                                      {formatMonth(date)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Select value={avgEndPeriod} onValueChange={setAvgEndPeriod}>
+                                <SelectTrigger className="h-10 rounded-2xl">
+                                  <SelectValue placeholder="Fim" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from(new Set(availableDates.map((d) => `${d.year}-${d.month}`))).map((date) => (
+                                    <SelectItem key={date} value={date}>
+                                      {formatMonth(date)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
-                          <FullscreenChartDialog title="Média vs total de membros" className="shrink-0">
+                          <p className="mt-2 text-[10px] text-muted-foreground">
+                            Fundo = total de membros • Frente = média de presença
+                          </p>
+                        </div>
+
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2 relative">
+                          <ResponsiveContainer width="100%" height={280}>
+                            <BarChart data={stats.mediaPorFaixa} margin={{ top: 6, right: 10, left: 0, bottom: 26 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                              <XAxis
+                                dataKey="faixa"
+                                stroke="hsl(var(--muted-foreground))"
+                                style={{ fontSize: "11px" }}
+                                interval={0}
+                                angle={-15}
+                                textAnchor="end"
+                                height={64}
+                              />
+                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: "var(--radius)",
+                                }}
+                              />
+                              <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.45} radius={[10, 10, 0, 0]}>
+                                {stats.mediaPorFaixa.map((entry) => (
+                                  <Cell
+                                    key={`cell-total-${entry.faixa}`}
+                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                    fillOpacity={0.45}
+                                  />
+                                ))}
+                              </Bar>
+                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]}>
+                                {stats.mediaPorFaixa.map((entry) => (
+                                  <Cell
+                                    key={`cell-media-${entry.faixa}`}
+                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                  />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+
+                          <FullscreenChartDialog title="Média vs total de membros" className="absolute bottom-2 right-2">
                             <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
                               <ResponsiveContainer width="100%" height={420}>
                                 <BarChart data={stats.mediaPorFaixa} margin={{ top: 6, right: 10, left: 0, bottom: 24 }}>
@@ -793,56 +791,21 @@ export default function MobileEstatisticasReunioes() {
                             </div>
                           </FullscreenChartDialog>
                         </div>
+                      </div>
+                    </CarouselItem>
 
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <Select value={avgStartPeriod} onValueChange={setAvgStartPeriod}>
-                                <SelectTrigger className="h-10 rounded-2xl">
-                                  <SelectValue placeholder="Início" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from(new Set(availableDates.map((d) => `${d.year}-${d.month}`))).map((date) => (
-                                    <SelectItem key={date} value={date}>
-                                      {formatMonth(date)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Select value={avgEndPeriod} onValueChange={setAvgEndPeriod}>
-                                <SelectTrigger className="h-10 rounded-2xl">
-                                  <SelectValue placeholder="Fim" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from(new Set(availableDates.map((d) => `${d.year}-${d.month}`))).map((date) => (
-                                    <SelectItem key={date} value={date}>
-                                      {formatMonth(date)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <p className="mt-2 text-[10px] text-muted-foreground">
-                            Fundo = total de membros • Frente = média de presença
-                          </p>
+                    <CarouselItem>
+                      <div className={slideHeightClass + " w-full min-w-0"}>
+                        <div className="px-1">
+                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Tendência</p>
+                          <h3 className="mt-1 text-sm font-semibold text-foreground">Média mensal (12 meses)</h3>
                         </div>
 
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
-                          <ResponsiveContainer width="100%" height={280}>
-                            <BarChart data={stats.mediaPorFaixa} margin={{ top: 6, right: 10, left: 0, bottom: 26 }}>
+                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2 relative">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={stats.mediaPorMes} margin={{ top: 6, right: 10, left: 0, bottom: 18 }}>
                               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
-                              <XAxis
-                                dataKey="faixa"
-                                stroke="hsl(var(--muted-foreground))"
-                                style={{ fontSize: "11px" }}
-                                interval={0}
-                                angle={-15}
-                                textAnchor="end"
-                                height={64}
-                              />
+                              <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
                               <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
                               <Tooltip
                                 contentStyle={{
@@ -851,37 +814,11 @@ export default function MobileEstatisticasReunioes() {
                                   borderRadius: "var(--radius)",
                                 }}
                               />
-                              <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.45} radius={[10, 10, 0, 0]}>
-                                {stats.mediaPorFaixa.map((entry) => (
-                                  <Cell
-                                    key={`cell-total-${entry.faixa}`}
-                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
-                                    fillOpacity={0.45}
-                                  />
-                                ))}
-                              </Bar>
-                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]}>
-                                {stats.mediaPorFaixa.map((entry) => (
-                                  <Cell
-                                    key={`cell-media-${entry.faixa}`}
-                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
-                                  />
-                                ))}
-                              </Bar>
+                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]} name="Média" />
                             </BarChart>
                           </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </CarouselItem>
 
-                    <CarouselItem>
-                      <div className={slideHeightClass + " w-full min-w-0"}>
-                        <div className="px-1 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Tendência</p>
-                            <h3 className="mt-1 text-sm font-semibold text-foreground">Média mensal (12 meses)</h3>
-                          </div>
-                          <FullscreenChartDialog title="Tendência (média mensal)" className="shrink-0">
+                          <FullscreenChartDialog title="Tendência (média mensal)" className="absolute bottom-2 right-2">
                             <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
                               <ResponsiveContainer width="100%" height={420}>
                                 <BarChart data={stats.mediaPorMes} margin={{ top: 6, right: 10, left: 0, bottom: 18 }}>
@@ -900,24 +837,6 @@ export default function MobileEstatisticasReunioes() {
                               </ResponsiveContainer>
                             </div>
                           </FullscreenChartDialog>
-                        </div>
-
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={stats.mediaPorMes} margin={{ top: 6, right: 10, left: 0, bottom: 18 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
-                              <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
-                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "hsl(var(--card))",
-                                  border: "1px solid hsl(var(--border))",
-                                  borderRadius: "var(--radius)",
-                                }}
-                              />
-                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]} name="Média" />
-                            </BarChart>
-                          </ResponsiveContainer>
                         </div>
                       </div>
                     </CarouselItem>
@@ -940,139 +859,6 @@ export default function MobileEstatisticasReunioes() {
           </Card>
         </section>
 
-        <section aria-label="Orações e Palavra">
-          <Card className="bg-card text-card-foreground border-border/50 shadow-[var(--shadow-card)] rounded-3xl overflow-hidden">
-            <div className="p-3">
-              <div className="px-1">
-                <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Oração & Palavra</p>
-                <h2 className="mt-1 text-sm font-semibold text-foreground">Registros e destaques</h2>
-              </div>
-
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-border/50 bg-muted/20 p-3">
-                  <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Média</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums">{prayerStats.mediaPorReuniao}</p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">por reunião</p>
-                </div>
-                <div className="rounded-2xl border border-border/50 bg-muted/20 p-3">
-                  <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Palavra</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums">{prayerStats.reunioesComPalavra}</p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">reuniões</p>
-                </div>
-                <div className="rounded-2xl border border-border/50 bg-muted/20 p-3">
-                  <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Top</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums">{topPrayerMembers[0]?.total ?? 0}</p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">orações</p>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <Carousel
-                  setApi={(api) => setOracaoApi(api)}
-                  opts={{ align: "start", loop: false }}
-                  className="w-full max-w-full overflow-hidden"
-                >
-                  <CarouselContent>
-                    <CarouselItem>
-                      <div className={"h-[clamp(240px,30vh,320px)] w-full min-w-0"}>
-                        <div className="px-1">
-                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Top 5</p>
-                          <h3 className="mt-1 text-sm font-semibold text-foreground">Quem mais ora</h3>
-                        </div>
-
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
-                          {topPrayerMembers.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">Nenhuma oração vinculada a membros ainda.</p>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {topPrayerMembers.map((membro, index) => {
-                                const canNavigate = typeof membro.id === "string" && membro.id.length >= 32 && membro.id.includes("-");
-                                const Wrapper: any = canNavigate ? "button" : "div";
-                                return (
-                                  <Wrapper
-                                    key={membro.id}
-                                    type={canNavigate ? "button" : undefined}
-                                    onClick={canNavigate ? () => navigate(`/membros/visualizar/${membro.id}`) : undefined}
-                                    className={cn(
-                                      "w-full flex items-center justify-between px-2.5 py-2 rounded-full transition-colors",
-                                      canNavigate ? "hover:bg-accent/60 active:bg-accent/70" : "bg-transparent",
-                                    )}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <div className="relative">
-                                        <Avatar className="h-7 w-7">
-                                          <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
-                                          <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-                                          {index + 1}
-                                        </div>
-                                      </div>
-                                      <span className="text-sm font-medium text-foreground truncate">{membro.nome}</span>
-                                    </div>
-                                    <span className="inline-flex items-center justify-center min-w-[28px] px-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground tabular-nums">
-                                      {membro.total}
-                                    </span>
-                                  </Wrapper>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CarouselItem>
-
-                    <CarouselItem>
-                      <div className={"h-[clamp(240px,30vh,320px)] w-full min-w-0"}>
-                        <div className="px-1">
-                          <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Últimas</p>
-                          <h3 className="mt-1 text-sm font-semibold text-foreground">Palavras registradas</h3>
-                        </div>
-
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/20 p-3">
-                          {recentWords.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">Nenhuma palavra registrada ainda.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {recentWords.map((item) => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => navigate(`/reunioes/visualizar/${item.id}`)}
-                                  className="w-full text-left rounded-2xl border border-border/50 bg-card px-3 py-2 shadow-[var(--shadow-card)] active:shadow-[var(--shadow-elevated)] transition-shadow"
-                                >
-                                  <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
-                                    {formatDate(item.data)}
-                                  </p>
-                                  <p className="mt-1 text-sm font-semibold text-foreground truncate">{item.palavra_referencia}</p>
-                                  {item.tema && (
-                                    <p className="mt-0.5 text-xs text-muted-foreground truncate">Tema: {item.tema}</p>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CarouselItem>
-                  </CarouselContent>
-                </Carousel>
-
-                <div className="mt-2 flex items-center justify-center gap-1.5">
-                  {Array.from({ length: oracaoSlideCount }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      aria-label={`Ir para o slide ${idx + 1}`}
-                      onClick={() => oracaoApi?.scrollTo(idx)}
-                      className={`h-1.5 rounded-full transition-all ${idx === oracaoIndex ? "w-8 bg-primary" : "w-3 bg-muted"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
-        </section>
         <section aria-label="Membros">
           <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
             <CardContent className="p-3">
