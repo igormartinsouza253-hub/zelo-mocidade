@@ -44,6 +44,14 @@ type MainChartData = {
   [key: string]: number | string;
 };
 
+type Oracao = {
+  nome: string;
+  tipo: "membro" | "visita" | "nao_identificado";
+  membro_id?: string;
+};
+
+type RankedPrayerMember = { id: string; nome: string; total: number; foto_url?: string | null };
+
 type TopFrequentMember = {
   id: string;
   nome: string;
@@ -113,6 +121,9 @@ export default function MobileEstatisticasReunioes() {
   const [allFaixas, setAllFaixas] = useState<string[]>([]);
   const [availableDates, setAvailableDates] = useState<{ year: string; month: string }[]>([]);
 
+  // Orações
+  const [topPrayerMembers, setTopPrayerMembers] = useState<RankedPrayerMember[]>([]);
+
   // Seção "Membros" (mais frequentes + filtro por faixa)
   const [membersPeriod, setMembersPeriod] = useState<"1m" | "3m" | "1y">("3m");
   const [membersFaixa, setMembersFaixa] = useState<string>("all");
@@ -141,7 +152,13 @@ export default function MobileEstatisticasReunioes() {
       backTo: "/",
     });
 
-    void Promise.all([loadStats(), loadRecentMeetings(), loadMainChartData(), loadTopFrequentMembers()]);
+    void Promise.all([
+      loadStats(),
+      loadRecentMeetings(),
+      loadMainChartData(),
+      loadTopPrayerMembers(),
+      loadTopFrequentMembers(),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -227,6 +244,53 @@ export default function MobileEstatisticasReunioes() {
     );
 
     setRecentMeetings(meetingsData);
+  };
+
+  const loadTopPrayerMembers = async () => {
+    try {
+      const { data: reunioes } = await supabase
+        .from("reunioes")
+        .select("id, data, oracoes")
+        .order("data", { ascending: false });
+
+      if (!reunioes || reunioes.length === 0) {
+        setTopPrayerMembers([]);
+        return;
+      }
+
+      const prayerCountMap: Record<string, { nome: string; total: number }> = {};
+
+      for (const reuniao of reunioes as any[]) {
+        const oracoesArray = Array.isArray(reuniao.oracoes) ? (reuniao.oracoes as Oracao[]) : [];
+        oracoesArray.forEach((oracao) => {
+          if (oracao.tipo !== "membro") return;
+          const key = oracao.membro_id || oracao.nome.toLowerCase();
+          if (!prayerCountMap[key]) prayerCountMap[key] = { nome: oracao.nome, total: 0 };
+          prayerCountMap[key].total += 1;
+        });
+      }
+
+      const topRaw = Object.entries(prayerCountMap)
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 5)
+        .map(([id, info]) => ({ id, nome: info.nome, total: info.total }));
+
+      const uuidCandidates = topRaw
+        .map((t) => t.id)
+        .filter((id) => typeof id === "string" && id.length >= 32 && id.includes("-"));
+
+      const { data: prayerMemberPhotos } = uuidCandidates.length
+        ? await supabase.from("membros").select("id, foto_url").in("id", uuidCandidates)
+        : { data: [] as { id: string; foto_url: string | null }[] };
+
+      const photoMap = new Map((prayerMemberPhotos || []).map((m) => [m.id, m.foto_url] as const));
+      const top: RankedPrayerMember[] = topRaw.map((t) => ({ ...t, foto_url: photoMap.get(t.id) ?? null }));
+
+      setTopPrayerMembers(top);
+    } catch (error) {
+      console.error("Erro ao carregar ranking de orações (mobile):", error);
+      setTopPrayerMembers([]);
+    }
   };
 
 
@@ -856,6 +920,57 @@ export default function MobileEstatisticasReunioes() {
                 </div>
               </div>
             </div>
+          </Card>
+        </section>
+
+        <section aria-label="Orações">
+          <Card className="rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)] overflow-hidden">
+            <CardContent className="p-3">
+              <div className="px-1">
+                <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Orações</p>
+                <h2 className="mt-1 text-sm font-semibold text-foreground">Quem mais ora</h2>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2">
+                {topPrayerMembers.length === 0 ? (
+                  <p className="p-2 text-xs text-muted-foreground">Nenhuma oração vinculada a membros ainda.</p>
+                ) : (
+                  <div className="max-h-[260px] overflow-auto pr-1 space-y-1.5 scrollbar-none">
+                    {topPrayerMembers.map((membro, index) => {
+                      const canNavigate = typeof membro.id === "string" && membro.id.length >= 32 && membro.id.includes("-");
+                      const Wrapper: any = canNavigate ? "button" : "div";
+                      return (
+                        <Wrapper
+                          key={membro.id}
+                          type={canNavigate ? "button" : undefined}
+                          onClick={canNavigate ? () => navigate(`/membros/visualizar/${membro.id}`) : undefined}
+                          className={cn(
+                            "w-full flex items-center justify-between px-2.5 py-2 rounded-full transition-colors",
+                            canNavigate ? "hover:bg-accent/60 active:bg-accent/70" : "bg-transparent",
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="relative">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
+                                <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                                {index + 1}
+                              </div>
+                            </div>
+                            <span className="text-sm font-medium text-foreground truncate">{membro.nome}</span>
+                          </div>
+                          <span className="inline-flex items-center justify-center min-w-[28px] px-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground tabular-nums">
+                            {membro.total}
+                          </span>
+                        </Wrapper>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </section>
 
