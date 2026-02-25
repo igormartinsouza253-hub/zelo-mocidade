@@ -31,6 +31,7 @@ import {
   User,
   Calendar,
   StickyNote,
+  MoreVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -400,23 +401,273 @@ const EditorNota = () => {
     </Button>
   );
 
+  const MobileNoteToolbar = () => {
+    if (!isMobile || isViewMode) return null;
+
+    return (
+      <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto w-full max-w-4xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <div className="flex items-center justify-between gap-2">
+            {/* Ações */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-2xl"
+                onClick={() => (id ? setIsViewMode(true) : navigate("/notas"))}
+                disabled={loading}
+                type="button"
+                aria-label="Cancelar"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+
+              <Button
+                size="icon"
+                className="h-10 w-10 rounded-2xl"
+                onClick={salvarNota}
+                disabled={loading}
+                type="button"
+                aria-label="Salvar"
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Formatação principal */}
+            <div className="flex items-center gap-1">
+              <ToolbarButton
+                isActive={editor.isActive("bold")}
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                title="Negrito"
+              >
+                <Bold className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                isActive={editor.isActive("italic")}
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                title="Itálico"
+              >
+                <Italic className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                isActive={editor.isActive("underline")}
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                title="Sublinhado"
+              >
+                <UnderlineIcon className="h-4 w-4" />
+              </ToolbarButton>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-10 w-10 rounded-2xl p-0" type="button" aria-label="Mais ferramentas">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[320px] p-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">Ferramentas</p>
+                      <div className="flex items-center gap-2">
+                        <ToolbarButton
+                          onClick={() => editor.chain().focus().undo().run()}
+                          title="Desfazer"
+                          disabled={!editor.can().undo()}
+                        >
+                          <Undo className="h-4 w-4" />
+                        </ToolbarButton>
+                        <ToolbarButton
+                          onClick={() => editor.chain().focus().redo().run()}
+                          title="Refazer"
+                          disabled={!editor.can().redo()}
+                        >
+                          <Redo className="h-4 w-4" />
+                        </ToolbarButton>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <ToolbarButton
+                        isActive={editor.isActive("bulletList")}
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        title="Lista"
+                      >
+                        <List className="h-4 w-4" />
+                      </ToolbarButton>
+                      <ToolbarButton
+                        isActive={editor.isActive("orderedList")}
+                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        title="Lista numerada"
+                      >
+                        <ListOrdered className="h-4 w-4" />
+                      </ToolbarButton>
+
+                      <div className="w-px h-8 bg-border mx-1" />
+
+                      <ToolbarButton
+                        isActive={editor.isActive("heading", { level: 1 })}
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                        title="Título 1"
+                      >
+                        H1
+                      </ToolbarButton>
+                      <ToolbarButton
+                        isActive={editor.isActive("heading", { level: 2 })}
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                        title="Título 2"
+                      >
+                        H2
+                      </ToolbarButton>
+                      <ToolbarButton
+                        isActive={editor.isActive("heading", { level: 3 })}
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                        title="Título 3"
+                      >
+                        H3
+                      </ToolbarButton>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-3"
+                        onClick={corrigirOrtografia}
+                        disabled={checkingSpelling}
+                        type="button"
+                      >
+                        <CheckCheck className="h-4 w-4 mr-2" />
+                        {checkingSpelling ? "Corrigindo…" : "Ortografia"}
+                      </Button>
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-9 px-3" type="button">
+                            <Type className="h-4 w-4 mr-2" />
+                            Fonte
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-1">
+                          {FONT_FAMILIES.map((font) => (
+                            <button
+                              key={font.value}
+                              onClick={() => {
+                                if (font.value === "inherit") editor.chain().focus().unsetFontFamily().run();
+                                else editor.chain().focus().setFontFamily(font.value).run();
+                              }}
+                              className="w-full px-3 py-2 text-left text-sm rounded hover:bg-muted"
+                              style={{ fontFamily: font.value }}
+                              type="button"
+                            >
+                              {font.name}
+                            </button>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={editor.isActive("highlight") ? "default" : "outline"}
+                            size="sm"
+                            className="h-9 px-3"
+                            type="button"
+                          >
+                            <Palette className="h-4 w-4 mr-2" />
+                            Grifo
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-2">
+                          <div className="flex gap-1">
+                            {HIGHLIGHT_COLORS.map((hl) => (
+                              <button
+                                key={hl.color}
+                                onClick={() => editor.chain().focus().toggleHighlight({ color: hl.color }).run()}
+                                className="h-7 w-7 rounded border border-border hover:scale-110 transition-transform"
+                                style={{ backgroundColor: hl.color }}
+                                title={hl.name}
+                                type="button"
+                              />
+                            ))}
+                            <button
+                              onClick={() => editor.chain().focus().unsetHighlight().run()}
+                              className="h-7 w-7 rounded border border-border hover:scale-110 transition-transform flex items-center justify-center text-xs"
+                              title="Remover grifo"
+                              type="button"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Membro</Label>
+                        <Select value={selectedMembroId} onValueChange={(value) => setSelectedMembroId(value)}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Nenhum" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhum</SelectItem>
+                            {membros.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Reunião</Label>
+                        <Select value={selectedReuniaoId} onValueChange={(value) => setSelectedReuniaoId(value)}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Nenhuma" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhuma</SelectItem>
+                            {reunioes.map((r) => (
+                              <SelectItem key={r.id} value={r.id}>
+                                {new Date(r.data).toLocaleDateString("pt-BR")} {r.tema ? `- ${r.tema}` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="h-full w-full bg-background overflow-hidden">
-      <div className="flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 overflow-y-auto scrollbar-thin">
+      <div
+        className={cn(
+          "flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 overflow-y-auto",
+          isMobile ? "scrollbar-none" : "scrollbar-thin",
+          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "",
+        )}
+      >
         <div className="max-w-4xl mx-auto w-full space-y-4">
           <Card className="shadow-[var(--shadow-soft)] border-border/50">
             <CardHeader className="pb-3 border-b border-border/50 space-y-3">
               <CardTitle className="text-base md:text-lg">{isViewMode ? "Conteúdo da Nota" : "Editor"}</CardTitle>
-              {!isViewMode && (
+
+              {/* Vinculações: desktop/tablet ficam visíveis; mobile vai para o popover da toolbar */}
+              {!isViewMode && !isMobile && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs md:text-sm">
                   <div className="space-y-1">
                     <Label className="flex items-center gap-1 text-xs md:text-sm">
                       <User className="h-3 w-3" /> Relacionar a um membro
                     </Label>
-                    <Select
-                      value={selectedMembroId}
-                      onValueChange={(value) => setSelectedMembroId(value)}
-                    >
+                    <Select value={selectedMembroId} onValueChange={(value) => setSelectedMembroId(value)}>
                       <SelectTrigger className="h-8 text-xs md:text-sm">
                         <SelectValue placeholder="Nenhum membro vinculado" />
                       </SelectTrigger>
@@ -434,10 +685,7 @@ const EditorNota = () => {
                     <Label className="flex items-center gap-1 text-xs md:text-sm">
                       <Calendar className="h-3 w-3" /> Relacionar a uma reunião
                     </Label>
-                    <Select
-                      value={selectedReuniaoId}
-                      onValueChange={(value) => setSelectedReuniaoId(value)}
-                    >
+                    <Select value={selectedReuniaoId} onValueChange={(value) => setSelectedReuniaoId(value)}>
                       <SelectTrigger className="h-8 text-xs md:text-sm">
                         <SelectValue placeholder="Nenhuma reunião vinculada" />
                       </SelectTrigger>
@@ -453,26 +701,116 @@ const EditorNota = () => {
                   </div>
                 </div>
               )}
-              {!isViewMode && (
+
+              {/* Toolbar do header (desktop/tablet) */}
+              {!isViewMode && !isMobile && (
                 <div className="flex flex-wrap gap-1 pt-1 md:pt-3">
-                  <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Desfazer (Ctrl+Z)" disabled={!editor.can().undo()}><Undo className="h-4 w-4" /></ToolbarButton>
-                  <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Refazer (Ctrl+Y)" disabled={!editor.can().redo()}><Redo className="h-4 w-4" /></ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().undo().run()} title="Desfazer (Ctrl+Z)" disabled={!editor.can().undo()}>
+                    <Undo className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton onClick={() => editor.chain().focus().redo().run()} title="Refazer (Ctrl+Y)" disabled={!editor.can().redo()}>
+                    <Redo className="h-4 w-4" />
+                  </ToolbarButton>
                   <div className="w-px h-8 bg-border mx-1" />
-                  <Button variant="outline" size="sm" onClick={corrigirOrtografia} disabled={checkingSpelling} className="h-8 px-3" type="button"><CheckCheck className="h-4 w-4 mr-1" />{checkingSpelling ? "..." : "Corrigir"}</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={corrigirOrtografia}
+                    disabled={checkingSpelling}
+                    className="h-8 px-3"
+                    type="button"
+                  >
+                    <CheckCheck className="h-4 w-4 mr-1" />
+                    {checkingSpelling ? "..." : "Corrigir"}
+                  </Button>
                   <div className="w-px h-8 bg-border mx-1" />
-                  <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-8 px-2 gap-1"><Type className="h-4 w-4" /></Button></PopoverTrigger><PopoverContent className="w-48 p-1">{FONT_FAMILIES.map((font) => (<button key={font.value} onClick={() => { if (font.value === "inherit") editor?.chain().focus().unsetFontFamily().run(); else editor?.chain().focus().setFontFamily(font.value).run(); }} className="w-full px-3 py-2 text-left text-sm rounded hover:bg-muted" style={{ fontFamily: font.value }}>{font.name}</button>))}</PopoverContent></Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 px-2 gap-1" type="button">
+                        <Type className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-1">
+                      {FONT_FAMILIES.map((font) => (
+                        <button
+                          key={font.value}
+                          onClick={() => {
+                            if (font.value === "inherit") editor.chain().focus().unsetFontFamily().run();
+                            else editor.chain().focus().setFontFamily(font.value).run();
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm rounded hover:bg-muted"
+                          style={{ fontFamily: font.value }}
+                          type="button"
+                        >
+                          {font.name}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
                   <div className="w-px h-8 bg-border mx-1" />
-                  <ToolbarButton isActive={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Negrito (Ctrl+B)"><Bold className="h-4 w-4" /></ToolbarButton>
-                  <ToolbarButton isActive={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Itálico (Ctrl+I)"><Italic className="h-4 w-4" /></ToolbarButton>
-                  <ToolbarButton isActive={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Sublinhado (Ctrl+U)"><UnderlineIcon className="h-4 w-4" /></ToolbarButton>
-                  <Popover><PopoverTrigger asChild><Button variant={editor.isActive("highlight") ? "default" : "outline"} size="sm" className={cn("h-8 w-8 p-0", editor.isActive("highlight") && "bg-primary text-primary-foreground")}><Palette className="h-4 w-4" /></Button></PopoverTrigger><PopoverContent className="w-auto p-2"><div className="flex gap-1">{HIGHLIGHT_COLORS.map((hl) => (<button key={hl.color} onClick={() => editor?.chain().focus().toggleHighlight({ color: hl.color }).run()} className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform" style={{ backgroundColor: hl.color }} title={hl.name} />))}<button onClick={() => editor.chain().focus().unsetHighlight().run()} className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform flex items-center justify-center text-xs" title="Remover grifo">✕</button></div></PopoverContent></Popover>
+                  <ToolbarButton isActive={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Negrito (Ctrl+B)">
+                    <Bold className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Itálico (Ctrl+I)">
+                    <Italic className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Sublinhado (Ctrl+U)">
+                    <UnderlineIcon className="h-4 w-4" />
+                  </ToolbarButton>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={editor.isActive("highlight") ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0",
+                          editor.isActive("highlight") && "bg-primary text-primary-foreground",
+                        )}
+                        type="button"
+                      >
+                        <Palette className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2">
+                      <div className="flex gap-1">
+                        {HIGHLIGHT_COLORS.map((hl) => (
+                          <button
+                            key={hl.color}
+                            onClick={() => editor.chain().focus().toggleHighlight({ color: hl.color }).run()}
+                            className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform"
+                            style={{ backgroundColor: hl.color }}
+                            title={hl.name}
+                            type="button"
+                          />
+                        ))}
+                        <button
+                          onClick={() => editor.chain().focus().unsetHighlight().run()}
+                          className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform flex items-center justify-center text-xs"
+                          title="Remover grifo"
+                          type="button"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <div className="w-px h-8 bg-border mx-1" />
-                  <ToolbarButton isActive={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Lista com marcadores"><List className="h-4 w-4" /></ToolbarButton>
-                  <ToolbarButton isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Lista numerada"><ListOrdered className="h-4 w-4" /></ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Lista com marcadores">
+                    <List className="h-4 w-4" />
+                  </ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Lista numerada">
+                    <ListOrdered className="h-4 w-4" />
+                  </ToolbarButton>
                   <div className="w-px h-8 bg-border mx-1" />
-                  <ToolbarButton isActive={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>H1</ToolbarButton>
-                  <ToolbarButton isActive={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</ToolbarButton>
-                  <ToolbarButton isActive={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+                    H1
+                  </ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+                    H2
+                  </ToolbarButton>
+                  <ToolbarButton isActive={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+                    H3
+                  </ToolbarButton>
                 </div>
               )}
             </CardHeader>
@@ -506,36 +844,24 @@ const EditorNota = () => {
             </CardContent>
           </Card>
 
-          {/* No desktop, as ações ficam no header global; no mobile, mantemos no rodapé */}
-          {isMobile && !isViewMode && (
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => (id ? setIsViewMode(true) : navigate("/notas"))}
-                disabled={loading}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancelar
-              </Button>
-              <Button onClick={salvarNota} disabled={loading}>
-                <Save className="h-4 w-4 mr-2" />
-                {loading ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
-          )}
+          {/* Mobile toolbar fixa (substitui a dock inferior do app) */}
+          <MobileNoteToolbar />
+
+          {/* Ações antigas do mobile removidas: agora ficam na toolbar fixa */}
+
           {isMobile && isViewMode && (
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => navigate("/notas")}
-                >
+              <Button variant="outline" onClick={() => navigate("/notas")} type="button">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
               </Button>
-              <Button onClick={() => setIsViewMode(false)}>
+              <Button onClick={() => setIsViewMode(false)} type="button">
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </Button>
             </div>
           )}
+
           {mentionPopup && (
             <div
               className="fixed z-50 bg-popover border border-border rounded-lg shadow-lg p-3 w-64"
@@ -544,14 +870,10 @@ const EditorNota = () => {
               <div className="space-y-2">
                 <div>
                   <p className="text-sm font-semibold">{mentionPopup.member.nome}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {mentionPopup.member.faixa_etaria}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{mentionPopup.member.faixa_etaria}</p>
                 </div>
                 {mentionPopup.member.telefone && (
-                  <p className="text-xs text-muted-foreground">
-                    Telefone: {mentionPopup.member.telefone}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Telefone: {mentionPopup.member.telefone}</p>
                 )}
                 <div className="flex justify-end gap-2 pt-1">
                   <Button
@@ -561,6 +883,7 @@ const EditorNota = () => {
                       navigate(`/membros/visualizar/${mentionPopup.member.id}`);
                       setMentionPopup(null);
                     }}
+                    type="button"
                   >
                     Ver
                   </Button>
@@ -570,6 +893,7 @@ const EditorNota = () => {
                       navigate(`/membros/editar/${mentionPopup.member.id}`);
                       setMentionPopup(null);
                     }}
+                    type="button"
                   >
                     Editar
                   </Button>
