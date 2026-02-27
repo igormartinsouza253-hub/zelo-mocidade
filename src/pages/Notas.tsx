@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 
 interface Nota {
@@ -43,6 +44,8 @@ export default function Notas() {
   const [loading, setLoading] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<Nota | null>(null);
   const [selectedNota, setSelectedNota] = useState<Nota | null>(null);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [mobileActionsNota, setMobileActionsNota] = useState<Nota | null>(null);
   const [filtroVinculo, setFiltroVinculo] = useState<"todas" | "membro" | "reuniao" | "sem">("todas");
   const [filtroMembro, setFiltroMembro] = useState<string>("todos");
   const [filtroReuniao, setFiltroReuniao] = useState<string>("todas");
@@ -332,14 +335,9 @@ export default function Notas() {
                   {loading ? "Carregando…" : `${notas.length} nota${notas.length === 1 ? "" : "s"}`}
                 </p>
               </div>
-
-              <Button size="sm" className="gap-2" onClick={() => navigate("/notas/nova")}>
-                <Plus className="h-4 w-4" />
-                Nova
-              </Button>
             </div>
 
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-none">
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-none pb-[calc(env(safe-area-inset-bottom)+5.5rem)]">
               {loading ? (
                 <div className="space-y-2">
                   <div className="h-16 rounded-2xl border border-border bg-card/50" />
@@ -370,33 +368,18 @@ export default function Notas() {
                           </p>
                         </div>
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background hover:bg-accent/60 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }
-                              }}
-                              aria-label="Ações"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </span>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>
-                              Abrir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <button
+                          type="button"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background hover:bg-accent/60 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMobileActionsNota(nota);
+                            setMobileActionsOpen(true);
+                          }}
+                          aria-label="Ações"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
                       </div>
                     </button>
                   ))}
@@ -404,7 +387,65 @@ export default function Notas() {
               )}
             </div>
 
-            <div className="h-[calc(env(safe-area-inset-bottom)+0.75rem)]" />
+            {/* Bottom sheet de ações (mobile) */}
+            <Sheet
+              open={mobileActionsOpen}
+              onOpenChange={(open) => {
+                setMobileActionsOpen(open);
+                if (!open) setMobileActionsNota(null);
+              }}
+            >
+              <SheetContent
+                side="bottom"
+                className="rounded-t-3xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+              >
+                <div className="mx-auto w-full max-w-md">
+                  <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted" />
+
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start rounded-2xl h-12"
+                      onClick={() => {
+                        if (!mobileActionsNota) return;
+                        setMobileActionsOpen(false);
+                        navigate(`/notas/editar/${mobileActionsNota.id}`);
+                      }}
+                      type="button"
+                    >
+                      Abrir
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-start rounded-2xl h-12"
+                      onClick={() => {
+                        if (!mobileActionsNota) return;
+                        setMobileActionsOpen(false);
+                        setNotaParaExcluir(mobileActionsNota);
+                      }}
+                      type="button"
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Único botão de nova nota (mobile) */}
+            <div className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <div className="mx-auto w-full max-w-4xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+                <Button
+                  className="w-full h-12 rounded-2xl gap-2"
+                  onClick={() => navigate("/notas/nova")}
+                  type="button"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova nota
+                </Button>
+              </div>
+            </div>
           </div>
         ) : isSplitView ? (
           <Card>
@@ -587,15 +628,6 @@ export default function Notas() {
           </Card>
         )}
 
-        {/* No mobile, o CTA fica no corpo */}
-        {isMobile ? (
-          <div className="flex justify-end">
-            <Button onClick={() => navigate("/notas/nova")} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova nota
-            </Button>
-          </div>
-        ) : null}
 
         <AlertDialog open={!!notaParaExcluir} onOpenChange={() => setNotaParaExcluir(null)}>
           <AlertDialogContent>
