@@ -434,8 +434,8 @@ export default function Notas() {
             </Sheet>
 
             {/* Único botão de nova nota (mobile) */}
-            <div className="md:hidden fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-              <div className="mx-auto w-full max-w-4xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <div className="md:hidden fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.25rem)] z-30">
+              <div className="mx-auto w-full max-w-4xl px-3">
                 <Button
                   className="w-full h-12 rounded-2xl gap-2"
                   onClick={() => navigate("/notas/nova")}
