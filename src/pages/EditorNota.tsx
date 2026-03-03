@@ -52,6 +52,15 @@ const HIGHLIGHT_COLORS = [
   { name: "Roxo", color: "rgba(124, 58, 237, 0.5)" },
 ];
 
+const TEXT_COLORS = [
+  { name: "Padrão", color: "default" },
+  { name: "Preto", color: "#111827" },
+  { name: "Azul", color: "#2563eb" },
+  { name: "Verde", color: "#16a34a" },
+  { name: "Vermelho", color: "#dc2626" },
+  { name: "Roxo", color: "#7c3aed" },
+];
+
 const FONT_FAMILIES = [
   { name: "Padrão", value: "inherit" },
   { name: "Sans Serif", value: "ui-sans-serif, system-ui, sans-serif" },
@@ -404,6 +413,7 @@ const EditorNota = () => {
 
   const MobileNoteToolbar = () => {
     if (!isMobile || isViewMode) return null;
+    const currentTextColor = editor.getAttributes("textStyle")?.color as string | undefined;
 
     return (
       <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -566,6 +576,39 @@ const EditorNota = () => {
                               {font.name}
                             </button>
                           ))}
+                        </PopoverContent>
+                      </Popover>
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={currentTextColor ? "default" : "outline"}
+                            size="sm"
+                            className="h-9 px-3"
+                            type="button"
+                          >
+                            <Type className="h-4 w-4 mr-2" />
+                            Cor
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-2">
+                          <div className="flex gap-1">
+                            {TEXT_COLORS.map((textColor) => (
+                              <button
+                                key={textColor.color}
+                                onClick={() => {
+                                  if (textColor.color === "default") editor.chain().focus().unsetColor().run();
+                                  else editor.chain().focus().setColor(textColor.color).run();
+                                }}
+                                className="h-7 w-7 rounded border border-border hover:scale-110 transition-transform flex items-center justify-center"
+                                style={{ backgroundColor: textColor.color === "default" ? "transparent" : textColor.color }}
+                                title={textColor.name}
+                                type="button"
+                              >
+                                {textColor.color === "default" ? <span className="text-xs">✕</span> : null}
+                              </button>
+                            ))}
+                          </div>
                         </PopoverContent>
                       </Popover>
 
