@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -458,15 +459,18 @@ const EditorNota = () => {
                 <UnderlineIcon className="h-4 w-4" />
               </ToolbarButton>
 
-              <Popover>
-                <PopoverTrigger asChild>
+              <Sheet>
+                <SheetTrigger asChild>
                   <Button variant="outline" size="sm" className="h-10 w-10 rounded-2xl p-0" type="button" aria-label="Mais ferramentas">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-[320px] p-3">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                </SheetTrigger>
+                <SheetContent
+                  side="bottom"
+                  className="rounded-t-3xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-h-[85svh] overflow-y-auto"
+                >
+                  <div className="space-y-3 pr-10">
+                    <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold">Ferramentas</p>
                       <div className="flex items-center gap-2">
                         <ToolbarButton
@@ -486,7 +490,7 @@ const EditorNota = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <ToolbarButton
                         isActive={editor.isActive("bulletList")}
                         onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -527,7 +531,7 @@ const EditorNota = () => {
                       </ToolbarButton>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -637,8 +641,8 @@ const EditorNota = () => {
                       </div>
                     </div>
                   </div>
-                </PopoverContent>
-              </Popover>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
