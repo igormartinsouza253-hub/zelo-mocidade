@@ -8,6 +8,10 @@
   color: hsl(var(--foreground));
 }
 
+.rbc-toolbar {
+  gap: 0.5rem;
+}
+
 .rbc-toolbar button {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
@@ -21,6 +25,22 @@
 .rbc-toolbar button:hover {
   background: hsl(var(--accent));
   color: hsl(var(--accent-foreground));
+}
+
+.calendar-desktop-modern .rbc-toolbar {
+  border: 1px solid hsl(var(--border) / 0.75);
+  background: hsl(var(--muted) / 0.32);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 0.5rem 0.625rem;
+}
+
+.calendar-desktop-modern .rbc-toolbar .rbc-btn-group {
+  display: inline-flex;
+  gap: 0.375rem;
+}
+
+.calendar-desktop-modern .rbc-toolbar-label {
+  font-weight: 600;
 }
 
 .rbc-today {
