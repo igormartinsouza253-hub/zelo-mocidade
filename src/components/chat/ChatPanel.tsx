@@ -8,7 +8,7 @@ export function ChatPanel() {
   const { isChatPanelOpen, closeChatPanel } = useChatLauncher();
 
   const minWidth = 420;
-  const maxWidth = 860;
+  const maxWidth = 1600;
 
   const [widthPx, setWidthPx] = useState(() => {
     if (typeof window === "undefined") return 560;
