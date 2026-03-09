@@ -1250,13 +1250,20 @@ export default function Calendario() {
     // evento manual
     const base = rawEventos.find((r) => r.id === ev.resource.baseId);
     const canEditForm = !!user && !!base && base.user_id === user.id;
+    const createdByName = base?.user_id ? creatorNameByUserId[base.user_id] ?? "Usuário" : null;
     setSelectedOccurrence(ev);
     setEventDrawerData({
       title: base?.titulo ?? ev.title,
       kindLabel: `Evento · ${tipoLabel[ev.resource.tipo ?? (base?.tipo as EventoTipo) ?? "ajuntamento"]}`,
       quando: { start, end, allDay: ev.allDay },
       local: base?.local ?? ev.resource.local ?? null,
-      descricao: base?.descricao ?? ev.resource.descricao ?? null,
+      sections: [
+        {
+          label: "Detalhes",
+          value: base?.descricao?.trim() ? <div className="whitespace-pre-wrap">{base.descricao}</div> : "—",
+        },
+        ...(createdByName ? [{ label: "Criado por", value: createdByName }] : []),
+      ],
       canEdit: canEditForm,
     });
     setEventDrawerOpen(true);
