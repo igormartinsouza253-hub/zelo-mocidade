@@ -44,6 +44,7 @@ interface NotificationSettingsSectionProps {
 export function NotificationSettingsSection({ compact = false }: NotificationSettingsSectionProps) {
   const { user } = useAuth();
   const { activeGroupId } = useActiveGroup();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);

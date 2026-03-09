@@ -315,10 +315,19 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
   }, [user?.id, activeGroupId]);
 
   useEffect(() => {
-    if (!activeConversationId) {
-      setMessages([]);
-      return;
-    }
+    const params = new URLSearchParams(location.search);
+    const deepLinkConversationId = params.get("conversationId");
+    if (!deepLinkConversationId) return;
+    if (!conversations.some((c) => c.id === deepLinkConversationId)) return;
+
+    setActiveConversationId(deepLinkConversationId);
+
+    params.delete("conversationId");
+    const next = params.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+  }, [conversations, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
 
     // For group chats, auto-join the conversation so messages RLS allows read/write.
     if (activeConversation?.kind === "group") {
