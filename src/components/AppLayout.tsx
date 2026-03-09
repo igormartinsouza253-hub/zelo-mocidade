@@ -780,7 +780,7 @@ function DesktopHeader({
           <button
             type="button"
             onClick={onOpenChat}
-            className="relative h-11 w-11 rounded-full bg-accent flex items-center justify-center border border-border/60 shadow-[var(--shadow-card)] text-foreground hover:bg-accent/80 transition-colors"
+            className="relative h-11 w-11 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-foreground hover:bg-accent/80 transition-colors"
             aria-label="Abrir chat"
           >
             <MessageCircle className="h-5 w-5" />
