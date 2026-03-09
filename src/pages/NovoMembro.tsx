@@ -179,12 +179,15 @@ const NovoMembro = () => {
         setUploadingPhoto(false);
       }
 
+      const { data: authData } = await supabase.auth.getUser();
+
       const { error } = await supabase
         .from("membros")
         .insert([
           {
             ...formData,
             group_id: activeGroupId,
+            created_by_user_id: authData.user?.id ?? null,
             foto_url,
             data_nascimento: formData.data_nascimento || null,
             data_aniversario: formData.data_aniversario || null,
