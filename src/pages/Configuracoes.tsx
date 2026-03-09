@@ -2123,20 +2123,6 @@ const Configuracoes = () => {
                         Modo edição da tela inicial
                       </Button>
 
-                      {isMobile && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
-                          onClick={() => {
-                            // Garantir que pelo menos os itens padrão existam
-                            dockPrefs.setItems(dockPrefs.items.length ? dockPrefs.items : dockPrefs.items);
-                            toast.info("Edite a dock tocando e arrastando os ícones na barra inferior.");
-                          }}
-                        >
-                          Editar dock
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </CardContent>
