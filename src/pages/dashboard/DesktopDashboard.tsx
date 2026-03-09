@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { StatsWidget } from "@/components/dashboard/widgets/StatsWidget";
-import { NextMeetingWidget } from "@/components/dashboard/widgets/NextMeetingWidget";
+
 import { FrequencySummaryWidget } from "@/components/dashboard/widgets/FrequencySummaryWidget";
 import { FaixaEtariaWidget } from "@/components/dashboard/widgets/FaixaEtariaWidget";
 import { ReunioesChartWidget } from "@/components/dashboard/widgets/ReunioesChartWidget";
