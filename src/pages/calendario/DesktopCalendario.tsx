@@ -1458,6 +1458,26 @@ export default function Calendario() {
     }
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const eventId = params.get("eventId");
+    if (!eventId) return;
+
+    const target = events.find((ev) => ev.resource.kind === "evento" && ev.resource.baseId === eventId);
+    if (!target) return;
+
+    setDate(target.start);
+    if (target.resource.tipo === "visita") {
+      openVisitDetails(target);
+    } else {
+      openEventDetails(target);
+    }
+
+    params.delete("eventId");
+    const next = params.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+  }, [events, location.pathname, location.search, navigate]);
+
   const onSelectSlot = (slotInfo: any) => {
     const start = slotInfo?.start instanceof Date ? slotInfo.start : new Date();
     openCreateDialog(start);
