@@ -316,6 +316,7 @@ export default function MobileCalendar() {
   const [reunioes, setReunioes] = useState<ReuniaoRow[]>([]);
   const [visitasRegistradas, setVisitasRegistradas] = useState<VisitaRow[]>([]);
   const [membros, setMembros] = useState<MembroRow[]>([]);
+  const [creatorNameByUserId, setCreatorNameByUserId] = useState<Record<string, string>>({});
 
   const [presenceByMeetingId, setPresenceByMeetingId] = useState<Record<string, PresenceCountState>>({});
 
