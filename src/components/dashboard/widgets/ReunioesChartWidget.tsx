@@ -337,7 +337,7 @@ export const ReunioesChartWidget = ({
                  <div>
                   <p className="inline-flex items-baseline gap-2 mt-1 text-left">
                     <span className="inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-0.5 text-xs md:text-sm font-semibold uppercase tracking-[0.12em]">
-                      Reunião {selectedReuniao.data}
+                      Reunião {formatMeetingLabel(selectedReuniao.data)}
                     </span>
                   </p>
                 </div>
