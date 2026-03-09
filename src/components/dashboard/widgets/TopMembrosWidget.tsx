@@ -142,7 +142,7 @@ export const TopMembrosWidget = ({
           <select
             value={period}
             onChange={(e) => onPeriodChange(e.target.value as "1m" | "3m" | "1y")}
-            className="h-8 rounded-full border border-border bg-background px-2 text-[11px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-8 rounded-lg border border-border bg-background px-2 text-[11px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="1m">Último mês</option>
             <option value="3m">Últimos 3 meses</option>
