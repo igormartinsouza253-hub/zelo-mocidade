@@ -1301,8 +1301,7 @@ export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "des
               </ScrollArea>
             </main>
 
-            {/* Dock do app somente na lista */}
-            <MobileBottomNav />
+            {!isDesktopLayout && <MobileBottomNav />}
           </>
         ) : (
           <>
