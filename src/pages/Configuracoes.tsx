@@ -1388,8 +1388,10 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
+              {canManageRestricted && (
+                <>
+                  <Card>
+                    <CardHeader className="pb-3 pt-3 px-3">
                   <CardTitle className="flex items-center gap-1.5 text-sm">
                     <Shield className="h-4 w-4" />
                     Gerenciar Usuários
