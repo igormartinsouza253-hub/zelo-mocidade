@@ -26,6 +26,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { PrayerMemberPicker } from "@/components/reunioes/PrayerMemberPicker";
+import { dateToString } from "@/lib/date-utils";
 
 // Lista de livros da Bíblia com seus capítulos
 const bibliaLivros: Record<string, number> = {

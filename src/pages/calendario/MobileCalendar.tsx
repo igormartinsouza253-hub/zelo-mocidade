@@ -131,6 +131,12 @@ function safeInterval(n: unknown) {
   return Number.isFinite(val) && val > 0 ? val : 1;
 }
 
+function parseLocalDateOnly(dateString: string, hour = 12) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day, hour, 0, 0, 0);
+}
+
 function parseRecorrencia(raw: any): Recorrencia {
   if (!raw || typeof raw !== "object") return null;
   if (raw.tipo !== "semanal" && raw.tipo !== "mensal") return null;
