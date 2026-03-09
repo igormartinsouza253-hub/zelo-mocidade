@@ -111,7 +111,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, title, message, type, created_at, read_at")
+        .select("id, title, message, type, created_at, read_at, entity_type, entity_id, metadata")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
