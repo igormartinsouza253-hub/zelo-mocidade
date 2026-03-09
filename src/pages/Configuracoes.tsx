@@ -1516,6 +1516,22 @@ const Configuracoes = () => {
             </div>
           )}
 
+          {mobileSection === "notifications" && (
+            <div className="space-y-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-0 gap-1 text-xs mb-1"
+                onClick={() => setMobileSection("root")}
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Voltar
+              </Button>
+
+              <NotificationSettingsSection compact />
+            </div>
+          )}
+
           {mobileSection === "group" && isGroupAdmin && activeGroup && (
             <div className="space-y-4">
               <Button
