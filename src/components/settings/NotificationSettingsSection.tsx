@@ -106,11 +106,16 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
 
   const requestBrowserNotificationPermission = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
-      toast.error("Este dispositivo não oferece suporte a notificações do navegador.");
+      toast.error("Este dispositivo não oferece suporte a notificações.");
       return false;
     }
 
     if (Notification.permission === "granted") return true;
+
+    if (Notification.permission === "denied") {
+      toast.error("Notificações bloqueadas. Ative novamente nas permissões do navegador.");
+      return false;
+    }
 
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
