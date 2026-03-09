@@ -79,7 +79,7 @@ export function DesktopDashboard({
               </div>
 
               {/* Coluna direita */}
-              <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(120px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
+              <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(150px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
                 <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)] gap-4">
                   <QuickActionsWidget size="sm" />
                   <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
