@@ -63,6 +63,7 @@ const VisualizarMembro = () => {
   const { setConfig } = usePageHeader();
   const [inactivateOpen, setInactivateOpen] = useState(false);
   const [inactivating, setInactivating] = useState(false);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   useEffect(() => {
     loadMembro();
