@@ -340,6 +340,7 @@ const VisualizarMembro = () => {
   if (!membro) return null;
 
   const dataAniversarioTexto = getDataAniversarioTexto(membro);
+  const creatorLabel = createdByName ?? "usuário não identificado";
 
   const formatarDataInativacao = (valor?: string | null) => {
     if (!valor) return "—";
