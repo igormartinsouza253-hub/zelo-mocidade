@@ -519,33 +519,37 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   };
 
   const openInactivateDialog = (ids: string[]) => {
+    if (!isAdmin) {
+      toast.error("Apenas admins podem excluir membros permanentemente.");
+      return;
+    }
     setInactivateTargetIds(ids);
     setInactivateDialogOpen(true);
   };
 
-  const handleConfirmInactivate = async ({ reason, note }: { reason: string; note: string | null }) => {
-    if (inactivateTargetIds.length === 0) return;
+  const handleConfirmInactivate = async () => {
+    if (inactivateTargetIds.length === 0 || !isAdmin) return;
 
     setDeleting(true);
 
     try {
-      const { error: membrosError } = await supabase
-        .from("membros")
-        .update({
-          ativo: false,
-          inativado_em: new Date().toISOString(),
-          inativado_motivo: reason,
-          inativado_observacao: note,
-        })
-        .in("id", inactivateTargetIds);
+      const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
+        supabase.from("presencas").delete().in("membro_id", inactivateTargetIds),
+        supabase.from("eventos").delete().in("membro_visitado_id", inactivateTargetIds),
+        supabase.from("visitas").delete().in("membro_visitado_id", inactivateTargetIds),
+        supabase.from("notas").delete().in("membro_id", inactivateTargetIds),
+      ]);
 
+      const cleanupError = presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
+      if (cleanupError) throw cleanupError;
+
+      const { error: membrosError } = await supabase.from("membros").delete().in("id", inactivateTargetIds);
       if (membrosError) throw membrosError;
 
       toast.success(
-        inactivateTargetIds.length === 1 ? "Membro inativado com sucesso." : "Membros inativados com sucesso.",
+        inactivateTargetIds.length === 1 ? "Membro excluído permanentemente." : "Membros excluídos permanentemente.",
       );
 
-      // se o membro aberto no painel foi inativado, fechamos o painel
       if (selectedMembro && inactivateTargetIds.includes(selectedMembro.id)) {
         setSelectedMembro(null);
       }
@@ -553,8 +557,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
       setSelectedIds([]);
       await loadMembros();
     } catch (error) {
-      console.error("Erro ao inativar membro(s):", error);
-      toast.error("Erro ao inativar membro(s)");
+      console.error("Erro ao excluir membro(s):", error);
+      toast.error("Erro ao excluir membro(s)");
     } finally {
       setDeleting(false);
       setInactivateDialogOpen(false);
