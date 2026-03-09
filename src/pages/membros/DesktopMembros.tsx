@@ -1307,23 +1307,26 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
           </button>
         )}
 
-        <InactivateMemberDialog
-          open={inactivateDialogOpen}
-          onOpenChange={(open) => {
-            if (!open && !deleting) {
-              setInactivateDialogOpen(false);
-              setInactivateTargetIds([]);
-            }
-          }}
-          title={
-            inactivateTargetIds.length <= 1
-              ? "Inativar membro"
-              : `Inativar ${inactivateTargetIds.length} membros`
-          }
-          confirmLabel="Inativar"
-          loading={deleting}
-          onConfirm={handleConfirmInactivate}
-        />
+        <AlertDialog open={inactivateDialogOpen} onOpenChange={setInactivateDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {inactivateTargetIds.length <= 1
+                  ? "Excluir membro permanentemente?"
+                  : `Excluir ${inactivateTargetIds.length} membros permanentemente?`}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação remove os membros e os registros vinculados (presenças, eventos, visitas e notas) e não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmInactivate} disabled={deleting}>
+                {deleting ? "Excluindo..." : "Excluir permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
       </div>
     </div>
