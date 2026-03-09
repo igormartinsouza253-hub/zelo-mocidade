@@ -167,7 +167,7 @@ export const TopMembrosWidget = ({
               top5Membros.map((membro, index) => (
                 <div
                   key={membro.id}
-                  className="flex items-center justify-between px-2.5 py-2 rounded-full hover:bg-accent/60 cursor-pointer transition-colors w-full"
+                  className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors w-full"
                   onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                   onDoubleClick={cancelScheduledNavigate}
                 >

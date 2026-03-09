@@ -53,7 +53,7 @@ export const QuickActionsWidget = ({ size }: QuickActionsWidgetProps) => {
             <Button
               key={index}
               variant="secondary"
-              className="justify-start gap-2.5 h-9 text-sm rounded-full px-3"
+              className="justify-start gap-2.5 h-9 text-sm rounded-lg px-3"
               onClick={() => navigate(action.path)}
             >
               <action.icon className="h-4 w-4 text-primary" />
