@@ -942,7 +942,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
               )}
             </div>
 
-            <ScrollArea className="flex-1 p-3">
+            <ScrollArea className="flex-1 px-4 py-3">
               {loadingMessages ? (
                 <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
               ) : (
