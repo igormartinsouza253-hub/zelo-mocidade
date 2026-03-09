@@ -197,21 +197,24 @@ export const ReunioesChartWidget = ({
     if (tickIndex === -1) return null;
 
     const isSelected = tickIndex === selectedIndex;
+    const tickWidth = isSmall ? 52 : 68;
+    const tickX = -(tickWidth / 2);
 
     return (
       <g transform={`translate(${x},${y})`}>
-        <foreignObject x={-34} y={4} width={68} height={30}>
+        <foreignObject x={tickX} y={4} width={tickWidth} height={30}>
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
               setSelectedIndex(tickIndex);
             }}
-            className={`mx-auto block h-7 w-[68px] rounded-md border text-[10px] font-semibold leading-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
+            className={`mx-auto block h-7 rounded-md border text-[10px] font-semibold leading-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
               isSelected
                 ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"
                 : "border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
+            style={{ width: tickWidth }}
             aria-pressed={isSelected}
             aria-label={`Selecionar reunião ${formatMeetingLabel(payload.value)}`}
           >
