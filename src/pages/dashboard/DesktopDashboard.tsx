@@ -85,7 +85,7 @@ export function DesktopDashboard({
                   <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
                 </div>
 
-                <NextMeetingWidget size="sm" ultimaReuniao={stats.ultimaReuniao} />
+                <NextMeetingWidget size="md" ultimaReuniao={stats.ultimaReuniao} />
 
                 <StatsWidget
                   size="lg"
