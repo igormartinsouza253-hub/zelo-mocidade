@@ -639,7 +639,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
     if (editingId === m.id) {
       return (
         <div key={m.id} className={"flex flex-col gap-2 " + (mine ? "items-end" : "items-start")}>
-          <div className={`max-w-[85%] w-full rounded-2xl border border-border px-3 py-2 text-sm ${bubble}`}>
+          <div className={`max-w-[85%] w-full rounded-lg border border-border px-3 py-2 text-sm ${bubble}`}>
             <div className="text-[11px] text-muted-foreground mb-2">Editando</div>
             <Input value={editingText} onChange={(e) => setEditingText(e.target.value)} className="h-9" />
             <div className="mt-2 flex justify-end gap-2">
