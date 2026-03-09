@@ -73,6 +73,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
   const { user } = useAuth();
   const { activeGroupId } = useActiveGroup();
   const { setConfig } = usePageHeader();
+  const location = useLocation();
   const navigate = useNavigate();
   const { openChatPanel, closeChatPanel, preferredOpenMode, setPreferredOpenMode } = useChatLauncher();
   const isMobile = useIsMobile();
