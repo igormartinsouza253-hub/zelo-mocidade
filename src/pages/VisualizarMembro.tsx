@@ -91,6 +91,35 @@ const VisualizarMembro = () => {
     setDeleteOpen(true);
   }, [membro, isAdmin]);
 
+  const handleInactivate = useCallback(async () => {
+    if (!membro) return;
+
+    try {
+      setDeleting(true);
+
+      const { error } = await supabase
+        .from("membros")
+        .update({
+          ativo: false,
+          inativado_em: new Date().toISOString(),
+          inativado_motivo: "Inativado manualmente",
+          inativado_observacao: null,
+        })
+        .eq("id", membro.id);
+
+      if (error) throw error;
+
+      toast.success("Membro inativado com sucesso.");
+      navigate("/membros");
+    } catch (error) {
+      console.error("Erro ao inativar membro:", error);
+      toast.error("Erro ao inativar membro");
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }, [membro, navigate]);
+
   const handlePermanentDelete = useCallback(async () => {
     if (!membro || !isAdmin) return;
 
