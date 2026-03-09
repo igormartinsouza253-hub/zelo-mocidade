@@ -152,10 +152,12 @@ const VisualizarMembro = () => {
               <Edit className="h-4 w-4 mr-2" />
               Editar
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
+            {isAdmin ? (
+              <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir permanentemente
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
