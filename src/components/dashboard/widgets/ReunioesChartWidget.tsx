@@ -247,12 +247,12 @@ export const ReunioesChartWidget = ({
               isLarge ? "grid-cols-[minmax(0,1.9fr)_minmax(240px,1fr)]" : "grid-cols-1"
             }`}
           >
-            <div className="min-h-0 rounded-xl border border-border/50 bg-muted/15 p-2.5 md:p-3">
+            <div className="min-h-0 rounded-xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
               <div className="h-full min-h-[220px] md:min-h-[260px]">
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
                     data={meetings}
-                    margin={{ top: 22, right: 12, left: 12, bottom: 38 }}
+                    margin={{ top: 22, right: 0, left: 0, bottom: 38 }}
                     barCategoryGap="22%"
                     barGap={0}
                   >
@@ -269,11 +269,12 @@ export const ReunioesChartWidget = ({
                       interval={0}
                       tickMargin={0}
                       height={36}
+                      padding={{ left: 0, right: 0 }}
                       tick={<DateTick />}
                     />
 
                     <YAxis
-                      stroke="transparent"
+                      width={0}
                       tickLine={false}
                       axisLine={false}
                       tick={false}
