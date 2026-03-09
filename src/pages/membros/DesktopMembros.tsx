@@ -122,7 +122,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
   const { setConfig } = usePageHeader();
-  const { activeGroup } = useActiveGroup();
+  const { activeGroup, isAdmin } = useActiveGroup();
 
   const hasSelected = selectedIds.length > 0;
 
