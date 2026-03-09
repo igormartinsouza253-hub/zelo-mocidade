@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -16,6 +16,7 @@ import { ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/them
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BootstrapAdminButton } from "@/components/BootstrapAdminButton";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
+import { NotificationSettingsSection } from "@/components/settings/NotificationSettingsSection";
 
 const userEmailSchema = z.object({
   email: z.string()
