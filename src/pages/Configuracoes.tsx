@@ -60,6 +60,7 @@ interface UserWithRole {
 
 const Configuracoes = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { activeGroup, isAdmin: isGroupAdmin } = useActiveGroup();
