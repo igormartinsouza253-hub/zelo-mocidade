@@ -45,6 +45,7 @@ import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { ChatLauncherProvider } from "@/components/chat/ChatLauncherContext";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useUnreadChatCount } from "@/components/chat/useUnreadChatCount";
+import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
 
 interface AppLayoutProps {
   children: React.ReactNode;
