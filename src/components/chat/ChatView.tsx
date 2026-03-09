@@ -744,7 +744,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
         </div>
       )}
 
-      <div className={"flex-1 min-h-0 " + (mode === "panel" ? "p-2" : "px-3 md:px-6 lg:px-8 py-4 md:py-6")}>
+      <div className={"flex-1 min-h-0 " + (mode === "panel" ? "p-2" : "px-3 md:px-4 lg:px-6 py-3 md:py-4")}>
         <div
           className={
             "grid gap-3 h-full min-h-0 " +
