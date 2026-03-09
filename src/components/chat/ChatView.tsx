@@ -851,7 +851,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
                                   type="button"
                                   onClick={() => setActiveConversationId(c.id)}
                                   className={
-                                    "w-full flex items-center justify-center rounded-2xl border transition-colors p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
+                                    "w-full flex items-center justify-center rounded-lg border transition-colors p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
                                     (selected ? "bg-accent border-border" : "bg-card border-border hover:bg-accent/40")
                                   }
                                 >
