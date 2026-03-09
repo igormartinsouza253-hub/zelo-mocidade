@@ -109,7 +109,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "data">("root");
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "group" | "data">("root");
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
@@ -999,6 +999,26 @@ const Configuracoes = () => {
                 </CardHeader>
               </Card>
 
+              {isGroupAdmin && activeGroup && (
+                <Card
+                  className="hover-scale cursor-pointer"
+                  onClick={() => setMobileSection("group")}
+                >
+                  <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                      <Shield className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <CardTitle className="text-sm">Gerenciar grupo</CardTitle>
+                      <CardDescription className="text-xs">
+                        Senha do grupo e administração de membros.
+                      </CardDescription>
+                    </div>
+                    <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                  </CardHeader>
+                </Card>
+              )}
+
               {canManageRestricted && (
                 <Card
                   className="hover-scale cursor-pointer"
@@ -1474,6 +1494,43 @@ const Configuracoes = () => {
               </Card>
                 </>
               )}
+            </div>
+          )}
+
+          {mobileSection === "group" && isGroupAdmin && activeGroup && (
+            <div className="space-y-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-0 gap-1 text-xs mb-1"
+                onClick={() => setMobileSection("root")}
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Voltar
+              </Button>
+
+              <GroupSettingsSection />
+
+              <Card>
+                <CardHeader className="pb-3 pt-3 px-3">
+                  <CardTitle className="flex items-center gap-1.5 text-sm">
+                    <Shield className="h-4 w-4" />
+                    Administração do grupo
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Altere senha, remova membros e promova administradores.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-3 px-3">
+                  <Button
+                    type="button"
+                    className="w-full h-8 text-xs"
+                    onClick={() => navigate("/configuracoes/grupo-admin")}
+                  >
+                    Abrir painel de administração
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           )}
 

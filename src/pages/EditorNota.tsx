@@ -42,6 +42,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { formatDateLocal } from "@/lib/date-utils";
 
 const HIGHLIGHT_COLORS = [
   { name: "Amarelo", color: "rgba(234, 179, 8, 0.5)" },
@@ -412,11 +413,37 @@ const EditorNota = () => {
   );
 
   const MobileNoteToolbar = () => {
+    const [keyboardInset, setKeyboardInset] = useState(0);
+
+    useEffect(() => {
+      if (!isMobile || isViewMode || typeof window === "undefined" || !window.visualViewport) return;
+
+      const viewport = window.visualViewport;
+      const updateKeyboardInset = () => {
+        const rawInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        setKeyboardInset(rawInset > 80 ? rawInset : 0);
+      };
+
+      updateKeyboardInset();
+      viewport.addEventListener("resize", updateKeyboardInset);
+      viewport.addEventListener("scroll", updateKeyboardInset);
+      window.addEventListener("orientationchange", updateKeyboardInset);
+
+      return () => {
+        viewport.removeEventListener("resize", updateKeyboardInset);
+        viewport.removeEventListener("scroll", updateKeyboardInset);
+        window.removeEventListener("orientationchange", updateKeyboardInset);
+      };
+    }, [isMobile, isViewMode]);
+
     if (!isMobile || isViewMode) return null;
     const currentTextColor = editor.getAttributes("textStyle")?.color as string | undefined;
 
     return (
-      <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div
+        className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        style={{ bottom: keyboardInset > 0 ? `${keyboardInset}px` : undefined }}
+      >
         <div className="mx-auto w-full max-w-4xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <div className="flex items-center justify-between gap-2">
             {/* Ações */}
@@ -676,7 +703,7 @@ const EditorNota = () => {
                             <SelectItem value="none">Nenhuma</SelectItem>
                             {reunioes.map((r) => (
                               <SelectItem key={r.id} value={r.id}>
-                                {new Date(r.data).toLocaleDateString("pt-BR")} {r.tema ? `- ${r.tema}` : ""}
+                                {formatDateLocal(r.data)} {r.tema ? `- ${r.tema}` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -699,7 +726,7 @@ const EditorNota = () => {
         className={cn(
           "flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 overflow-y-auto",
           isMobile ? "scrollbar-none" : "scrollbar-thin",
-          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "",
+          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+14rem)]" : "",
         )}
       >
         <div className="max-w-4xl mx-auto w-full space-y-4">
@@ -740,7 +767,7 @@ const EditorNota = () => {
                         <SelectItem value="none">Nenhuma</SelectItem>
                         {reunioes.map((r) => (
                           <SelectItem key={r.id} value={r.id}>
-                            {new Date(r.data).toLocaleDateString("pt-BR")} {r.tema ? `- ${r.tema}` : ""}
+                            {formatDateLocal(r.data)} {r.tema ? `- ${r.tema}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>

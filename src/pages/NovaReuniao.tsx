@@ -26,6 +26,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { PrayerMemberPicker } from "@/components/reunioes/PrayerMemberPicker";
+import { dateToString } from "@/lib/date-utils";
 
 // Lista de livros da Bíblia com seus capítulos
 const bibliaLivros: Record<string, number> = {
@@ -133,7 +134,7 @@ const NovaReuniao = () => {
   const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
   const [selectedFaixas, setSelectedFaixas] = useState<string[]>([]);
   const [formData, setFormData] = useState({
-    data: new Date().toISOString().split("T")[0],
+    data: dateToString(new Date()),
     tema: "",
     observacoes: "",
     numero_visitas: 0,
