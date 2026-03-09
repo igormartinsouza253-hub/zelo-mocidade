@@ -152,7 +152,7 @@ export const TopMembrosWidget = ({
             variant="ghost"
             size="icon"
             onClick={onToggleOrder}
-            className="h-8 w-8 rounded-full border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/70"
+            className="h-8 w-8 rounded-lg border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/70"
             aria-label="Inverter ordem"
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
