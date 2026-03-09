@@ -163,6 +163,37 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const { count: unreadCount } = useUnreadChatCount();
 
+  useEffect(() => {
+    if (!user?.id || !activeGroupId || !isMobileMode) return;
+
+    void supabase.rpc("generate_today_birthday_notifications" as any, {
+      _group_id: activeGroupId,
+      _recipient_user_id: user.id,
+    } as any);
+
+    const channel = supabase
+      .channel(`mobile-notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const incoming = payload.new as { title?: string; message?: string };
+          if (!incoming?.title || !incoming?.message) return;
+          toast(incoming.title, { description: incoming.message });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, activeGroupId, isMobileMode]);
+
   // Heartbeat (presença por grupo): atualiza last_seen_at periodicamente no DB
   useEffect(() => {
     if (!user) return;

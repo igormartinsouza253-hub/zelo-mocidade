@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -16,6 +16,7 @@ import { ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/them
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BootstrapAdminButton } from "@/components/BootstrapAdminButton";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
+import { NotificationSettingsSection } from "@/components/settings/NotificationSettingsSection";
 
 const userEmailSchema = z.object({
   email: z.string()
@@ -109,7 +110,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "group" | "data">("root");
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "group" | "notifications" | "data">("root");
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
@@ -999,6 +1000,24 @@ const Configuracoes = () => {
                 </CardHeader>
               </Card>
 
+              <Card
+                className="hover-scale cursor-pointer"
+                onClick={() => setMobileSection("notifications")}
+              >
+                <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                    <Bell className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <CardTitle className="text-sm">Notificações</CardTitle>
+                    <CardDescription className="text-xs">
+                      Gerencie alertas de aniversários, chat, eventos, notas e solicitações.
+                    </CardDescription>
+                  </div>
+                  <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                </CardHeader>
+              </Card>
+
               {isGroupAdmin && activeGroup && (
                 <Card
                   className="hover-scale cursor-pointer"
@@ -1494,6 +1513,22 @@ const Configuracoes = () => {
               </Card>
                 </>
               )}
+            </div>
+          )}
+
+          {mobileSection === "notifications" && (
+            <div className="space-y-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-0 gap-1 text-xs mb-1"
+                onClick={() => setMobileSection("root")}
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Voltar
+              </Button>
+
+              <NotificationSettingsSection compact />
             </div>
           )}
 
