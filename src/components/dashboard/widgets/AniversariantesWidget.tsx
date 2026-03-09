@@ -135,7 +135,7 @@ export const AniversariantesWidget = ({
                     {aniversariantesHoje.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-2xl md:rounded-full border border-border/50 bg-primary/10 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-2xl md:rounded-lg border border-border/50 bg-primary/10 px-3 py-2 text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar className="h-7 w-7">
