@@ -145,7 +145,7 @@ export const useAuth = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
