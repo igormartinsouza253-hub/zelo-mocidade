@@ -380,6 +380,12 @@ const VisualizarMembro = () => {
               </div>
             </CardContent>
           </Card>
+
+          {createdByName ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Criado por <span className="font-medium text-foreground">{createdByName}</span>
+            </p>
+          ) : null}
         </div>
 
         <InactivateMemberDialog
