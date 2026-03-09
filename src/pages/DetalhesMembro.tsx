@@ -359,7 +359,7 @@ const DetalhesMembro = () => {
 
   return (
     <>
-      <div className="w-full h-full flex justify-center pb-32">
+      <div className="w-full h-full flex justify-center pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-32">
         <div className="w-full max-w-2xl px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
           <div className="hidden md:flex items-center gap-2 md:gap-4 mb-2 md:mb-4">
             <Button
@@ -382,8 +382,8 @@ const DetalhesMembro = () => {
           </div>
 
           <Card className="shadow-[var(--shadow-soft)] border-border/50">
-            <CardContent className="pt-3 md:pt-6 px-3 md:px-6 pb-3 md:pb-6">
-              <div className="flex items-center gap-3 md:gap-6">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4 md:pb-6">
+              <div className="flex flex-col items-center text-center gap-3 md:gap-4">
                 <div className="relative">
                   <Avatar className="h-16 w-16 md:h-24 md:w-24">
                     <AvatarImage src={formData.foto_url} alt={formData.nome} />
@@ -409,46 +409,45 @@ const DetalhesMembro = () => {
                     onChange={handlePhotoUpload}
                     disabled={uploadingPhoto}
                   />
-
-                  {formData.foto_url ? (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setTempImageSrc(formData.foto_url);
-                          setShowCropDialog(true);
-                        }}
-                        disabled={uploadingPhoto}
-                      >
-                        Editar foto atual
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        asChild
-                      >
-                        <a href={formData.foto_url} download>
-                          Baixar foto
-                        </a>
-                      </Button>
-                    </div>
-                  ) : null}
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-lg md:text-2xl font-semibold text-foreground mb-1 md:mb-2 truncate">
+
+                <div className="flex w-full items-center justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (formData.foto_url) {
+                        setTempImageSrc(formData.foto_url);
+                        setShowCropDialog(true);
+                      }
+                    }}
+                    disabled={uploadingPhoto || !formData.foto_url}
+                    className="min-w-0 flex-1"
+                  >
+                    Editar foto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    disabled={!formData.foto_url}
+                    className="min-w-0 flex-1"
+                  >
+                    <a href={formData.foto_url || "#"} download>
+                      Salvar foto
+                    </a>
+                  </Button>
+                </div>
+
+                <div>
+                  <h2 className="text-lg md:text-2xl font-semibold text-foreground truncate">
                     {formData.nome || "Novo Membro"}
                   </h2>
-                  <div className="flex items-center gap-2 md:gap-4 text-muted-foreground">
-                    <div className="flex items-center gap-1.5 md:gap-2">
-                      <span className="text-xs md:text-sm">Presenças:</span>
-                      <span className="text-base md:text-lg font-semibold text-primary">
-                        {totalPresencas}
-                      </span>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Presenças: <span className="text-base font-semibold text-primary">{totalPresencas}</span>
+                  </p>
                 </div>
               </div>
             </CardContent>
