@@ -53,8 +53,14 @@ export function ChatPanel() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isChatPanelOpen || typeof window === "undefined") return;
+    const viewportMax = Math.floor(window.innerWidth * 0.92);
+    const target = Math.floor(window.innerWidth * 0.5);
+    setWidthPx(Math.min(viewportMax, Math.max(minWidth, target)));
+  }, [isChatPanelOpen]);
+
   const widthStyle = useMemo(() => {
-    // On very small viewports, keep it mostly full width.
     return { width: `min(92vw, ${widthPx}px)` } as const;
   }, [widthPx]);
 
