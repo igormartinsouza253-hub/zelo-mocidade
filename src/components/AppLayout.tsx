@@ -827,9 +827,9 @@ function AccountMenu({ user, navigate, onSignOut, profile }: AccountMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="h-11 w-11 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-sm font-semibold text-foreground"
+          className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-sm font-semibold text-foreground"
         >
-          <Avatar className="h-9 w-9 rounded-md">
+          <Avatar className="h-8 w-8 rounded-md">
             <AvatarImage src={profile?.avatar_url || undefined} />
             <AvatarFallback className="rounded-md bg-accent text-foreground text-sm font-semibold">
               {fallbackInitial}
