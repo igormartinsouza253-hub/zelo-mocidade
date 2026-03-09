@@ -1040,31 +1040,6 @@ const Configuracoes = () => {
     });
   };
 
-  const handleDockDragEnd = (result: any) => {
-    if (!result.destination) return;
-
-    const activeItems = dockPrefs.items.filter((item) => item.enabled);
-    const inactiveItems = dockPrefs.items.filter((item) => !item.enabled);
-
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
-
-    if (sourceIndex === destIndex) return;
-
-    const reordered = [...activeItems];
-    const [moved] = reordered.splice(sourceIndex, 1);
-    reordered.splice(destIndex, 0, moved);
-
-    // Atualiza o campo "order" para preservar a nova ordem na sanitização
-    const next = [...reordered, ...inactiveItems].map((item, index) => ({
-      ...item,
-      order: index + 1,
-    }));
-
-    dockPrefs.setItems(next);
-    setDockJustUpdated(true);
-    window.setTimeout(() => setDockJustUpdated(false), 800);
-  };
 
   if (isMobile) {
     return (
