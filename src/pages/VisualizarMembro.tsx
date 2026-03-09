@@ -36,6 +36,7 @@ interface Membro {
   inativado_em?: string | null;
   inativado_motivo?: string | null;
   inativado_observacao?: string | null;
+  created_by_user_id?: string | null;
 }
 
 interface Estatisticas {
