@@ -32,7 +32,7 @@ import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { membroSchema } from "@/lib/membroSchema";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
-interface Cargo {
+import { useActiveGroup } from "@/hooks/useActiveGroup";
   id: string;
   nome: string;
 }
