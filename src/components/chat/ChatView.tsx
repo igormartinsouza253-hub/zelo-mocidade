@@ -955,7 +955,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
             </ScrollArea>
 
             <div className="shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3">
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-2 rounded-xl border border-border/60 bg-card/90 p-2 shadow-[var(--shadow-card)]">
                 <div className="flex items-center gap-1">
                   <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setShowEmoji((v) => !v)} aria-label="Emojis">
                     <Smile className="h-4 w-4" />
@@ -980,7 +980,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
 
                 <div className="flex-1 min-w-0">
                   {showEmoji && (
-                    <div className="mb-2 rounded-xl border border-border bg-popover p-2 shadow-[var(--shadow-card)]">
+                    <div className="mb-2 rounded-lg border border-border bg-popover p-2 shadow-[var(--shadow-card)]">
                       <div className="grid grid-cols-6 gap-1">
                         {emojiList.map((e) => (
                           <button
@@ -1006,13 +1006,13 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
                         void handleSendText();
                       }
                     }}
-                    className="h-10"
+                    className="h-10 rounded-lg border-border/70"
                   />
                 </div>
 
-                <Button type="button" className="h-10" onClick={() => void handleSendText()}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar
+                <Button type="button" className="h-10 rounded-lg" onClick={() => void handleSendText()}>
+                  <Send className="h-4 w-4 md:mr-0 mr-2" />
+                  <span className="hidden md:inline">Enviar</span>
                 </Button>
 
                 <input
