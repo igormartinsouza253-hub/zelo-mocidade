@@ -49,7 +49,7 @@ export const ReunioesChartWidget = ({
 
   const isSmall = size === "sm";
   const isLarge = size === "lg";
-  const height = isLarge ? 230 : size === "md" ? 230 : 200;
+  const height = isLarge ? 260 : size === "md" ? 230 : 200;
 
   const headerPadding = WIDGET_HEADER_PADDING[size];
   const titleTextSize = size === "sm" ? "sm" : size === "lg" ? "lg" : "md";
@@ -191,7 +191,7 @@ export const ReunioesChartWidget = ({
     const tr = ri + total;
 
     const cx = (x ?? 0) + (width ?? 0) / 2;
-    const cy = (y ?? 0) - 6;
+    const cy = (y ?? 0) - 2;
 
     return (
       <text
@@ -235,19 +235,19 @@ export const ReunioesChartWidget = ({
         }
       >
         {isLarge ? (
-          <div className="flex items-stretch gap-4 h-full">
+          <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1.8fr)_minmax(240px,0.95fr)]">
             <div className="flex-[3.5] min-w-0 flex flex-col">
-              <div className="flex-1 flex flex-col justify-between">
+              <div className="flex-1 min-h-0 flex flex-col justify-between rounded-xl border border-border/50 bg-muted/15 p-2">
                 <div className="flex-1 flex items-center">
                   <ResponsiveContainer width="100%" height={height}>
                     <BarChart
                       data={reunioesRecentes}
-                      margin={{
-                        left: 0,
-                        right: 0,
-                        top: 8,
-                        bottom: 0,
-                      }}
+                        margin={{
+                          left: 4,
+                          right: 4,
+                          top: 18,
+                          bottom: 6,
+                        }}
                       barCategoryGap="25%"
                       barGap={0}
                     >
@@ -307,12 +307,9 @@ export const ReunioesChartWidget = ({
                 </div>
 
                 {reunioesRecentes && reunioesRecentes.length > 0 && (
-                  <div className="relative mt-3 h-7">
-                    {reunioesRecentes.map((reuniao, index) => {
-                      const total = reunioesRecentes.length || 1;
-                      const left = ((index + 0.5) / total) * 100;
-
-                      return (
+                  <div className="mt-3 overflow-x-auto pb-1 scrollbar-thin">
+                    <div className="flex min-w-max items-center gap-1.5 pr-1">
+                      {reunioesRecentes.map((reuniao, index) => (
                         <button
                           key={reuniao.data + index}
                           type="button"
@@ -320,31 +317,27 @@ export const ReunioesChartWidget = ({
                             e.stopPropagation();
                             setSelectedIndex(index);
                           }}
-                          style={{
-                            left: `${left}%`,
-                            transform: "translateX(-50%)",
-                          }}
-                          className={`absolute bottom-0 min-w-[52px] rounded-full border px-3 py-0.5 text-[11px] leading-none text-center truncate transition-colors ${
+                          className={`rounded-md border px-2.5 py-1 text-[11px] leading-none whitespace-nowrap transition-colors ${
                             index === selectedIndex
                               ? "bg-primary text-primary-foreground border-primary"
                               : "bg-background text-muted-foreground border-border/60 hover:bg-muted"
                           }`}
                         >
-                          {reuniao.data}
+                          {formatMeetingLabel(reuniao.data)}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
              {selectedReuniao && (
-               <div className="flex-[2.5] max-w-[240px] self-end rounded-[2rem] flex flex-col justify-between px-3 py-3 min-h-[200px] bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] border border-border/40">
+               <div className="min-w-[230px] rounded-xl flex flex-col justify-between px-3 py-3 min-h-[220px] bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] border border-border/40">
                  <div>
                   <p className="inline-flex items-baseline gap-2 mt-1 text-left">
-                    <span className="inline-flex items-center rounded-full bg-primary-foreground/15 px-3 py-0.5 text-xs md:text-sm font-semibold uppercase tracking-[0.16em]">
-                      Reunião {selectedReuniao.data}
+                    <span className="inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-0.5 text-xs md:text-sm font-semibold uppercase tracking-[0.12em]">
+                      Reunião {formatMeetingLabel(selectedReuniao.data)}
                     </span>
                   </p>
                 </div>

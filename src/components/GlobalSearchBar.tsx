@@ -318,9 +318,8 @@ export function GlobalSearchBar() {
       aria-label="Busca global"
     >
       {/* Cápsula externa maior */}
-      <div className="relative flex w-full items-center rounded-full bg-card border border-border/60 px-3 py-1.5 shadow-[var(--shadow-card)]">
-        {/* Área interna menor com ícone + input */}
-        <div className="flex flex-1 items-center gap-2 rounded-full bg-muted/60 px-3 py-1">
+      <div className="relative flex w-full items-center rounded-lg border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-[var(--shadow-card)]">
+        <div className="flex flex-1 items-center gap-2 rounded-lg border border-border/50 bg-background/80 px-2.5 py-1">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <div className="relative flex-1">
             <Input
@@ -329,7 +328,7 @@ export function GlobalSearchBar() {
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               placeholder="Buscar em membros, reuniões e notas..."
-              className="h-7 md:h-8 border-0 bg-transparent px-0 text-[11px] md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-8 md:h-9 border-0 bg-transparent px-0 text-xs md:text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
               aria-autocomplete="list"
               aria-expanded={isOpen}
               aria-controls="global-search-suggestions"
@@ -337,7 +336,7 @@ export function GlobalSearchBar() {
             {isOpen && suggestions.length > 0 && (
               <div
                 id="global-search-suggestions"
-                className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover text-popover-foreground shadow-lg z-50 overflow-hidden"
+                className="absolute left-0 right-0 mt-2 rounded-lg border border-border bg-popover text-popover-foreground shadow-[var(--shadow-elevated)] z-50 overflow-hidden"
                 role="listbox"
               >
                 {suggestions.map((item, index) => (
