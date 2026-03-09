@@ -626,48 +626,32 @@ const DetalhesMembro = () => {
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Inativar membro</AlertDialogTitle>
+              <AlertDialogTitle>Como deseja remover este membro?</AlertDialogTitle>
               <AlertDialogDescription>
-                Informe o motivo. O membro não poderá ser selecionado em novas reuniões, mas continuará aparecendo nas reuniões antigas.
+                Você pode inativar para preservar histórico ou excluir permanentemente (somente admins).
               </AlertDialogDescription>
             </AlertDialogHeader>
 
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label>Motivo</Label>
-                <Select value={inativacaoMotivo} onValueChange={setInativacaoMotivo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Teste">Teste</SelectItem>
-                    <SelectItem value="Mudou de comum">Mudou de comum</SelectItem>
-                    <SelectItem value="Casou">Casou</SelectItem>
-                    <SelectItem value="Não congrega mais">Não congrega mais</SelectItem>
-                    <SelectItem value="Outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
+            <AlertDialogFooter className="sm:justify-between gap-2">
+              <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+              <div className="flex items-center gap-2">
+                <AlertDialogAction
+                  onClick={handleInativar}
+                  disabled={loading}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                >
+                  Tornar inativo
+                </AlertDialogAction>
+                {isAdmin ? (
+                  <AlertDialogAction
+                    onClick={handlePermanentDelete}
+                    disabled={loading}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Excluir permanente
+                  </AlertDialogAction>
+                ) : null}
               </div>
-
-              <div className="space-y-2">
-                <Label>Observação (opcional)</Label>
-                <Textarea
-                  value={inativacaoObservacao}
-                  onChange={(e) => setInativacaoObservacao(e.target.value)}
-                  placeholder={inativacaoMotivo === "Outro" ? "Descreva o motivo" : "Detalhes (se necessário)"}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleInativar}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Inativar
-              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
