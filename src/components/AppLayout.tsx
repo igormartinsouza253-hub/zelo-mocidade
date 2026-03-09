@@ -15,6 +15,7 @@ import {
   LogOut,
   ArrowLeft,
   MessageCircle,
+  Bell,
 } from "lucide-react";
 import {
   SidebarPreferencesProvider,
