@@ -70,7 +70,7 @@ export const TopMembrosWidget = ({
               <button
                 key={membro.id}
                 type="button"
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-full hover:bg-accent/60 text-[11px]"
+                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent/60 text-[11px]"
                 onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                 onDoubleClick={cancelScheduledNavigate}
               >
