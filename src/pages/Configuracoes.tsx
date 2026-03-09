@@ -496,19 +496,6 @@ const Configuracoes = () => {
     }
   };
 
-  const loadCargos = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("cargos")
-        .select("*")
-        .order("nome");
-
-      if (error) throw error;
-      setCargos(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar cargos:", error);
-    }
-  };
 
   const parseDateDDMMYYYY = (value: string | number | undefined | null): string | null => {
     if (value === undefined || value === null || value === "") return null;
