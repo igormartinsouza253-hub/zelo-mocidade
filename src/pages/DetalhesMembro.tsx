@@ -273,19 +273,6 @@ const DetalhesMembro = () => {
   };
 
   const handleInativar = async () => {
-    const motivo = inativacaoMotivo.trim();
-    const obs = inativacaoObservacao.trim();
-
-    if (!motivo) {
-      toast.error("Selecione um motivo");
-      return;
-    }
-
-    if (motivo === "Outro" && !obs) {
-      toast.error("Descreva a justificativa");
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -297,8 +284,8 @@ const DetalhesMembro = () => {
         .update({
           ativo: false,
           inativado_em: new Date().toISOString(),
-          inativado_motivo: motivo,
-          inativado_observacao: obs || null,
+          inativado_motivo: "Inativado manualmente",
+          inativado_observacao: null,
         })
         .eq("id", id);
 
@@ -310,8 +297,8 @@ const DetalhesMembro = () => {
           group_id: memberGroupId,
           user_id: userId,
           action: "inactivate",
-          reason: motivo,
-          note: obs || null,
+          reason: "Inativado manualmente",
+          note: null,
         });
       }
 
@@ -322,6 +309,42 @@ const DetalhesMembro = () => {
       toast.error("Erro ao inativar membro");
     } finally {
       setLoading(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!isAdmin) {
+      toast.error("Apenas admins podem excluir permanentemente.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const memberId = id;
+      const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
+        supabase.from("presencas").delete().eq("membro_id", memberId),
+        supabase.from("eventos").delete().eq("membro_visitado_id", memberId),
+        supabase.from("visitas").delete().eq("membro_visitado_id", memberId),
+        supabase.from("notas").delete().eq("membro_id", memberId),
+      ]);
+
+      const cleanupError =
+        presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
+      if (cleanupError) throw cleanupError;
+
+      const { error } = await supabase.from("membros").delete().eq("id", memberId);
+      if (error) throw error;
+
+      toast.success("Membro excluído permanentemente.");
+      navigate("/membros");
+    } catch (error) {
+      console.error("Erro ao excluir membro:", error);
+      toast.error("Erro ao excluir membro");
+    } finally {
+      setLoading(false);
+      setShowDeleteDialog(false);
     }
   };
 
