@@ -672,6 +672,11 @@ export default function MobileCalendar() {
   }, [upcomingItems]);
 
   const getRawEventoById = (baseId: string) => rawEventos.find((e) => e.id === baseId) ?? null;
+  const getEventCreatorName = (baseId: string) => {
+    const ownerId = getRawEventoById(baseId)?.user_id;
+    if (!ownerId) return null;
+    return creatorNameByUserId[ownerId] ?? "Usuário";
+  };
 
   const loadPresenceCount = async (reuniaoId: string) => {
     setPresenceByMeetingId((prev) => ({
