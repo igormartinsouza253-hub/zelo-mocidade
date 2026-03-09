@@ -49,7 +49,7 @@ export const NotasWidget = ({
   const notasOrdenadas = [...notas].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   if (size === "sm") {
     const ultima = notasOrdenadas[0];
-    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
         <CardHeader className={WIDGET_HEADER_PADDING["sm"] + " flex flex-row items-center justify-between"}>
           <CardTitle className={widgetTitleClass("sm")}>
             Notas rápidas
