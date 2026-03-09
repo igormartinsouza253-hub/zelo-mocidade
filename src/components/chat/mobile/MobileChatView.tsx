@@ -783,6 +783,9 @@ export function MobileChatView() {
   }, [conversations, location.pathname, location.search, navigate]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    void resolveProfiles([user.id]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
