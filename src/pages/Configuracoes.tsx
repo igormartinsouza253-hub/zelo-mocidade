@@ -14,8 +14,6 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/theme-presets";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useDockPreferences, DOCK_ICON_MAP } from "@/hooks/useDockPreferences";
-import { Checkbox } from "@/components/ui/checkbox";
 import { BootstrapAdminButton } from "@/components/BootstrapAdminButton";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
 
@@ -56,7 +54,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarConfigCard } from "@/components/SidebarConfigCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 
 interface Cargo {
   id: string;
