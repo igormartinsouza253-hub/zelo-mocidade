@@ -109,7 +109,7 @@ export const TopMembrosWidget = ({
         </CardHeader>
         <CardContent className="flex-1 overflow-auto px-3 pb-3 pt-0 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
           <div className="space-y-1.5 w-full">
-            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : top5Membros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-full hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
+            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : top5Membros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="relative">
                       <Avatar className="h-7 w-7">
