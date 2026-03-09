@@ -663,7 +663,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
     return (
       <div key={m.id} className={"flex flex-col gap-1 " + (mine ? "items-end" : "items-start")}>
         {!mine && <div className="text-[11px] text-muted-foreground px-1">{profile?.username ?? "Usuário"}</div>}
-        <div className={`max-w-[85%] rounded-2xl border border-border px-3 py-2 text-sm ${bubble}`}>
+        <div className={`max-w-[85%] rounded-lg border border-border px-3 py-2 text-sm ${bubble}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-[11px] text-muted-foreground mb-1">{time}</div>
             {mine && !m.id.startsWith("temp_") && (
