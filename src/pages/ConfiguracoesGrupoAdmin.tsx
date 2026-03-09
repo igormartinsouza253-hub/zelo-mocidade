@@ -37,7 +37,7 @@ type PresenceRow = {
 
 export default function ConfiguracoesGrupoAdmin() {
   const navigate = useNavigate();
-  const { activeGroupId, activeGroup, isAdmin, refresh } = useActiveGroup();
+  const { loading: loadingActiveGroup, activeGroupId, activeGroup, isAdmin, refresh } = useActiveGroup();
   const { setConfig } = usePageHeader();
 
   const [tab, setTab] = useState<"info" | "senha" | "membros" | "ownership">("info");
@@ -95,6 +95,7 @@ export default function ConfiguracoesGrupoAdmin() {
   }, []);
 
   useEffect(() => {
+    if (loadingActiveGroup) return;
     if (!activeGroupId || !isAdmin) {
       navigate("/configuracoes");
       return;
@@ -103,13 +104,13 @@ export default function ConfiguracoesGrupoAdmin() {
     loadMembers();
     loadGroupOwner();
     void loadPresence();
-  }, [activeGroupId, isAdmin]);
+  }, [activeGroupId, isAdmin, loadingActiveGroup]);
 
   useEffect(() => {
-    if (!activeGroupId || !isAdmin) return;
+    if (loadingActiveGroup || !activeGroupId || !isAdmin) return;
     const id = window.setInterval(() => void loadPresence(), 30000);
     return () => window.clearInterval(id);
-  }, [activeGroupId, isAdmin]);
+  }, [activeGroupId, isAdmin, loadingActiveGroup]);
 
   const loadGroupData = async () => {
     if (!activeGroupId) return;
