@@ -307,12 +307,9 @@ export const ReunioesChartWidget = ({
                 </div>
 
                 {reunioesRecentes && reunioesRecentes.length > 0 && (
-                  <div className="relative mt-3 h-7">
-                    {reunioesRecentes.map((reuniao, index) => {
-                      const total = reunioesRecentes.length || 1;
-                      const left = ((index + 0.5) / total) * 100;
-
-                      return (
+                  <div className="mt-3 overflow-x-auto pb-1 scrollbar-thin">
+                    <div className="flex min-w-max items-center gap-1.5 pr-1">
+                      {reunioesRecentes.map((reuniao, index) => (
                         <button
                           key={reuniao.data + index}
                           type="button"
@@ -320,20 +317,16 @@ export const ReunioesChartWidget = ({
                             e.stopPropagation();
                             setSelectedIndex(index);
                           }}
-                          style={{
-                            left: `${left}%`,
-                            transform: "translateX(-50%)",
-                          }}
-                          className={`absolute bottom-0 min-w-[52px] rounded-full border px-3 py-0.5 text-[11px] leading-none text-center truncate transition-colors ${
+                          className={`rounded-md border px-2.5 py-1 text-[11px] leading-none whitespace-nowrap transition-colors ${
                             index === selectedIndex
                               ? "bg-primary text-primary-foreground border-primary"
                               : "bg-background text-muted-foreground border-border/60 hover:bg-muted"
                           }`}
                         >
-                          {reuniao.data}
+                          {formatMeetingLabel(reuniao.data)}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
