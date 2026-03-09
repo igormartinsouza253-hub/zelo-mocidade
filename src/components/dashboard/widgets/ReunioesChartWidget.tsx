@@ -333,7 +333,7 @@ export const ReunioesChartWidget = ({
             </div>
 
              {selectedReuniao && (
-               <div className="flex-[2.5] max-w-[240px] self-end rounded-[2rem] flex flex-col justify-between px-3 py-3 min-h-[200px] bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] border border-border/40">
+               <div className="min-w-[230px] rounded-xl flex flex-col justify-between px-3 py-3 min-h-[220px] bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] border border-border/40">
                  <div>
                   <p className="inline-flex items-baseline gap-2 mt-1 text-left">
                     <span className="inline-flex items-center rounded-full bg-primary-foreground/15 px-3 py-0.5 text-xs md:text-sm font-semibold uppercase tracking-[0.16em]">
