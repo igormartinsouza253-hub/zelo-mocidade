@@ -307,6 +307,13 @@ const EditorNota = () => {
         setSelectedMembroId((data.membro_id as string | null) ?? "none");
         setSelectedReuniaoId((data.reuniao_id as string | null) ?? "none");
         setIsViewMode(true);
+
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", data.user_id)
+          .maybeSingle();
+        setCreatedByName(creatorProfile?.username ?? null);
       }
     } catch (error) {
       console.error("Erro ao carregar nota:", error);
