@@ -1248,7 +1248,7 @@ export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "des
             {/* Lista */}
             <main className="flex-1 min-h-0">
               <ScrollArea className="h-full">
-                <div className="p-3 pb-28 space-y-2">
+                <div className={"p-3 space-y-2 " + (isDesktopLayout ? "pb-4" : "pb-28")}>
                   {loadingConversations ? (
                     <p className="text-sm text-muted-foreground">Carregando...</p>
                   ) : (
