@@ -449,6 +449,25 @@ export default function MobileCalendar() {
     void load();
   }, [activeGroupId, monthRange.end, monthRange.start]);
 
+  useEffect(() => {
+    const loadEventCreators = async () => {
+      const userIds = Array.from(new Set(rawEventos.map((e) => e.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        setCreatorNameByUserId({});
+        return;
+      }
+
+      const { data } = await supabase.from("profiles").select("id, username").in("id", userIds).limit(200);
+      const next: Record<string, string> = {};
+      (data ?? []).forEach((profile: any) => {
+        if (profile?.id && profile?.username) next[profile.id] = profile.username;
+      });
+      setCreatorNameByUserId(next);
+    };
+
+    void loadEventCreators();
+  }, [rawEventos]);
+
   function parseMMDD(mmdd: string) {
     const [mm, dd] = mmdd.split("-").map((n) => Number(n));
     if (!Number.isFinite(mm) || !Number.isFinite(dd)) return null;
