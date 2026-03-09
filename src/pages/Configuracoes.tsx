@@ -49,11 +49,6 @@ import { SidebarConfigCard } from "@/components/SidebarConfigCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 
-interface Cargo {
-  id: string;
-  nome: string;
-}
-
 interface UserWithRole {
   id: string;
   email: string | null;
