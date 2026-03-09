@@ -328,7 +328,7 @@ export function GlobalSearchBar() {
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               placeholder="Buscar em membros, reuniões e notas..."
-              className="h-7 md:h-8 border-0 bg-transparent px-0 text-[11px] md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-8 md:h-9 border-0 bg-transparent px-0 text-xs md:text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
               aria-autocomplete="list"
               aria-expanded={isOpen}
               aria-controls="global-search-suggestions"
