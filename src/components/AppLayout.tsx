@@ -651,7 +651,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       {/* Legenda global do grupo ativo (somente desktop/tablet) */}
       {!isMobileMode && (
         <div className="fixed left-3 bottom-20 md:left-4 md:bottom-4 z-40 pointer-events-none">
-          <div className="pointer-events-auto w-[70vw] max-w-xs rounded-full border border-border/60 bg-card/70 backdrop-blur-md shadow-[var(--shadow-card)]">
+          <div className="pointer-events-auto w-[70vw] max-w-xs rounded-xl border border-border/70 bg-card/80 backdrop-blur-md shadow-[var(--shadow-card)]">
             <div className="px-3 py-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] font-medium text-muted-foreground">Grupo</span>
