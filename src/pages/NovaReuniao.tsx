@@ -134,7 +134,7 @@ const NovaReuniao = () => {
   const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
   const [selectedFaixas, setSelectedFaixas] = useState<string[]>([]);
   const [formData, setFormData] = useState({
-    data: new Date().toISOString().split("T")[0],
+    data: dateToString(new Date()),
     tema: "",
     observacoes: "",
     numero_visitas: 0,

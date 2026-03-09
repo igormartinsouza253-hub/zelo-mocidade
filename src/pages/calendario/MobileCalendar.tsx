@@ -502,7 +502,9 @@ export default function MobileCalendar() {
 
     // reuniões
     reunioes.forEach((r) => {
-      const start = new Date(`${r.data}T00:00:00.000Z`);
+      const start = parseLocalDateOnly(r.data, 19);
+      if (!start) return;
+
       items.push({
         kind: "reuniao",
         id: r.id,
