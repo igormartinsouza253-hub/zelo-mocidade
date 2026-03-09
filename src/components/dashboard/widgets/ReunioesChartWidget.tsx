@@ -235,7 +235,7 @@ export const ReunioesChartWidget = ({
         }
       >
         {isLarge ? (
-          <div className="flex items-stretch gap-4 h-full">
+          <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1.8fr)_minmax(240px,0.95fr)]">
             <div className="flex-[3.5] min-w-0 flex flex-col">
               <div className="flex-1 flex flex-col justify-between">
                 <div className="flex-1 flex items-center">
