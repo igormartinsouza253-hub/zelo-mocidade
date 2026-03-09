@@ -117,6 +117,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
   }, [dockExpanded]);
 
   const isDockCollapsed = isCompactPanel && !dockExpanded;
+  const isDesktopPage = mode === "page" && !isMobile;
 
   useEffect(() => {
     if (mode !== "page") return;
