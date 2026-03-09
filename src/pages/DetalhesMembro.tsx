@@ -43,8 +43,6 @@ const DetalhesMembro = () => {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [inativacaoMotivo, setInativacaoMotivo] = useState<string>("");
-  const [inativacaoObservacao, setInativacaoObservacao] = useState<string>("");
   const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const [cargosDisponiveis, setCargosDisponiveis] = useState<Cargo[]>([]);
   const [cargosLoading, setCargosLoading] = useState(true);
