@@ -926,6 +926,10 @@ const EditorNota = () => {
             </CardContent>
           </Card>
 
+          {isViewMode && createdByName ? (
+            <p className="text-xs text-muted-foreground">Criado por <span className="font-medium text-foreground">{createdByName}</span></p>
+          ) : null}
+
           {/* Mobile toolbar fixa (substitui a dock inferior do app) */}
           <MobileNoteToolbar />
 
