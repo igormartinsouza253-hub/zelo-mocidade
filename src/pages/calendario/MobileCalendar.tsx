@@ -606,6 +606,32 @@ export default function MobileCalendar() {
 
   const selectedKey = useMemo(() => format(selectedDay, "yyyy-MM-dd"), [selectedDay]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const eventId = params.get("eventId");
+    if (!eventId) return;
+
+    const target = filteredAllItems.find((it): it is Extract<MobileCalendarItem, { kind: "evento" }> => it.kind === "evento" && it.baseId === eventId);
+    if (!target) return;
+
+    setSelectedDay(target.start);
+    setDetailsEvent({
+      baseId: target.baseId,
+      title: target.title,
+      start: target.start,
+      end: target.end,
+      allDay: target.allDay,
+      tipo: target.tipo,
+      descricao: target.descricao ?? null,
+      local: target.local ?? null,
+    });
+    setDetailsOpen(true);
+
+    params.delete("eventId");
+    const next = params.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+  }, [filteredAllItems, location.pathname, location.search, navigate]);
+
   const upcomingStart = useMemo(() => startOfDay(selectedDay), [selectedDay]);
   const upcomingEnd = useMemo(() => addDays(upcomingStart, 60), [upcomingStart]);
 

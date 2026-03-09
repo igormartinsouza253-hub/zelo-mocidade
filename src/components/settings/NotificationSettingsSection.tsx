@@ -32,6 +32,9 @@ type NotificationRow = {
   type: string;
   created_at: string;
   read_at: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 interface NotificationSettingsSectionProps {
@@ -41,6 +44,7 @@ interface NotificationSettingsSectionProps {
 export function NotificationSettingsSection({ compact = false }: NotificationSettingsSectionProps) {
   const { user } = useAuth();
   const { activeGroupId } = useActiveGroup();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,6 +55,24 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
     () => notifications.filter((item) => !item.read_at).length,
     [notifications],
   );
+
+  const resolveNotificationHref = (item: NotificationRow) => {
+    if (item.entity_type === "chat_message") {
+      const conversationId = typeof item.metadata?.conversation_id === "string" ? item.metadata.conversation_id : null;
+      if (conversationId) return `/chat?conversationId=${encodeURIComponent(conversationId)}`;
+      return "/chat";
+    }
+
+    if (item.entity_type === "nota" && item.entity_id) {
+      return `/notas/editar/${encodeURIComponent(item.entity_id)}`;
+    }
+
+    if (item.entity_type === "evento" && item.entity_id) {
+      return `/calendario?eventId=${encodeURIComponent(item.entity_id)}`;
+    }
+
+    return "/configuracoes?section=notifications";
+  };
 
   const loadPreferences = async () => {
     if (!user) return;
@@ -90,7 +112,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, title, message, type, created_at, read_at")
+        .select("id, title, message, type, created_at, read_at, entity_type, entity_id, metadata")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -334,6 +356,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
                     type="button"
                     onClick={() => {
                       if (!item.read_at) void markOneAsRead(item.id);
+                      navigate(resolveNotificationHref(item));
                     }}
                     className="w-full rounded-md border border-border p-3 text-left transition-colors hover:bg-accent/40"
                   >

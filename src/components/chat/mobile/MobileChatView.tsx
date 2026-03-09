@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -410,6 +410,7 @@ function MessageBubble({
 
 export function MobileChatView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { activeGroupId, activeGroup } = useActiveGroup();
 
@@ -766,6 +767,20 @@ export function MobileChatView() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, activeGroupId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const deepLinkConversationId = params.get("conversationId");
+    if (!deepLinkConversationId) return;
+    if (!conversations.some((c) => c.id === deepLinkConversationId)) return;
+
+    setActiveConversationId(deepLinkConversationId);
+    setScreen("thread");
+
+    params.delete("conversationId");
+    const next = params.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+  }, [conversations, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!user?.id) return;

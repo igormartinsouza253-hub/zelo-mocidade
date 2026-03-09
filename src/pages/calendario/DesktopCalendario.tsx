@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Calendar as BigCalendar, dateFnsLocalizer, Views, type View } from "react-big-calendar";
 import withDragAndDrop, {
   type EventInteractionArgs,
@@ -441,6 +441,7 @@ export default function Calendario() {
   const { user } = useAuth();
   const { activeGroupId } = useActiveGroup();
   const { setConfig } = usePageHeader();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [view, setView] = useState<View>(Views.MONTH);
@@ -1456,6 +1457,26 @@ export default function Calendario() {
       setPendingMove(null);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const eventId = params.get("eventId");
+    if (!eventId) return;
+
+    const target = events.find((ev) => ev.resource.kind === "evento" && ev.resource.baseId === eventId);
+    if (!target) return;
+
+    setDate(target.start);
+    if (target.resource.tipo === "visita") {
+      openVisitDetails(target);
+    } else {
+      openEventDetails(target);
+    }
+
+    params.delete("eventId");
+    const next = params.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+  }, [events, location.pathname, location.search, navigate]);
 
   const onSelectSlot = (slotInfo: any) => {
     const start = slotInfo?.start instanceof Date ? slotInfo.start : new Date();
