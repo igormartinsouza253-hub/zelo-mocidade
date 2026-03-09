@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { StatsWidget } from "@/components/dashboard/widgets/StatsWidget";
-import { NextMeetingWidget } from "@/components/dashboard/widgets/NextMeetingWidget";
+
 import { FrequencySummaryWidget } from "@/components/dashboard/widgets/FrequencySummaryWidget";
 import { FaixaEtariaWidget } from "@/components/dashboard/widgets/FaixaEtariaWidget";
 import { ReunioesChartWidget } from "@/components/dashboard/widgets/ReunioesChartWidget";
@@ -79,13 +79,11 @@ export function DesktopDashboard({
               </div>
 
               {/* Coluna direita */}
-              <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(150px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
+              <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
                 <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)] gap-4">
                   <QuickActionsWidget size="sm" />
                   <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
                 </div>
-
-                <NextMeetingWidget size="md" ultimaReuniao={stats.ultimaReuniao} />
 
                 <StatsWidget
                   size="lg"
