@@ -496,15 +496,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         setPreferredOpenMode,
       }}
     >
-      <div className="hidden md:flex fixed left-[6.5rem] top-3 z-50 h-10 items-center">
-        <div className="rounded-lg border border-border/70 bg-card/90 p-1 shadow-[var(--shadow-card)]">
-          <ThemedLogo
-            src={logoSource}
-            alt="Logo do app"
-            className="h-7 w-auto object-contain rounded-md"
-          />
-        </div>
-      </div>
 
        <div className="flex h-screen w-full bg-background md:bg-background md:pl-20 overflow-hidden">
         {/* Modern Sidebar - Desktop/Tablet only */}
@@ -622,7 +613,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               isChatRoute
                 ? "overflow-hidden p-0"
                 : !isMobileMode && isDashboard
-                  ? "overflow-hidden"
+                  ? "overflow-y-auto overflow-x-hidden"
                   : "overflow-y-auto overflow-x-hidden"
             } ${isChatRoute ? "pb-0" : "p-3"} ${
               isChatRoute
@@ -734,6 +725,14 @@ function DesktopHeader({
   return (
     <div className="hidden md:flex shrink-0 flex-col bg-background px-6 pt-2.5 pb-2">
       <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
+        <div className="inline-flex h-9 items-center rounded-lg border border-border/70 bg-card px-2 shadow-[var(--shadow-card)]">
+          <ThemedLogo
+            src={logoSource}
+            alt="Logo do app"
+            className="h-6 w-auto object-contain rounded-md"
+          />
+        </div>
+
         {showBackButton && (
           <button
             type="button"

@@ -66,7 +66,7 @@ export function ChatPanel() {
 
   return (
     <Sheet open={isChatPanelOpen} onOpenChange={(open) => (open ? undefined : closeChatPanel())}>
-      <SheetContent side="right" className="p-0 max-w-none flex flex-col" style={widthStyle}>
+      <SheetContent side="right" className="p-0 max-w-none sm:max-w-none flex flex-col" style={widthStyle}>
         {/* Drag handle */}
         <div
           className="absolute left-0 top-0 h-full w-2 cursor-ew-resize"
