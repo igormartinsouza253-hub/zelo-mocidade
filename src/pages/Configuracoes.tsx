@@ -14,8 +14,6 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/theme-presets";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useDockPreferences, DOCK_ICON_MAP } from "@/hooks/useDockPreferences";
-import { Checkbox } from "@/components/ui/checkbox";
 import { BootstrapAdminButton } from "@/components/BootstrapAdminButton";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
 
@@ -27,12 +25,6 @@ const userEmailSchema = z.object({
     .max(255, "Email deve ter no máximo 255 caracteres"),
 });
 
-const cargoSchema = z.object({
-  nome: z.string()
-    .trim()
-    .min(1, "Nome do cargo é obrigatório")
-    .max(50, "Nome do cargo deve ter no máximo 50 caracteres"),
-});
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,12 +48,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarConfigCard } from "@/components/SidebarConfigCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-
-interface Cargo {
-  id: string;
-  nome: string;
-}
 
 interface UserWithRole {
   id: string;
@@ -77,10 +63,6 @@ const Configuracoes = () => {
   const { user } = useAuth();
   const { activeGroup, isAdmin: isGroupAdmin } = useActiveGroup();
   const isMobile = useIsMobile();
-  const dockPrefs = useDockPreferences();
-  const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [novoCargo, setNovoCargo] = useState("");
-  const [cargoParaExcluir, setCargoParaExcluir] = useState<Cargo | null>(null);
   const [loading, setLoading] = useState(false);
   
   // User management states
@@ -127,11 +109,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<
-    "root" | "theme" | "account" | "users" | "data"
-  >("root");
-
-  const [dockJustUpdated, setDockJustUpdated] = useState(false);
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "data">("root");
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
@@ -149,7 +127,6 @@ const Configuracoes = () => {
   const [confirmImportOpen, setConfirmImportOpen] = useState(false);
 
   useEffect(() => {
-    loadCargos();
     checkAdminStatus();
     if (user) {
       loadUserPreferences();
@@ -518,19 +495,6 @@ const Configuracoes = () => {
     }
   };
 
-  const loadCargos = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("cargos")
-        .select("*")
-        .order("nome");
-
-      if (error) throw error;
-      setCargos(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar cargos:", error);
-    }
-  };
 
   const parseDateDDMMYYYY = (value: string | number | undefined | null): string | null => {
     if (value === undefined || value === null || value === "") return null;
@@ -848,62 +812,6 @@ const Configuracoes = () => {
     }
   };
 
-  const handleAddCargo = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const validation = cargoSchema.safeParse({ nome: novoCargo.trim() });
-
-    if (!validation.success) {
-      const firstError = validation.error.errors[0];
-      toast.error(firstError.message);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("cargos")
-        .insert([{ nome: novoCargo.trim() }]);
-
-      if (error) throw error;
-
-      toast.success("Cargo adicionado com sucesso!");
-      setNovoCargo("");
-      loadCargos();
-    } catch (error: any) {
-      console.error("Erro ao adicionar cargo:", error);
-      if (error.code === "23505") {
-        toast.error("Este cargo já existe");
-      } else {
-        toast.error("Erro ao adicionar cargo");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteCargo = async () => {
-    if (!cargoParaExcluir) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("cargos")
-        .delete()
-        .eq("id", cargoParaExcluir.id);
-
-      if (error) throw error;
-
-      toast.success("Cargo excluído com sucesso!");
-      setCargoParaExcluir(null);
-      loadCargos();
-    } catch (error) {
-      console.error("Erro ao excluir cargo:", error);
-      toast.error("Erro ao excluir cargo");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   type HslColor = { h: number; s: number; l: number };
 
@@ -1048,31 +956,6 @@ const Configuracoes = () => {
     });
   };
 
-  const handleDockDragEnd = (result: any) => {
-    if (!result.destination) return;
-
-    const activeItems = dockPrefs.items.filter((item) => item.enabled);
-    const inactiveItems = dockPrefs.items.filter((item) => !item.enabled);
-
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
-
-    if (sourceIndex === destIndex) return;
-
-    const reordered = [...activeItems];
-    const [moved] = reordered.splice(sourceIndex, 1);
-    reordered.splice(destIndex, 0, moved);
-
-    // Atualiza o campo "order" para preservar a nova ordem na sanitização
-    const next = [...reordered, ...inactiveItems].map((item, index) => ({
-      ...item,
-      order: index + 1,
-    }));
-
-    dockPrefs.setItems(next);
-    setDockJustUpdated(true);
-    window.setTimeout(() => setDockJustUpdated(false), 800);
-  };
 
   if (isMobile) {
     return (
@@ -1085,7 +968,7 @@ const Configuracoes = () => {
                 onClick={() => setMobileSection("theme")}
               >
                 <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                     <Monitor className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
@@ -1100,49 +983,29 @@ const Configuracoes = () => {
 
               <Card
                 className="hover-scale cursor-pointer"
-                onClick={() => setMobileSection("account")}
+                onClick={() => setMobileSection("users")}
               >
                 <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                    <User className="h-4 w-4" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                    <Shield className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
-                    <CardTitle className="text-sm">Conta</CardTitle>
+                    <CardTitle className="text-sm">Usuários</CardTitle>
                     <CardDescription className="text-xs">
-                      Foto de perfil, username e senha de acesso.
+                      Minha conta e gerenciamento de acesso do app.
                     </CardDescription>
                   </div>
                   <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
                 </CardHeader>
               </Card>
 
-               {canManageRestricted && (
-                <Card
-                  className="hover-scale cursor-pointer"
-                  onClick={() => setMobileSection("users")}
-                >
-                  <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                      <Shield className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <CardTitle className="text-sm">Usuários e cargos</CardTitle>
-                      <CardDescription className="text-xs">
-                        Controle de acesso, papéis e cargos do app.
-                      </CardDescription>
-                    </div>
-                    <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
-                  </CardHeader>
-                </Card>
-              )}
-
-               {canManageRestricted && (
+              {canManageRestricted && (
                 <Card
                   className="hover-scale cursor-pointer"
                   onClick={() => setMobileSection("data")}
                 >
                   <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                       <FileSpreadsheet className="h-4 w-4" />
                     </div>
                     <div className="flex-1 text-left">
@@ -1298,365 +1161,10 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              {/* 4️⃣ Dock de navegação (mobile) */}
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3 flex flex-row items-center justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-sm">Dock de navegação (mobile)</CardTitle>
-                    <CardDescription className="text-xs">
-                      Escolha até 5 atalhos fixos para aparecer na barra inferior do app.
-                    </CardDescription>
-                  </div>
-                  <span className="text-[11px] px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">
-                    {dockPrefs.enabledItems.length}/5
-                  </span>
-                </CardHeader>
-                <CardContent className="pb-3 px-3 space-y-3">
-                  {dockPrefs.enabledItems.length >= 5 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Limite de 5 atalhos atingido. Remova um atalho para adicionar outro.
-                    </p>
-                  )}
-
-                  {/* Lista de atalhos ativos (dock atual) */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Atalhos fixos na dock</Label>
-                    <DragDropContext onDragEnd={handleDockDragEnd}>
-                      <Droppable droppableId="dock-active">
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className="space-y-1.5"
-                          >
-                            {dockPrefs.items
-                              .filter((item) => item.enabled)
-                              .map((item, index) => {
-                                const Icon = DOCK_ICON_MAP[item.id];
-                                return (
-                                  <Draggable
-                                    key={item.id}
-                                    draggableId={item.id}
-                                    index={index}
-                                  >
-                                    {(dragProvided, snapshot) => (
-                                      <div
-                                        ref={dragProvided.innerRef}
-                                        {...dragProvided.draggableProps}
-                                        {...dragProvided.dragHandleProps}
-                                        className={`flex items-center justify-between rounded-2xl border bg-card px-3 py-2.5 text-xs transition-all ${
-                                          snapshot.isDragging
-                                            ? "border-primary bg-primary/5 shadow-md"
-                                            : "border-border"
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                          {Icon && (
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground flex-shrink-0">
-                                              <Icon className="h-4 w-4" />
-                                            </div>
-                                          )}
-                                          <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-medium truncate">
-                                              {item.title}
-                                            </span>
-                                            <span className="text-[11px] text-muted-foreground truncate">
-                                              {item.url}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 px-2 text-[11px]"
-                                          onClick={() => {
-                                            if (dockPrefs.enabledItems.length <= 1) {
-                                              toast.error("Mantenha pelo menos 1 atalho na dock.");
-                                              return;
-                                            }
-                                            const next = dockPrefs.items.map((it) =>
-                                              it.id === item.id ? { ...it, enabled: false } : it
-                                            );
-                                            dockPrefs.setItems(next);
-                                            setDockJustUpdated(true);
-                                            window.setTimeout(() => setDockJustUpdated(false), 800);
-                                          }}
-                                        >
-                                          Remover
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </Draggable>
-                                );
-                              })}
-                            {provided.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
-                  </div>
-
-                  {/* Lista de outros atalhos disponíveis */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Outros atalhos disponíveis</Label>
-                    <div className="space-y-1.5">
-                      {dockPrefs.items
-                        .filter((item) => !item.enabled)
-                        .map((item) => {
-                          const Icon = DOCK_ICON_MAP[item.id];
-                          const activeCount = dockPrefs.enabledItems.length;
-
-                          const isFull = activeCount >= 5;
-
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between rounded-2xl border border-border bg-card px-3 py-2.5 text-xs"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                {Icon && (
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground flex-shrink-0">
-                                    <Icon className="h-4 w-4" />
-                                  </div>
-                                )}
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-medium truncate">
-                                    {item.title}
-                                  </span>
-                                  <span className="text-[11px] text-muted-foreground truncate">
-                                    {item.url}
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={isFull}
-                                className="h-7 px-2 text-[11px] disabled:opacity-50"
-                                onClick={() => {
-                                  if (isFull) {
-                                    toast.error("A dock permite no máximo 5 atalhos ativos.");
-                                    return;
-                                  }
-
-                                  const next = dockPrefs.items.map((it) =>
-                                    it.id === item.id ? { ...it, enabled: true } : it
-                                  );
-                                  dockPrefs.setItems(next);
-                                  setDockJustUpdated(true);
-                                  window.setTimeout(() => setDockJustUpdated(false), 800);
-                                }}
-                              >
-                                Adicionar
-                              </Button>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-
-                  {/* Prévia do dock */}
-                  <div className="rounded-2xl border border-dashed border-border bg-card/70 px-3 py-3">
-                    <p className="text-[11px] text-muted-foreground mb-2 flex items-center justify-between">
-                      <span>Prévia da dock</span>
-                      {dockJustUpdated && (
-                        <span className="text-[10px] text-primary animate-fade-in">
-                          Dock atualizada
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex items-center justify-between gap-1">
-                      {dockPrefs.enabledItems.map((item) => {
-                        const Icon = DOCK_ICON_MAP[item.id];
-                        return (
-                          <div
-                            key={item.id}
-                            className="flex-1 flex items-center justify-center"
-                          >
-                            {Icon && (
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30">
-                                <Icon className="h-4 w-4" />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 w-full h-8 text-xs"
-                      onClick={() => {
-                        setDockJustUpdated(true);
-                        toast.success("Dock salva com sucesso");
-                        window.setTimeout(() => setDockJustUpdated(false), 800);
-                      }}
-                    >
-                      Salvar dock
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
 
-          {mobileSection === "account" && (
-            <div className="space-y-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-0 gap-1 text-xs mb-1"
-                onClick={() => setMobileSection("root")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar
-              </Button>
-
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
-                  <CardTitle className="flex items-center gap-1.5 text-sm">
-                    <User className="h-4 w-4" />
-                    Minha conta
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Atualize seu username, senha de acesso e foto de perfil.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 pb-3 px-3">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-14 w-14">
-                      {accountAvatarUrl ? (
-                        <AvatarImage src={accountAvatarUrl} alt="Foto de perfil" />
-                      ) : (
-                        <AvatarFallback>
-                          {(accountUsername || "U").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div className="space-y-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 h-8 text-xs"
-                        disabled={avatarSaving}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Camera className="h-3.5 w-3.5" />
-                        {avatarSaving ? "Salvando foto..." : "Alterar foto de perfil"}
-                      </Button>
-                      <p className="text-[11px] text-muted-foreground">
-                        Ajuste a imagem como na foto de perfil da sua conta.
-                      </p>
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarFileChange}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">Email</Label>
-                    <Input value={accountEmail ?? ""} disabled className="text-xs" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">Username</Label>
-                    <Input
-                      value={accountUsername}
-                      onChange={(e) => setAccountUsername(e.target.value)}
-                      placeholder="Seu username"
-                      disabled={accountLoading}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Nova senha</Label>
-                      <div className="relative">
-                        <Input
-                          type={showNewPassword ? "text" : "password"}
-                          value={accountNewPassword}
-                          onChange={(e) => setAccountNewPassword(e.target.value)}
-                          placeholder="Deixe em branco para manter"
-                          disabled={accountLoading}
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowNewPassword((prev) => !prev)}
-                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
-                          aria-label={showNewPassword ? "Ocultar senha" : "Mostrar senha"}
-                        >
-                          {showNewPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Confirmar nova senha</Label>
-                      <div className="relative">
-                        <Input
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={accountConfirmPassword}
-                          onChange={(e) => setAccountConfirmPassword(e.target.value)}
-                          placeholder="Repita a nova senha"
-                          disabled={accountLoading}
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword((prev) => !prev)}
-                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
-                          aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <BootstrapAdminButton
-                      accountEmail={accountEmail}
-                      isAdmin={isAdmin}
-                      onPromoted={() => {
-                        void checkAdminStatus();
-                        window.setTimeout(() => window.location.reload(), 300);
-                      }}
-                    />
-
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        onClick={handleUpdateAccount}
-                        disabled={accountLoading}
-                        className="gap-1.5 h-8 text-xs"
-                      >
-                        {accountLoading ? "Salvando..." : "Salvar alterações"}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {mobileSection === "users" && canManageRestricted && (
+          {mobileSection === "users" && (
             <div className="space-y-4">
               <Button
                 variant="ghost"
@@ -1796,8 +1304,10 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
+              {canManageRestricted && (
+                <>
+                  <Card>
+                    <CardHeader className="pb-3 pt-3 px-3">
                   <CardTitle className="flex items-center gap-1.5 text-sm">
                     <Shield className="h-4 w-4" />
                     Gerenciar Usuários
@@ -1910,46 +1420,6 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
-                  <CardTitle className="text-sm">Gerenciar Cargos</CardTitle>
-                  <CardDescription className="text-xs">
-                    Adicione ou remova cargos disponíveis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 pb-3 px-3">
-                  <form onSubmit={handleAddCargo} className="flex gap-2 mb-2">
-                    <Input
-                      placeholder="Novo cargo"
-                      value={novoCargo}
-                      onChange={(e) => setNovoCargo(e.target.value)}
-                      disabled={loading}
-                    />
-                    <Button type="submit" disabled={loading || !novoCargo.trim()}>
-                      Adicionar
-                    </Button>
-                  </form>
-
-                  <div className="space-y-2">
-                    {cargos.map((cargo) => (
-                      <div
-                        key={cargo.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <span>{cargo.nome}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCargoParaExcluir(cargo)}
-                          disabled={loading}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
 
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3">
@@ -2002,6 +1472,8 @@ const Configuracoes = () => {
                   )}
                 </CardContent>
               </Card>
+                </>
+              )}
             </div>
           )}
 
@@ -2531,20 +2003,6 @@ const Configuracoes = () => {
                         Modo edição da tela inicial
                       </Button>
 
-                      {isMobile && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
-                          onClick={() => {
-                            // Garantir que pelo menos os itens padrão existam
-                            dockPrefs.setItems(dockPrefs.items.length ? dockPrefs.items : dockPrefs.items);
-                            toast.info("Edite a dock tocando e arrastando os ícones na barra inferior.");
-                          }}
-                        >
-                          Editar dock
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -2963,45 +2421,6 @@ const Configuracoes = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Gerenciar Cargos */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Gerenciar Cargos</CardTitle>
-                      <CardDescription>Adicione ou remova cargos disponíveis</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <form onSubmit={handleAddCargo} className="flex gap-2 mb-4">
-                        <Input
-                          placeholder="Novo cargo"
-                          value={novoCargo}
-                          onChange={(e) => setNovoCargo(e.target.value)}
-                          disabled={loading}
-                        />
-                        <Button type="submit" disabled={loading || !novoCargo.trim()}>
-                          Adicionar
-                        </Button>
-                      </form>
-
-                      <div className="space-y-2">
-                        {cargos.map((cargo) => (
-                          <div
-                            key={cargo.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <span>{cargo.nome}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCargoParaExcluir(cargo)}
-                              disabled={loading}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
 
                   {/* Usuários Online em tempo real */}
                   <Card>
@@ -3196,31 +2615,6 @@ const Configuracoes = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Cargo Dialog */}
-      <AlertDialog
-        open={!!cargoParaExcluir}
-        onOpenChange={(open) => !open && setCargoParaExcluir(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir cargo</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir o cargo "{cargoParaExcluir?.nome}"?
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteCargo}
-              disabled={loading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {loading ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Confirm Import Backup Dialog */}
       <AlertDialog
