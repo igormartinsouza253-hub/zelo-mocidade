@@ -130,9 +130,12 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   const savePreference = async (next: Partial<NotificationPrefs>) => {
     if (!user) return;
 
-    if (next.enabled === true && !prefs.enabled) {
+    if (next.enabled === true) {
       const granted = await requestBrowserNotificationPermission();
-      if (!granted) return;
+      if (!granted) {
+        setPrefs((prev) => ({ ...prev, enabled: false }));
+        return;
+      }
     }
 
     const merged = { ...prefs, ...next };

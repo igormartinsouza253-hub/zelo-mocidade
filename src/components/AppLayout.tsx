@@ -164,7 +164,39 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const { count: unreadCount } = useUnreadChatCount();
 
   useEffect(() => {
-    if (!user?.id || !activeGroupId || !isMobileMode) return;
+    if (!user?.id || !activeGroupId) return;
+
+    const showDeviceNotification = async (incoming: { id?: string; title?: string; message?: string }) => {
+      if (
+        typeof window === "undefined" ||
+        !("Notification" in window) ||
+        Notification.permission !== "granted" ||
+        !incoming.title ||
+        !incoming.message
+      ) {
+        return;
+      }
+
+      const notificationOptions: NotificationOptions = {
+        body: incoming.message,
+        tag: incoming.id ? `notification-${incoming.id}` : undefined,
+        icon: "/pwa-192.png",
+        badge: "/pwa-192.png",
+        data: { url: "/configuracoes" },
+      };
+
+      try {
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification(incoming.title, notificationOptions);
+          return;
+        }
+      } catch (error) {
+        console.warn("Falha ao exibir notificação via Service Worker:", error);
+      }
+
+      new Notification(incoming.title, notificationOptions);
+    };
 
     void supabase.rpc("generate_today_birthday_notifications" as any, {
       _group_id: activeGroupId,
@@ -185,19 +217,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           const incoming = payload.new as { id?: string; title?: string; message?: string };
           if (!incoming?.title || !incoming?.message) return;
 
-          toast(incoming.title, { description: incoming.message });
-
-          if (
-            typeof window !== "undefined" &&
-            "Notification" in window &&
-            Notification.permission === "granted" &&
-            document.visibilityState !== "visible"
-          ) {
-            new Notification(incoming.title, {
-              body: incoming.message,
-              tag: incoming.id ? `notification-${incoming.id}` : undefined,
-            });
+          if (document.visibilityState === "visible") {
+            toast(incoming.title, { description: incoming.message });
           }
+
+          void showDeviceNotification(incoming);
         },
       )
       .subscribe();
@@ -205,7 +229,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, activeGroupId, isMobileMode]);
+  }, [user?.id, activeGroupId]);
 
   // Heartbeat (presença por grupo): atualiza last_seen_at periodicamente no DB
   useEffect(() => {
