@@ -20,7 +20,7 @@ export const QuickActionsWidget = ({ size }: QuickActionsWidgetProps) => {
 
   if (size === "sm") {
     return (
-      <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col justify-center md:rounded-[2.5rem] overflow-hidden">
+      <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col justify-center md:rounded-xl overflow-hidden">
         <CardContent className="grid grid-cols-1 gap-2 px-2 pb-2 pt-1.5">
           {actions.slice(0, 2).map((action, index) => (
             <button
@@ -42,7 +42,7 @@ export const QuickActionsWidget = ({ size }: QuickActionsWidgetProps) => {
 
   if (size === "md") {
     return (
-      <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+      <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING["md"]}>
         <CardTitle className={widgetTitleClass("md")}>
           Ações rápidas
@@ -53,7 +53,7 @@ export const QuickActionsWidget = ({ size }: QuickActionsWidgetProps) => {
             <Button
               key={index}
               variant="secondary"
-              className="justify-start gap-2.5 h-9 text-sm rounded-full px-3"
+              className="justify-start gap-2.5 h-9 text-sm rounded-lg px-3"
               onClick={() => navigate(action.path)}
             >
               <action.icon className="h-4 w-4 text-primary" />
@@ -66,7 +66,7 @@ export const QuickActionsWidget = ({ size }: QuickActionsWidgetProps) => {
   }
 
   return (
-    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING["lg"]}>
         <CardTitle className={widgetTitleClass("lg")}>
           Ações rápidas

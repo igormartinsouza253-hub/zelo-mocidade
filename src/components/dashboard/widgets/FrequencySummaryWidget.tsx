@@ -16,7 +16,7 @@ export const FrequencySummaryWidget = ({
   const contentPadding = isSmall ? "space-y-1.5 pt-1 pb-2 px-2" : "space-y-3 pt-2 pb-3 px-3";
   const progressHeight = isSmall ? "h-1.5" : "h-2.5";
   const headerPadding = WIDGET_HEADER_PADDING[size];
-  return <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+  return <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={headerPadding}>
         <CardTitle className={widgetTitleClass(size)}>
           Frequência geral

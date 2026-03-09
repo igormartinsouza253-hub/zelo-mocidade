@@ -56,7 +56,7 @@ export const AniversariantesWidget = ({
   if (size === "sm") {
     return (
       <Card
-        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex items-center justify-center cursor-pointer md:rounded-[2.5rem]"
+        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex items-center justify-center cursor-pointer md:rounded-xl"
         onClick={() => navigate("/calendario")}
       >
         <CardContent className="flex flex-col items-center justify-center gap-1.5 px-3 pb-3 pt-2">
@@ -76,7 +76,7 @@ export const AniversariantesWidget = ({
 
     return (
       <Card
-        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-[2.5rem]"
+        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl"
         onClick={() => navigate("/calendario")}
       >
         <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex items-center"}>
@@ -135,7 +135,7 @@ export const AniversariantesWidget = ({
                     {aniversariantesHoje.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-2xl md:rounded-full border border-border/50 bg-primary/10 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-2xl md:rounded-lg border border-border/50 bg-primary/10 px-3 py-2 text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar className="h-7 w-7">
@@ -205,7 +205,7 @@ export const AniversariantesWidget = ({
 
   return (
     <Card
-      className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-[2.5rem] overflow-hidden"
+      className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl overflow-hidden"
       onClick={() => navigate("/calendario")}
     >
       <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex flex-row items-center justify-between px-[12px]"}>

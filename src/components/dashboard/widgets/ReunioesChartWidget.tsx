@@ -215,7 +215,7 @@ export const ReunioesChartWidget = ({
 
   return (
     <Card
-      className={`h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden ${
+      className={`h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden ${
         isLarge ? "cursor-pointer hover:shadow-[var(--shadow-elevated)] transition-shadow" : ""
       }`}
       onClick={scheduleNavigate}

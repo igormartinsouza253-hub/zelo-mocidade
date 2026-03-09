@@ -117,6 +117,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
   }, [dockExpanded]);
 
   const isDockCollapsed = isCompactPanel && !dockExpanded;
+  const isDesktopPage = mode === "page" && !isMobile;
 
   useEffect(() => {
     if (mode !== "page") return;
@@ -638,7 +639,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
     if (editingId === m.id) {
       return (
         <div key={m.id} className={"flex flex-col gap-2 " + (mine ? "items-end" : "items-start")}>
-          <div className={`max-w-[85%] w-full rounded-2xl border border-border px-3 py-2 text-sm ${bubble}`}>
+          <div className={`max-w-[85%] w-full rounded-lg border border-border px-3 py-2 text-sm ${bubble}`}>
             <div className="text-[11px] text-muted-foreground mb-2">Editando</div>
             <Input value={editingText} onChange={(e) => setEditingText(e.target.value)} className="h-9" />
             <div className="mt-2 flex justify-end gap-2">
@@ -662,7 +663,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
     return (
       <div key={m.id} className={"flex flex-col gap-1 " + (mine ? "items-end" : "items-start")}>
         {!mine && <div className="text-[11px] text-muted-foreground px-1">{profile?.username ?? "Usuário"}</div>}
-        <div className={`max-w-[85%] rounded-2xl border border-border px-3 py-2 text-sm ${bubble}`}>
+        <div className={`max-w-[85%] rounded-lg border border-border px-3 py-2 text-sm ${bubble}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-[11px] text-muted-foreground mb-1">{time}</div>
             {mine && !m.id.startsWith("temp_") && (
@@ -743,18 +744,19 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
         </div>
       )}
 
-      <div className={"flex-1 min-h-0 " + (mode === "panel" ? "p-2" : "px-3 md:px-6 lg:px-8 py-4 md:py-6")}>
+      <div className={"flex-1 min-h-0 " + (mode === "panel" ? "p-2" : "px-3 md:px-4 lg:px-6 py-3 md:py-4")}>
         <div
           className={
             "grid gap-3 h-full min-h-0 " +
+            (isDesktopPage ? "rounded-xl border border-border/60 bg-background/70 p-2 " : "") +
             (isCompactPanel
               ? isDockCollapsed
                 ? "grid-cols-[76px_1fr]"
                 : "grid-cols-[240px_1fr]"
-              : "grid-cols-1 md:grid-cols-[280px_1fr] gap-4")
+              : "grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-3")
           }
         >
-          <Card className="min-h-0 flex flex-col">
+          <Card className="min-h-0 flex flex-col rounded-xl border-border/70 bg-card/95 shadow-[var(--shadow-card)] overflow-hidden">
             <div className="p-3 border-b border-border/60 flex items-center justify-between gap-2">
               <div className={"text-sm font-semibold " + (isDockCollapsed ? "sr-only" : "")}>Conversas</div>
               {isCompactPanel && (
@@ -850,7 +852,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
                                   type="button"
                                   onClick={() => setActiveConversationId(c.id)}
                                   className={
-                                    "w-full flex items-center justify-center rounded-2xl border transition-colors p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
+                                    "w-full flex items-center justify-center rounded-lg border transition-colors p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
                                     (selected ? "bg-accent border-border" : "bg-card border-border hover:bg-accent/40")
                                   }
                                 >
@@ -899,7 +901,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
             </div>
           </Card>
 
-          <Card className="min-h-0 flex flex-col overflow-hidden">
+          <Card className="min-h-0 flex flex-col overflow-hidden rounded-xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
             <div className="p-3 border-b border-border/60 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">
@@ -941,7 +943,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
               )}
             </div>
 
-            <ScrollArea className="flex-1 p-3">
+            <ScrollArea className="flex-1 px-4 py-3">
               {loadingMessages ? (
                 <p className="text-sm text-muted-foreground">Carregando mensagens...</p>
               ) : (
@@ -953,7 +955,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
             </ScrollArea>
 
             <div className="shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3">
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-2 rounded-xl border border-border/60 bg-card/90 p-2 shadow-[var(--shadow-card)]">
                 <div className="flex items-center gap-1">
                   <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setShowEmoji((v) => !v)} aria-label="Emojis">
                     <Smile className="h-4 w-4" />
@@ -978,7 +980,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
 
                 <div className="flex-1 min-w-0">
                   {showEmoji && (
-                    <div className="mb-2 rounded-xl border border-border bg-popover p-2 shadow-[var(--shadow-card)]">
+                    <div className="mb-2 rounded-lg border border-border bg-popover p-2 shadow-[var(--shadow-card)]">
                       <div className="grid grid-cols-6 gap-1">
                         {emojiList.map((e) => (
                           <button
@@ -1004,13 +1006,13 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
                         void handleSendText();
                       }
                     }}
-                    className="h-10"
+                    className="h-10 rounded-lg border-border/70"
                   />
                 </div>
 
-                <Button type="button" className="h-10" onClick={() => void handleSendText()}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar
+                <Button type="button" className="h-10 rounded-lg" onClick={() => void handleSendText()}>
+                  <Send className="h-4 w-4 md:mr-0 mr-2" />
+                  <span className="hidden md:inline">Enviar</span>
                 </Button>
 
                 <input

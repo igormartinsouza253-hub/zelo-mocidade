@@ -53,7 +53,7 @@ export const TopMembrosWidget = ({
   }, []);
 
   if (size === "sm") {
-    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
         <CardHeader className={WIDGET_HEADER_PADDING["sm"] + " flex flex-row items-center justify-between"}>
           <CardTitle className={widgetTitleClass("sm")}>
             {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
@@ -70,7 +70,7 @@ export const TopMembrosWidget = ({
               <button
                 key={membro.id}
                 type="button"
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-full hover:bg-accent/60 text-[11px]"
+                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent/60 text-[11px]"
                 onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                 onDoubleClick={cancelScheduledNavigate}
               >
@@ -98,7 +98,7 @@ export const TopMembrosWidget = ({
       </Card>;
   }
   if (size === "md") {
-    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
         <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex flex-row items-center justify-between"}>
           <CardTitle className={widgetTitleClass("md")}>
             {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
@@ -109,7 +109,7 @@ export const TopMembrosWidget = ({
         </CardHeader>
         <CardContent className="flex-1 overflow-auto px-3 pb-3 pt-0 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
           <div className="space-y-1.5 w-full">
-            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : top5Membros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-full hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
+            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : top5Membros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="relative">
                       <Avatar className="h-7 w-7">
@@ -131,7 +131,7 @@ export const TopMembrosWidget = ({
       </Card>;
   }
   return (
-    <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-[12px]"}>
         <div className="flex flex-col my-[10px] mx-[10px]">
           <CardTitle className={widgetTitleClass("lg")}>
@@ -142,7 +142,7 @@ export const TopMembrosWidget = ({
           <select
             value={period}
             onChange={(e) => onPeriodChange(e.target.value as "1m" | "3m" | "1y")}
-            className="h-8 rounded-full border border-border bg-background px-2 text-[11px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-8 rounded-lg border border-border bg-background px-2 text-[11px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="1m">Último mês</option>
             <option value="3m">Últimos 3 meses</option>
@@ -152,7 +152,7 @@ export const TopMembrosWidget = ({
             variant="ghost"
             size="icon"
             onClick={onToggleOrder}
-            className="h-8 w-8 rounded-full border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/70"
+            className="h-8 w-8 rounded-lg border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/70"
             aria-label="Inverter ordem"
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
@@ -167,7 +167,7 @@ export const TopMembrosWidget = ({
               top5Membros.map((membro, index) => (
                 <div
                   key={membro.id}
-                  className="flex items-center justify-between px-2.5 py-2 rounded-full hover:bg-accent/60 cursor-pointer transition-colors w-full"
+                  className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors w-full"
                   onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                   onDoubleClick={cancelScheduledNavigate}
                 >
