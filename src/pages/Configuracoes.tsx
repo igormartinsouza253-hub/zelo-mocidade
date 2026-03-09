@@ -63,9 +63,6 @@ const Configuracoes = () => {
   const { user } = useAuth();
   const { activeGroup, isAdmin: isGroupAdmin } = useActiveGroup();
   const isMobile = useIsMobile();
-  const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [novoCargo, setNovoCargo] = useState("");
-  const [cargoParaExcluir, setCargoParaExcluir] = useState<Cargo | null>(null);
   const [loading, setLoading] = useState(false);
   
   // User management states
