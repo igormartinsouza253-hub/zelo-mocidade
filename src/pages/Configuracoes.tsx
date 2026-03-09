@@ -1502,46 +1502,6 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
-                  <CardTitle className="text-sm">Gerenciar Cargos</CardTitle>
-                  <CardDescription className="text-xs">
-                    Adicione ou remova cargos disponíveis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 pb-3 px-3">
-                  <form onSubmit={handleAddCargo} className="flex gap-2 mb-2">
-                    <Input
-                      placeholder="Novo cargo"
-                      value={novoCargo}
-                      onChange={(e) => setNovoCargo(e.target.value)}
-                      disabled={loading}
-                    />
-                    <Button type="submit" disabled={loading || !novoCargo.trim()}>
-                      Adicionar
-                    </Button>
-                  </form>
-
-                  <div className="space-y-2">
-                    {cargos.map((cargo) => (
-                      <div
-                        key={cargo.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <span>{cargo.nome}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCargoParaExcluir(cargo)}
-                          disabled={loading}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
 
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3">
