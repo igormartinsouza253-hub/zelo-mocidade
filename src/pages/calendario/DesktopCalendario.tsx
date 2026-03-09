@@ -711,6 +711,25 @@ export default function Calendario() {
     }
   };
 
+  useEffect(() => {
+    const loadEventCreators = async () => {
+      const userIds = Array.from(new Set(rawEventos.map((e) => e.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        setCreatorNameByUserId({});
+        return;
+      }
+
+      const { data } = await supabase.from("profiles").select("id, username").in("id", userIds).limit(200);
+      const next: Record<string, string> = {};
+      (data ?? []).forEach((profile: any) => {
+        if (profile?.id && profile?.username) next[profile.id] = profile.username;
+      });
+      setCreatorNameByUserId(next);
+    };
+
+    void loadEventCreators();
+  }, [rawEventos]);
+
   const loadVisitasRegistradas = async () => {
     try {
       const { data, error } = await supabase
