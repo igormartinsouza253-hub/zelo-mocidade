@@ -15,6 +15,7 @@ import {
   LogOut,
   ArrowLeft,
   MessageCircle,
+  Bell,
 } from "lucide-react";
 import {
   SidebarPreferencesProvider,
@@ -162,6 +163,43 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   };
 
   const { count: unreadCount } = useUnreadChatCount();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let mounted = true;
+
+    const loadUnreadNotifications = async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("read_at", null);
+
+      if (!error && mounted) {
+        setUnreadNotifications(count ?? 0);
+      }
+    };
+
+    void loadUnreadNotifications();
+
+    const channel = supabase
+      .channel(`notification-badge:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        () => {
+          void loadUnreadNotifications();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id || !activeGroupId) return;
@@ -515,6 +553,22 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                     <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
                       {config?.secondaryActions}
 
+                      {location.pathname === "/" && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/configuracoes?section=notifications")}
+                          className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
+                          aria-label="Abrir notificações"
+                        >
+                          <Bell className="h-4 w-4" />
+                          {unreadNotifications > 0 && (
+                            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
+                              {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                            </span>
+                          )}
+                        </button>
+                      )}
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
@@ -522,18 +576,16 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                             className="inline-flex items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors h-10 w-10"
                             aria-label="Conta"
                           >
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={profile?.avatar_url || undefined} />
-                              <AvatarFallback className="bg-accent text-foreground text-sm font-semibold">
+                            <Avatar className="h-8 w-8 rounded-xl">
+                              <AvatarImage className="rounded-xl" src={profile?.avatar_url || undefined} />
+                              <AvatarFallback className="rounded-xl bg-accent text-foreground text-sm font-semibold">
                                 {(profile?.username || user?.email || "U").charAt(0).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
-                            Configurações
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate("/configuracoes")}>Configurações</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={handleSignOut}>
                             <LogOut className="h-4 w-4 mr-2" />

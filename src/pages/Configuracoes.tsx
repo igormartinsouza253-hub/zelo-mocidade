@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ interface UserWithRole {
 
 const Configuracoes = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { activeGroup, isAdmin: isGroupAdmin } = useActiveGroup();
@@ -137,6 +138,14 @@ const Configuracoes = () => {
   }, [user]);
 
   const canManageRestricted = isAdmin || isGroupAdmin;
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const section = new URLSearchParams(location.search).get("section");
+    if (section === "theme" || section === "users" || section === "group" || section === "notifications" || section === "data") {
+      setMobileSection(section);
+    }
+  }, [isMobile, location.search]);
 
   useEffect(() => {
     if (!user) return;
