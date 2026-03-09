@@ -1575,7 +1575,7 @@ export default function Calendario() {
 
           <div className="flex-1 min-h-0 rounded-xl border border-border/70 bg-background/80 p-2 md:p-3 shadow-[var(--shadow-card)] overflow-hidden">
             <DnDCalendar
-              className="calendar-desktop-modern"
+              className="calendar-desktop-modern calendar-desktop-rectangles"
               localizer={localizer}
               culture="pt-BR"
               events={events}
