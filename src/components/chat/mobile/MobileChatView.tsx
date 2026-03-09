@@ -1164,7 +1164,7 @@ export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "des
   }
 
   return (
-    <div className="h-[100dvh] w-full bg-background overflow-hidden">
+    <div className={(isDesktopLayout ? "h-full" : "h-[100dvh]") + " w-full bg-background overflow-hidden"}>
       <div className="h-full flex flex-col">
         {screen === "list" ? (
           <>
