@@ -163,6 +163,43 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   };
 
   const { count: unreadCount } = useUnreadChatCount();
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let mounted = true;
+
+    const loadUnreadNotifications = async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("read_at", null);
+
+      if (!error && mounted) {
+        setUnreadNotifications(count ?? 0);
+      }
+    };
+
+    void loadUnreadNotifications();
+
+    const channel = supabase
+      .channel(`notification-badge:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        () => {
+          void loadUnreadNotifications();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id || !activeGroupId) return;
