@@ -677,6 +677,7 @@ export type Database = {
           ativo: boolean
           cargos: string[] | null
           created_at: string
+          created_by_user_id: string | null
           data_aniversario: string | null
           data_nascimento: string | null
           faixa_etaria: string
@@ -695,6 +696,7 @@ export type Database = {
           ativo?: boolean
           cargos?: string[] | null
           created_at?: string
+          created_by_user_id?: string | null
           data_aniversario?: string | null
           data_nascimento?: string | null
           faixa_etaria: string
@@ -713,6 +715,7 @@ export type Database = {
           ativo?: boolean
           cargos?: string[] | null
           created_at?: string
+          created_by_user_id?: string | null
           data_aniversario?: string | null
           data_nascimento?: string | null
           faixa_etaria?: string
@@ -979,6 +982,7 @@ export type Database = {
       reunioes: {
         Row: {
           created_at: string
+          created_by_user_id: string | null
           data: string
           group_id: string | null
           id: string
@@ -992,6 +996,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by_user_id?: string | null
           data: string
           group_id?: string | null
           id?: string
@@ -1005,6 +1010,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by_user_id?: string | null
           data?: string
           group_id?: string | null
           id?: string
