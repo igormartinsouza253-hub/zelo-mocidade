@@ -408,7 +408,7 @@ function MessageBubble({
   );
 }
 
-export function MobileChatView() {
+export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "desktop" }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -461,6 +461,8 @@ export function MobileChatView() {
     userId: user?.id ?? null,
     text,
   });
+
+  const isDesktopLayout = layout === "desktop";
 
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) ?? null,
@@ -1151,7 +1153,7 @@ export function MobileChatView() {
 
   if (!activeGroupId) {
     return (
-      <div className="h-[100dvh] w-full bg-background">
+      <div className={(isDesktopLayout ? "h-full" : "h-[100dvh]") + " w-full bg-background"}>
         <div className="p-4">
           <Card className="p-4">
             <p className="text-sm text-muted-foreground">Defina um grupo ativo antes de usar o chat.</p>
@@ -1162,7 +1164,7 @@ export function MobileChatView() {
   }
 
   return (
-    <div className="h-[100dvh] w-full bg-background overflow-hidden">
+    <div className={(isDesktopLayout ? "h-full" : "h-[100dvh]") + " w-full bg-background overflow-hidden"}>
       <div className="h-full flex flex-col">
         {screen === "list" ? (
           <>
@@ -1246,7 +1248,7 @@ export function MobileChatView() {
             {/* Lista */}
             <main className="flex-1 min-h-0">
               <ScrollArea className="h-full">
-                <div className="p-3 pb-28 space-y-2">
+                <div className={"p-3 space-y-2 " + (isDesktopLayout ? "pb-4" : "pb-28")}>
                   {loadingConversations ? (
                     <p className="text-sm text-muted-foreground">Carregando...</p>
                   ) : (
@@ -1299,8 +1301,7 @@ export function MobileChatView() {
               </ScrollArea>
             </main>
 
-            {/* Dock do app somente na lista */}
-            <MobileBottomNav />
+            {!isDesktopLayout && <MobileBottomNav />}
           </>
         ) : (
           <>
@@ -1414,7 +1415,7 @@ export function MobileChatView() {
             </main>
 
             {/* Input fixo */}
-            <footer className="shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+            <footer className={"shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-2 pt-2 " + (isDesktopLayout ? "pb-2" : "pb-[calc(env(safe-area-inset-bottom)+0.5rem)]")}>
               {(holdingMic || recorder.recording) && (
                 <div className="mb-2 rounded-2xl border border-border bg-card px-3 py-2">
                   <div className="flex items-center justify-between gap-3">

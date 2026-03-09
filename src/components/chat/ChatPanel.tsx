@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ChatView } from "@/components/chat/ChatView";
+import { MobileChatView } from "@/components/chat/mobile/MobileChatView";
 import { useChatLauncher } from "@/components/chat/ChatLauncherContext";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -80,7 +80,7 @@ export function ChatPanel() {
           <div className="absolute left-0 top-0 h-full w-px bg-border" />
         </div>
 
-        <ChatView mode="panel" />
+        <MobileChatView layout="desktop" />
       </SheetContent>
     </Sheet>
   );
