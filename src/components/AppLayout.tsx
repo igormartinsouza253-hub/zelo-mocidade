@@ -504,7 +504,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         />
       </div>
 
-       <div className="flex h-screen w-full bg-background md:pl-20 overflow-hidden">
+       <div className="flex h-screen w-full bg-background md:bg-muted/25 md:pl-20 overflow-hidden">
         {/* Modern Sidebar - Desktop/Tablet only */}
         {!isMobileMode && <ModernSidebar />}
 
