@@ -191,7 +191,7 @@ export const ReunioesChartWidget = ({
     const tr = ri + total;
 
     const cx = (x ?? 0) + (width ?? 0) / 2;
-    const cy = (y ?? 0) - 6;
+    const cy = (y ?? 0) - 2;
 
     return (
       <text
