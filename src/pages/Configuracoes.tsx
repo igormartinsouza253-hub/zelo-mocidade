@@ -25,12 +25,6 @@ const userEmailSchema = z.object({
     .max(255, "Email deve ter no máximo 255 caracteres"),
 });
 
-const cargoSchema = z.object({
-  nome: z.string()
-    .trim()
-    .min(1, "Nome do cargo é obrigatório")
-    .max(50, "Nome do cargo deve ter no máximo 50 caracteres"),
-});
 import {
   AlertDialog,
   AlertDialogAction,
