@@ -72,7 +72,7 @@ function SwipeNotificationItem({
     setDeltaX(0);
   };
 
-  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
     if (startX === null) return;
     const nextDelta = event.clientX - startX;
     setDeltaX(Math.max(-120, Math.min(120, nextDelta)));
