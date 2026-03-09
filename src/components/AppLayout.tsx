@@ -45,6 +45,7 @@ import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { ChatLauncherProvider } from "@/components/chat/ChatLauncherContext";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useUnreadChatCount } from "@/components/chat/useUnreadChatCount";
+import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -164,6 +165,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const { count: unreadCount } = useUnreadChatCount();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -556,7 +558,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                       {location.pathname === "/" && (
                         <button
                           type="button"
-                          onClick={() => navigate("/configuracoes?section=notifications")}
+                          onClick={() => setIsNotificationsDrawerOpen(true)}
                           className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
                           aria-label="Abrir notificações"
                         >
@@ -665,6 +667,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           </div>
         </div>
       )}
+
+      {user?.id ? (
+        <HomeNotificationsDrawer
+          open={isNotificationsDrawerOpen}
+          onOpenChange={setIsNotificationsDrawerOpen}
+          userId={user.id}
+        />
+      ) : null}
 
       {isMobileMode && isLandscapeMobile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md md:hidden">

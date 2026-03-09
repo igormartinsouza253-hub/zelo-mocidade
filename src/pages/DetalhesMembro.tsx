@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { ArrowLeft, Trash2, Upload, Camera, Users } from "lucide-react";
+import { ArrowLeft, Trash2, Camera, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -32,6 +32,8 @@ import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { membroSchema } from "@/lib/membroSchema";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
+
 interface Cargo {
   id: string;
   nome: string;
@@ -40,11 +42,10 @@ interface Cargo {
 const DetalhesMembro = () => {
   const navigate = useNavigate();
   const { setConfig } = usePageHeader();
+  const { isAdmin } = useActiveGroup();
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [inativacaoMotivo, setInativacaoMotivo] = useState<string>("");
-  const [inativacaoObservacao, setInativacaoObservacao] = useState<string>("");
   const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const [cargosDisponiveis, setCargosDisponiveis] = useState<Cargo[]>([]);
   const [cargosLoading, setCargosLoading] = useState(true);
@@ -272,19 +273,6 @@ const DetalhesMembro = () => {
   };
 
   const handleInativar = async () => {
-    const motivo = inativacaoMotivo.trim();
-    const obs = inativacaoObservacao.trim();
-
-    if (!motivo) {
-      toast.error("Selecione um motivo");
-      return;
-    }
-
-    if (motivo === "Outro" && !obs) {
-      toast.error("Descreva a justificativa");
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -296,8 +284,8 @@ const DetalhesMembro = () => {
         .update({
           ativo: false,
           inativado_em: new Date().toISOString(),
-          inativado_motivo: motivo,
-          inativado_observacao: obs || null,
+          inativado_motivo: "Inativado manualmente",
+          inativado_observacao: null,
         })
         .eq("id", id);
 
@@ -309,8 +297,8 @@ const DetalhesMembro = () => {
           group_id: memberGroupId,
           user_id: userId,
           action: "inactivate",
-          reason: motivo,
-          note: obs || null,
+          reason: "Inativado manualmente",
+          note: null,
         });
       }
 
@@ -321,6 +309,42 @@ const DetalhesMembro = () => {
       toast.error("Erro ao inativar membro");
     } finally {
       setLoading(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!isAdmin) {
+      toast.error("Apenas admins podem excluir permanentemente.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const memberId = id;
+      const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
+        supabase.from("presencas").delete().eq("membro_id", memberId),
+        supabase.from("eventos").delete().eq("membro_visitado_id", memberId),
+        supabase.from("visitas").delete().eq("membro_visitado_id", memberId),
+        supabase.from("notas").delete().eq("membro_id", memberId),
+      ]);
+
+      const cleanupError =
+        presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
+      if (cleanupError) throw cleanupError;
+
+      const { error } = await supabase.from("membros").delete().eq("id", memberId);
+      if (error) throw error;
+
+      toast.success("Membro excluído permanentemente.");
+      navigate("/membros");
+    } catch (error) {
+      console.error("Erro ao excluir membro:", error);
+      toast.error("Erro ao excluir membro");
+    } finally {
+      setLoading(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -335,7 +359,7 @@ const DetalhesMembro = () => {
 
   return (
     <>
-      <div className="w-full h-full flex justify-center pb-32">
+      <div className="w-full h-full flex justify-center pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-32">
         <div className="w-full max-w-2xl px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
           <div className="hidden md:flex items-center gap-2 md:gap-4 mb-2 md:mb-4">
             <Button
@@ -358,8 +382,8 @@ const DetalhesMembro = () => {
           </div>
 
           <Card className="shadow-[var(--shadow-soft)] border-border/50">
-            <CardContent className="pt-3 md:pt-6 px-3 md:px-6 pb-3 md:pb-6">
-              <div className="flex items-center gap-3 md:gap-6">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4 md:pb-6">
+              <div className="flex flex-col items-center text-center gap-3 md:gap-4">
                 <div className="relative">
                   <Avatar className="h-16 w-16 md:h-24 md:w-24">
                     <AvatarImage src={formData.foto_url} alt={formData.nome} />
@@ -385,46 +409,45 @@ const DetalhesMembro = () => {
                     onChange={handlePhotoUpload}
                     disabled={uploadingPhoto}
                   />
-
-                  {formData.foto_url ? (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setTempImageSrc(formData.foto_url);
-                          setShowCropDialog(true);
-                        }}
-                        disabled={uploadingPhoto}
-                      >
-                        Editar foto atual
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        asChild
-                      >
-                        <a href={formData.foto_url} download>
-                          Baixar foto
-                        </a>
-                      </Button>
-                    </div>
-                  ) : null}
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-lg md:text-2xl font-semibold text-foreground mb-1 md:mb-2 truncate">
+
+                <div className="flex w-full items-center justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (formData.foto_url) {
+                        setTempImageSrc(formData.foto_url);
+                        setShowCropDialog(true);
+                      }
+                    }}
+                    disabled={uploadingPhoto || !formData.foto_url}
+                    className="min-w-0 flex-1"
+                  >
+                    Editar foto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    disabled={!formData.foto_url}
+                    className="min-w-0 flex-1"
+                  >
+                    <a href={formData.foto_url || "#"} download>
+                      Salvar foto
+                    </a>
+                  </Button>
+                </div>
+
+                <div>
+                  <h2 className="text-lg md:text-2xl font-semibold text-foreground truncate">
                     {formData.nome || "Novo Membro"}
                   </h2>
-                  <div className="flex items-center gap-2 md:gap-4 text-muted-foreground">
-                    <div className="flex items-center gap-1.5 md:gap-2">
-                      <span className="text-xs md:text-sm">Presenças:</span>
-                      <span className="text-base md:text-lg font-semibold text-primary">
-                        {totalPresencas}
-                      </span>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Presenças: <span className="text-base font-semibold text-primary">{totalPresencas}</span>
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -603,48 +626,32 @@ const DetalhesMembro = () => {
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Inativar membro</AlertDialogTitle>
+              <AlertDialogTitle>Como deseja remover este membro?</AlertDialogTitle>
               <AlertDialogDescription>
-                Informe o motivo. O membro não poderá ser selecionado em novas reuniões, mas continuará aparecendo nas reuniões antigas.
+                Você pode inativar para preservar histórico ou excluir permanentemente (somente admins).
               </AlertDialogDescription>
             </AlertDialogHeader>
 
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label>Motivo</Label>
-                <Select value={inativacaoMotivo} onValueChange={setInativacaoMotivo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Teste">Teste</SelectItem>
-                    <SelectItem value="Mudou de comum">Mudou de comum</SelectItem>
-                    <SelectItem value="Casou">Casou</SelectItem>
-                    <SelectItem value="Não congrega mais">Não congrega mais</SelectItem>
-                    <SelectItem value="Outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
+            <AlertDialogFooter className="sm:justify-between gap-2">
+              <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
+              <div className="flex items-center gap-2">
+                <AlertDialogAction
+                  onClick={handleInativar}
+                  disabled={loading}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                >
+                  Tornar inativo
+                </AlertDialogAction>
+                {isAdmin ? (
+                  <AlertDialogAction
+                    onClick={handlePermanentDelete}
+                    disabled={loading}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Excluir permanente
+                  </AlertDialogAction>
+                ) : null}
               </div>
-
-              <div className="space-y-2">
-                <Label>Observação (opcional)</Label>
-                <Textarea
-                  value={inativacaoObservacao}
-                  onChange={(e) => setInativacaoObservacao(e.target.value)}
-                  placeholder={inativacaoMotivo === "Outro" ? "Descreva o motivo" : "Detalhes (se necessário)"}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleInativar}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Inativar
-              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
