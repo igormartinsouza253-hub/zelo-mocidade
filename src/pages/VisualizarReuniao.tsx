@@ -44,6 +44,7 @@ interface ReuniaoData {
   quem_atendeu: string | null;
   palavra_referencia: string | null;
   oracoes: Oracao[] | null;
+  created_by_user_id: string | null;
 }
 
 interface ChartData {
