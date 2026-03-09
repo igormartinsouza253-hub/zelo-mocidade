@@ -25,10 +25,17 @@ import {
 import { Shield, Users } from "lucide-react";
 import { toast } from "sonner";
 
+type PendingJoinRequest = {
+  id: string;
+  userId: string;
+  username: string;
+  createdAt: string;
+};
+
 export function GroupSettingsSection() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { activeGroupId, activeGroup, refresh } = useActiveGroup();
+  const { activeGroupId, activeGroup, isAdmin, refresh } = useActiveGroup();
   const { loading, members, count, refresh: refreshMembers } = useGroupMembers(activeGroupId);
 
   const [groupName, setGroupName] = useState("");
@@ -39,9 +46,72 @@ export function GroupSettingsSection() {
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; username: string } | null>(null);
 
+  const [loadingJoinRequests, setLoadingJoinRequests] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<PendingJoinRequest[]>([]);
+  const [joinActionId, setJoinActionId] = useState<string | null>(null);
+
   useEffect(() => {
     setGroupName(activeGroup?.name ?? "");
   }, [activeGroup?.name]);
+
+  const loadJoinRequests = async () => {
+    if (!activeGroupId || !isAdmin) {
+      setJoinRequests([]);
+      return;
+    }
+
+    setLoadingJoinRequests(true);
+    try {
+      const { data, error } = await supabase
+        .from("group_join_requests")
+        .select("id, user_id, created_at")
+        .eq("group_id", activeGroupId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      const rows = (data as any[] | null) ?? [];
+      const userIds = rows.map((row) => row.user_id as string).filter(Boolean);
+      if (userIds.length === 0) {
+        setJoinRequests([]);
+        return;
+      }
+
+      const { data: profileRows, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", userIds);
+
+      if (profileError) throw profileError;
+
+      const usernameById = new Map<string, string>();
+      (profileRows as any[] | null)?.forEach((profile) => {
+        if (profile?.id) {
+          usernameById.set(profile.id as string, (profile.username as string) ?? "Usuário");
+        }
+      });
+
+      const pending = rows.map((row) => ({
+        id: row.id as string,
+        userId: row.user_id as string,
+        username: usernameById.get(row.user_id as string) ?? "Usuário",
+        createdAt: row.created_at as string,
+      }));
+
+      setJoinRequests(pending);
+    } catch (error) {
+      console.error("[GroupSettingsSection] load join requests", error);
+      toast.error("Não foi possível carregar as solicitações de entrada.");
+    } finally {
+      setLoadingJoinRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadJoinRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId, isAdmin]);
 
   const title = useMemo(() => {
     if (activeGroup?.name) return `Grupo: ${activeGroup.name}`;
@@ -155,6 +225,46 @@ export function GroupSettingsSection() {
     } finally {
       setSavingMemberId(null);
       setMemberToRemove(null);
+    }
+  };
+
+  const decideJoinRequest = async (requestId: string, requestUserId: string, action: "approve" | "reject") => {
+    if (!activeGroupId || !isAdmin) return;
+
+    setJoinActionId(requestId);
+    try {
+      if (action === "approve") {
+        const { error: memberError } = await supabase
+          .from("group_members")
+          .insert({
+            group_id: activeGroupId,
+            user_id: requestUserId,
+            role: "member",
+          } as any);
+
+        if (memberError && (memberError as any).code !== "23505") {
+          throw memberError;
+        }
+      }
+
+      const { error: requestError } = await supabase
+        .from("group_join_requests")
+        .update({
+          status: action === "approve" ? "approved" : "rejected",
+          decided_by: user?.id,
+          decided_at: new Date().toISOString(),
+        } as any)
+        .eq("id", requestId);
+
+      if (requestError) throw requestError;
+
+      toast.success(action === "approve" ? "Solicitação aprovada." : "Solicitação rejeitada.");
+      await Promise.all([loadJoinRequests(), refreshMembers()]);
+    } catch (error) {
+      console.error("[GroupSettingsSection] decide join request", error);
+      toast.error("Não foi possível concluir a ação da solicitação.");
+    } finally {
+      setJoinActionId(null);
     }
   };
 
@@ -317,6 +427,54 @@ export function GroupSettingsSection() {
               </ul>
             )}
           </div>
+
+          {isAdmin && (
+            <div className="rounded-md border border-border p-3">
+              <p className="mb-2 text-sm font-medium">Solicitações para entrar no grupo</p>
+
+              {loadingJoinRequests ? (
+                <p className="text-xs text-muted-foreground">Carregando solicitações...</p>
+              ) : joinRequests.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhuma solicitação pendente.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {joinRequests.map((request) => {
+                    const isProcessing = joinActionId === request.id;
+
+                    return (
+                      <li key={request.id} className="rounded-md border border-border p-2 space-y-2">
+                        <div className="space-y-0.5">
+                          <p className="text-sm text-foreground truncate">{request.username}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Solicitação em {new Date(request.createdAt).toLocaleString("pt-BR")}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            className="h-7 text-xs"
+                            disabled={isProcessing}
+                            onClick={() => decideJoinRequest(request.id, request.userId, "approve")}
+                          >
+                            Aprovar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={isProcessing}
+                            onClick={() => decideJoinRequest(request.id, request.userId, "reject")}
+                          >
+                            Rejeitar
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
