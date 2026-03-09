@@ -80,7 +80,7 @@ export function ChatPanel() {
           <div className="absolute left-0 top-0 h-full w-px bg-border" />
         </div>
 
-        <ChatView mode="panel" />
+        <MobileChatView layout="desktop" />
       </SheetContent>
     </Sheet>
   );
