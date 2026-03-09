@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Calendar as BigCalendar, dateFnsLocalizer, Views, type View } from "react-big-calendar";
 import withDragAndDrop, {
   type EventInteractionArgs,
