@@ -182,9 +182,22 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const incoming = payload.new as { title?: string; message?: string };
+          const incoming = payload.new as { id?: string; title?: string; message?: string };
           if (!incoming?.title || !incoming?.message) return;
+
           toast(incoming.title, { description: incoming.message });
+
+          if (
+            typeof window !== "undefined" &&
+            "Notification" in window &&
+            Notification.permission === "granted" &&
+            document.visibilityState !== "visible"
+          ) {
+            new Notification(incoming.title, {
+              body: incoming.message,
+              tag: incoming.id ? `notification-${incoming.id}` : undefined,
+            });
+          }
         },
       )
       .subscribe();

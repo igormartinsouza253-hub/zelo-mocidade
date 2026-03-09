@@ -104,8 +104,32 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
     }
   };
 
+  const requestBrowserNotificationPermission = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      toast.error("Este dispositivo não oferece suporte a notificações do navegador.");
+      return false;
+    }
+
+    if (Notification.permission === "granted") return true;
+
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      toast.success("Permissão de notificação ativada.");
+      return true;
+    }
+
+    toast.error("Permissão de notificação não concedida.");
+    return false;
+  };
+
   const savePreference = async (next: Partial<NotificationPrefs>) => {
     if (!user) return;
+
+    if (next.enabled === true && !prefs.enabled) {
+      const granted = await requestBrowserNotificationPermission();
+      if (!granted) return;
+    }
+
     const merged = { ...prefs, ...next };
     setPrefs(merged);
     setSaving(true);
