@@ -451,6 +451,7 @@ export default function Calendario() {
   const [membros, setMembros] = useState<MembroRow[]>([]);
   const [reunioes, setReunioes] = useState<ReuniaoRow[]>([]);
   const [visitasRegistradas, setVisitasRegistradas] = useState<VisitaRow[]>([]);
+  const [creatorNameByUserId, setCreatorNameByUserId] = useState<Record<string, string>>({});
 
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
   const saveLayersTimer = useRef<number | null>(null);
