@@ -63,7 +63,7 @@ export const StatsWidget = ({
       {displayedStats.map((stat, index) => (
         <Card
           key={index}
-          className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-shadow md:rounded-[2.5rem] overflow-hidden"
+          className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-shadow md:rounded-xl overflow-hidden"
         >
           <CardContent
             className={`${

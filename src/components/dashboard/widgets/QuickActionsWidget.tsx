@@ -20,7 +20,7 @@ export const QuickActionsWidget = ({ size }: QuickActionsWidgetProps) => {
 
   if (size === "sm") {
     return (
-      <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col justify-center md:rounded-[2.5rem] overflow-hidden">
+      <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col justify-center md:rounded-xl overflow-hidden">
         <CardContent className="grid grid-cols-1 gap-2 px-2 pb-2 pt-1.5">
           {actions.slice(0, 2).map((action, index) => (
             <button

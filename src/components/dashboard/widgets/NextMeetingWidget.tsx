@@ -18,7 +18,7 @@ export const NextMeetingWidget = ({
     return;
   }
   if (size === "md") {
-    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
         <CardHeader className={WIDGET_HEADER_PADDING["md"]}>
           <CardTitle className={widgetTitleClass("md")}>
             Última reunião

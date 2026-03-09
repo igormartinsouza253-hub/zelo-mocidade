@@ -62,7 +62,7 @@ export function ModernSidebar() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        "fixed left-4 top-1/2 -translate-y-1/2 z-40 hidden md:flex rounded-2xl bg-sidebar-background/95 backdrop-blur-sm border border-sidebar-border shadow-[var(--shadow-elevated)] transition-all duration-300 ease-in-out flex flex-col py-4 px-3",
+        "fixed left-4 top-1/2 -translate-y-1/2 z-40 hidden md:flex rounded-xl bg-sidebar-background/95 backdrop-blur-sm border border-sidebar-border shadow-[var(--shadow-card)] transition-all duration-300 ease-in-out flex flex-col py-4 px-3",
         isExpanded ? "w-60" : "w-16",
       )}
     >
