@@ -161,6 +161,17 @@ const VisualizarMembro = () => {
 
       if (error) throw error;
       setMembro(data);
+
+      if (data?.created_by_user_id) {
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", data.created_by_user_id)
+          .maybeSingle();
+        setCreatedByName(creatorProfile?.username ?? null);
+      } else {
+        setCreatedByName(null);
+      }
     } catch (error) {
       console.error("Erro ao carregar membro:", error);
       toast.error("Erro ao carregar dados do membro");
