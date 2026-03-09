@@ -32,6 +32,9 @@ type NotificationRow = {
   type: string;
   created_at: string;
   read_at: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 interface NotificationSettingsSectionProps {
