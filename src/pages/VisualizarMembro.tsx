@@ -87,9 +87,9 @@ const VisualizarMembro = () => {
   }, [membro?.id, membro?.ativo]);
 
   const handleDelete = useCallback(() => {
-    if (!membro || !isAdmin) return;
+    if (!membro) return;
     setDeleteOpen(true);
-  }, [membro, isAdmin]);
+  }, [membro]);
 
   const handleInactivate = useCallback(async () => {
     if (!membro) return;
