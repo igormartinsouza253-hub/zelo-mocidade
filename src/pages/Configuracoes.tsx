@@ -1245,8 +1245,6 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3 flex flex-row items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-sm">Dock de navegação (mobile)</CardTitle>
                     <CardDescription className="text-xs">
