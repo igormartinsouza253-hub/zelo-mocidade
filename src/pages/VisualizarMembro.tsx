@@ -13,13 +13,23 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MemberProfileTopCard } from "@/components/membros/profile/MemberProfileTopCard";
 import { MemberProfileInfoCard } from "@/components/membros/profile/MemberProfileInfoCard";
 import { MemberProfileFrequencyCard } from "@/components/membros/profile/MemberProfileFrequencyCard";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InactivateMemberDialog } from "@/components/membros/InactivateMemberDialog";
 
 interface Membro {
   id: string;
