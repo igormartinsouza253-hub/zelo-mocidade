@@ -109,7 +109,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "data">("root");
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "group" | "data">("root");
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
