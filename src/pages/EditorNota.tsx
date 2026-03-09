@@ -413,11 +413,37 @@ const EditorNota = () => {
   );
 
   const MobileNoteToolbar = () => {
+    const [keyboardInset, setKeyboardInset] = useState(0);
+
+    useEffect(() => {
+      if (!isMobile || isViewMode || typeof window === "undefined" || !window.visualViewport) return;
+
+      const viewport = window.visualViewport;
+      const updateKeyboardInset = () => {
+        const rawInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        setKeyboardInset(rawInset > 80 ? rawInset : 0);
+      };
+
+      updateKeyboardInset();
+      viewport.addEventListener("resize", updateKeyboardInset);
+      viewport.addEventListener("scroll", updateKeyboardInset);
+      window.addEventListener("orientationchange", updateKeyboardInset);
+
+      return () => {
+        viewport.removeEventListener("resize", updateKeyboardInset);
+        viewport.removeEventListener("scroll", updateKeyboardInset);
+        window.removeEventListener("orientationchange", updateKeyboardInset);
+      };
+    }, [isMobile, isViewMode]);
+
     if (!isMobile || isViewMode) return null;
     const currentTextColor = editor.getAttributes("textStyle")?.color as string | undefined;
 
     return (
-      <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div
+        className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        style={{ bottom: keyboardInset > 0 ? `${keyboardInset}px` : undefined }}
+      >
         <div className="mx-auto w-full max-w-4xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <div className="flex items-center justify-between gap-2">
             {/* Ações */}
