@@ -2616,31 +2616,6 @@ const Configuracoes = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Cargo Dialog */}
-      <AlertDialog
-        open={!!cargoParaExcluir}
-        onOpenChange={(open) => !open && setCargoParaExcluir(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir cargo</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir o cargo "{cargoParaExcluir?.nome}"?
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteCargo}
-              disabled={loading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {loading ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Confirm Import Backup Dialog */}
       <AlertDialog
