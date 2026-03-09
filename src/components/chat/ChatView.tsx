@@ -755,7 +755,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
               : "grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-3")
           }
         >
-          <Card className="min-h-0 flex flex-col">
+          <Card className="min-h-0 flex flex-col rounded-xl border-border/70 bg-card/95 shadow-[var(--shadow-card)] overflow-hidden">
             <div className="p-3 border-b border-border/60 flex items-center justify-between gap-2">
               <div className={"text-sm font-semibold " + (isDockCollapsed ? "sr-only" : "")}>Conversas</div>
               {isCompactPanel && (
