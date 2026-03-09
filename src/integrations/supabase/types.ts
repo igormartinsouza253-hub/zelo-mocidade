@@ -803,6 +803,87 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          birthdays_enabled: boolean
+          chat_enabled: boolean
+          created_at: string
+          enabled: boolean
+          events_enabled: boolean
+          group_requests_enabled: boolean
+          notes_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          birthdays_enabled?: boolean
+          chat_enabled?: boolean
+          created_at?: string
+          enabled?: boolean
+          events_enabled?: boolean
+          group_requests_enabled?: boolean
+          notes_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          birthdays_enabled?: boolean
+          chat_enabled?: boolean
+          created_at?: string
+          enabled?: boolean
+          events_enabled?: boolean
+          group_requests_enabled?: boolean
+          notes_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          dedupe_key: string | null
+          entity_id: string | null
+          entity_type: string | null
+          group_id: string | null
+          id: string
+          message: string
+          metadata: Json
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          group_id?: string | null
+          id?: string
+          message: string
+          metadata?: Json
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          group_id?: string | null
+          id?: string
+          message?: string
+          metadata?: Json
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       presencas: {
         Row: {
           created_at: string
@@ -1153,7 +1234,25 @@ export type Database = {
         Args: { _description: string; _name: string; _password: string }
         Returns: string
       }
+      create_user_notification: {
+        Args: {
+          _dedupe_key?: string
+          _entity_id?: string
+          _entity_type?: string
+          _group_id: string
+          _message: string
+          _metadata?: Json
+          _recipient_user_id: string
+          _title: string
+          _type: string
+        }
+        Returns: undefined
+      }
       current_group_id: { Args: { _user_id: string }; Returns: string }
+      generate_today_birthday_notifications: {
+        Args: { _group_id: string; _recipient_user_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1177,6 +1276,10 @@ export type Database = {
       }
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_notification_type_enabled: {
+        Args: { _type: string; _user_id: string }
         Returns: boolean
       }
       transfer_group_ownership: {
