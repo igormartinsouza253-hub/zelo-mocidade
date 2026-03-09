@@ -74,7 +74,6 @@ const Configuracoes = () => {
   const { user } = useAuth();
   const { activeGroup, isAdmin: isGroupAdmin } = useActiveGroup();
   const isMobile = useIsMobile();
-  const dockPrefs = useDockPreferences();
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [novoCargo, setNovoCargo] = useState("");
   const [cargoParaExcluir, setCargoParaExcluir] = useState<Cargo | null>(null);
@@ -124,11 +123,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<
-    "root" | "theme" | "account" | "users" | "data"
-  >("root");
-
-  const [dockJustUpdated, setDockJustUpdated] = useState(false);
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "data">("root");
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
