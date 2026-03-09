@@ -1415,7 +1415,7 @@ export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "des
             </main>
 
             {/* Input fixo */}
-            <footer className="shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+            <footer className={"shrink-0 border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-2 pt-2 " + (isDesktopLayout ? "pb-2" : "pb-[calc(env(safe-area-inset-bottom)+0.5rem)]")}>
               {(holdingMic || recorder.recording) && (
                 <div className="mb-2 rounded-2xl border border-border bg-card px-3 py-2">
                   <div className="flex items-center justify-between gap-3">
