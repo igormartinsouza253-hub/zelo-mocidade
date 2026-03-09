@@ -102,6 +102,7 @@ const EditorNota = () => {
     x: number;
     y: number;
   } | null>(null);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   useEffect(() => {
     const loadMembros = async () => {
