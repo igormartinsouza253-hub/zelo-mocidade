@@ -13,13 +13,23 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MemberProfileTopCard } from "@/components/membros/profile/MemberProfileTopCard";
 import { MemberProfileInfoCard } from "@/components/membros/profile/MemberProfileInfoCard";
 import { MemberProfileFrequencyCard } from "@/components/membros/profile/MemberProfileFrequencyCard";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InactivateMemberDialog } from "@/components/membros/InactivateMemberDialog";
 
 interface Membro {
   id: string;
@@ -51,6 +61,7 @@ interface Estatisticas {
 const VisualizarMembro = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { isAdmin } = useActiveGroup();
   const [membro, setMembro] = useState<Membro | null>(null);
   const [estatisticas, setEstatisticas] = useState<Estatisticas>({
     totalReunioes: 0,
@@ -61,8 +72,8 @@ const VisualizarMembro = () => {
     alertaAusencias: false,
   });
   const { setConfig } = usePageHeader();
-  const [inactivateOpen, setInactivateOpen] = useState(false);
-  const [inactivating, setInactivating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,39 +87,41 @@ const VisualizarMembro = () => {
   }, [membro?.id, membro?.ativo]);
 
   const handleDelete = useCallback(() => {
-    if (!membro) return;
-    setInactivateOpen(true);
-  }, [membro]);
+    if (!membro || !isAdmin) return;
+    setDeleteOpen(true);
+  }, [membro, isAdmin]);
 
-  const handleConfirmInactivate = useCallback(
-    async ({ reason, note }: { reason: string; note: string | null }) => {
-      if (!membro) return;
+  const handlePermanentDelete = useCallback(async () => {
+    if (!membro || !isAdmin) return;
 
-      try {
-        setInactivating(true);
-        const { error: membroError } = await supabase
-          .from("membros")
-          .update({
-            ativo: false,
-            inativado_em: new Date().toISOString(),
-            inativado_motivo: reason,
-            inativado_observacao: note,
-          })
-          .eq("id", membro.id);
-        if (membroError) throw membroError;
+    try {
+      setDeleting(true);
 
-        toast.success("Membro inativado com sucesso.");
-        navigate("/membros");
-      } catch (error) {
-        console.error("Erro ao inativar membro:", error);
-        toast.error("Erro ao inativar membro");
-      } finally {
-        setInactivating(false);
-        setInactivateOpen(false);
-      }
-    },
-    [membro, navigate],
-  );
+      const memberId = membro.id;
+      const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
+        supabase.from("presencas").delete().eq("membro_id", memberId),
+        supabase.from("eventos").delete().eq("membro_visitado_id", memberId),
+        supabase.from("visitas").delete().eq("membro_visitado_id", memberId),
+        supabase.from("notas").delete().eq("membro_id", memberId),
+      ]);
+
+      const cleanupError =
+        presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
+      if (cleanupError) throw cleanupError;
+
+      const { error: membroError } = await supabase.from("membros").delete().eq("id", memberId);
+      if (membroError) throw membroError;
+
+      toast.success("Membro excluído permanentemente.");
+      navigate("/membros");
+    } catch (error) {
+      console.error("Erro ao excluir membro:", error);
+      toast.error("Erro ao excluir membro");
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }, [isAdmin, membro, navigate]);
 
   useEffect(() => {
     if (!membro) return;
@@ -139,10 +152,12 @@ const VisualizarMembro = () => {
               <Edit className="h-4 w-4 mr-2" />
               Editar
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
+            {isAdmin ? (
+              <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir permanentemente
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -327,6 +342,7 @@ const VisualizarMembro = () => {
   if (!membro) return null;
 
   const dataAniversarioTexto = getDataAniversarioTexto(membro);
+  const creatorLabel = createdByName ?? "usuário não identificado";
 
   const formatarDataInativacao = (valor?: string | null) => {
     if (!valor) return "—";
@@ -381,23 +397,27 @@ const VisualizarMembro = () => {
             </CardContent>
           </Card>
 
-          {createdByName ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Criado por <span className="font-medium text-foreground">{createdByName}</span>
-            </p>
-          ) : null}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Criado por <span className="font-medium text-foreground">{creatorLabel}</span>
+          </p>
         </div>
 
-        <InactivateMemberDialog
-          open={inactivateOpen}
-          onOpenChange={(open) => {
-            if (!open && !inactivating) setInactivateOpen(false);
-          }}
-          title="Inativar membro"
-          confirmLabel="Inativar"
-          loading={inactivating}
-          onConfirm={handleConfirmInactivate}
-        />
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir membro permanentemente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação remove o membro e os registros vinculados (presenças, eventos, visitas e notas) e não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handlePermanentDelete} disabled={deleting}>
+                {deleting ? "Excluindo..." : "Excluir permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -452,24 +472,28 @@ const VisualizarMembro = () => {
             formatarData={formatarData}
           />
 
-          {createdByName ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Criado por <span className="font-medium text-foreground">{createdByName}</span>
-            </p>
-          ) : null}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Criado por <span className="font-medium text-foreground">{creatorLabel}</span>
+          </p>
         </div>
       </div>
 
-      <InactivateMemberDialog
-        open={inactivateOpen}
-        onOpenChange={(open) => {
-          if (!open && !inactivating) setInactivateOpen(false);
-        }}
-        title="Inativar membro"
-        confirmLabel="Inativar"
-        loading={inactivating}
-        onConfirm={handleConfirmInactivate}
-      />
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir membro permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação remove o membro e os registros vinculados (presenças, eventos, visitas e notas) e não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePermanentDelete} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir permanentemente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

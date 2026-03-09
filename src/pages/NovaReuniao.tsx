@@ -305,11 +305,14 @@ const NovaReuniao = () => {
     setLoading(true);
 
     try {
+      const { data: authData } = await supabase.auth.getUser();
+
       const { data: reuniao, error: reuniaoError } = await supabase
         .from("reunioes")
         .insert([
           {
             group_id: activeGroupId,
+            created_by_user_id: authData.user?.id ?? null,
             data: formData.data,
             tema: formData.tema,
             observacoes: formData.observacoes,

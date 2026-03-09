@@ -393,11 +393,9 @@ const VisualizarReuniao = () => {
                 ) : null}
               </div>
 
-              {createdByName ? (
-                <div className="pt-1 text-xs text-muted-foreground">
-                  Criado por <span className="font-medium text-foreground">{createdByName}</span>
-                </div>
-              ) : null}
+              <div className="pt-1 text-xs text-muted-foreground">
+                Criado por <span className="font-medium text-foreground">{createdByName ?? "usuário não identificado"}</span>
+              </div>
             </CardContent>
           </Card>
 
