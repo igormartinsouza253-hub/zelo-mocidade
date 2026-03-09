@@ -55,6 +55,24 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
     [notifications],
   );
 
+  const resolveNotificationHref = (item: NotificationRow) => {
+    if (item.entity_type === "chat_message") {
+      const conversationId = typeof item.metadata?.conversation_id === "string" ? item.metadata.conversation_id : null;
+      if (conversationId) return `/chat?conversationId=${encodeURIComponent(conversationId)}`;
+      return "/chat";
+    }
+
+    if (item.entity_type === "nota" && item.entity_id) {
+      return `/notas/editar/${encodeURIComponent(item.entity_id)}`;
+    }
+
+    if (item.entity_type === "evento" && item.entity_id) {
+      return `/calendario?eventId=${encodeURIComponent(item.entity_id)}`;
+    }
+
+    return "/configuracoes?section=notifications";
+  };
+
   const loadPreferences = async () => {
     if (!user) return;
 
