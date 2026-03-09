@@ -350,22 +350,6 @@ export const ReunioesChartWidget = ({
                       <span className="text-2xl font-extrabold leading-none tabular-nums">{totalSelecionado}</span>
                     </div>
                   </div>
-
-                  {!isLarge && (
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 w-full text-xs"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
-                      >
-                        Toque nas datas para trocar a reunião
-                      </Button>
-                    </div>
-                  )}
                 </div>
               )}
             </aside>
