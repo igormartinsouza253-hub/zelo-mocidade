@@ -67,7 +67,7 @@ function SwipeNotificationItem({
   const [startX, setStartX] = useState<number | null>(null);
   const [deltaX, setDeltaX] = useState(0);
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     setStartX(event.clientX);
     setDeltaX(0);
   };
