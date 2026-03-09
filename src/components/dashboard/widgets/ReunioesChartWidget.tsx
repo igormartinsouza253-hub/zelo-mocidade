@@ -336,7 +336,7 @@ export const ReunioesChartWidget = ({
                <div className="min-w-[230px] rounded-xl flex flex-col justify-between px-3 py-3 min-h-[220px] bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] border border-border/40">
                  <div>
                   <p className="inline-flex items-baseline gap-2 mt-1 text-left">
-                    <span className="inline-flex items-center rounded-full bg-primary-foreground/15 px-3 py-0.5 text-xs md:text-sm font-semibold uppercase tracking-[0.16em]">
+                    <span className="inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-0.5 text-xs md:text-sm font-semibold uppercase tracking-[0.12em]">
                       Reunião {selectedReuniao.data}
                     </span>
                   </p>
