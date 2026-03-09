@@ -140,6 +140,14 @@ const Configuracoes = () => {
   const canManageRestricted = isAdmin || isGroupAdmin;
 
   useEffect(() => {
+    if (!isMobile) return;
+    const section = new URLSearchParams(location.search).get("section");
+    if (section === "theme" || section === "users" || section === "group" || section === "notifications" || section === "data") {
+      setMobileSection(section);
+    }
+  }, [isMobile, location.search]);
+
+  useEffect(() => {
     if (!user) return;
     if (!canManageRestricted) return;
     void loadUsers();
