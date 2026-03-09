@@ -397,23 +397,27 @@ const VisualizarMembro = () => {
             </CardContent>
           </Card>
 
-          {createdByName ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Criado por <span className="font-medium text-foreground">{createdByName}</span>
-            </p>
-          ) : null}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Criado por <span className="font-medium text-foreground">{creatorLabel}</span>
+          </p>
         </div>
 
-        <InactivateMemberDialog
-          open={inactivateOpen}
-          onOpenChange={(open) => {
-            if (!open && !inactivating) setInactivateOpen(false);
-          }}
-          title="Inativar membro"
-          confirmLabel="Inativar"
-          loading={inactivating}
-          onConfirm={handleConfirmInactivate}
-        />
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir membro permanentemente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação remove o membro e os registros vinculados (presenças, eventos, visitas e notas) e não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handlePermanentDelete} disabled={deleting}>
+                {deleting ? "Excluindo..." : "Excluir permanentemente"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
