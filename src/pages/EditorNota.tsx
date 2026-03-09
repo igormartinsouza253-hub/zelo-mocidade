@@ -102,6 +102,7 @@ const EditorNota = () => {
     x: number;
     y: number;
   } | null>(null);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   useEffect(() => {
     const loadMembros = async () => {
@@ -306,6 +307,13 @@ const EditorNota = () => {
         setSelectedMembroId((data.membro_id as string | null) ?? "none");
         setSelectedReuniaoId((data.reuniao_id as string | null) ?? "none");
         setIsViewMode(true);
+
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", data.user_id)
+          .maybeSingle();
+        setCreatedByName(creatorProfile?.username ?? null);
       }
     } catch (error) {
       console.error("Erro ao carregar nota:", error);
@@ -917,6 +925,10 @@ const EditorNota = () => {
               />
             </CardContent>
           </Card>
+
+          {isViewMode && createdByName ? (
+            <p className="text-xs text-muted-foreground">Criado por <span className="font-medium text-foreground">{createdByName}</span></p>
+          ) : null}
 
           {/* Mobile toolbar fixa (substitui a dock inferior do app) */}
           <MobileNoteToolbar />

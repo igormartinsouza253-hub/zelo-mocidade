@@ -36,6 +36,7 @@ export type MobileEventDetails = {
   tipo: EventoTipo;
   descricao?: string | null;
   local?: string | null;
+  createdByName?: string | null;
 };
 
 type Props = {
@@ -117,6 +118,12 @@ export function MobileEventDetailsDialog({ open, onOpenChange, event, canEdit, c
               {event.descricao ? (
                 <section className="rounded-xl border border-border/60 bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
                   {event.descricao}
+                </section>
+              ) : null}
+
+              {event.createdByName ? (
+                <section className="text-xs text-muted-foreground">
+                  Criado por <span className="font-medium text-foreground">{event.createdByName}</span>
                 </section>
               ) : null}
 

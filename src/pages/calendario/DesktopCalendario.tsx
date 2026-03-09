@@ -451,6 +451,7 @@ export default function Calendario() {
   const [membros, setMembros] = useState<MembroRow[]>([]);
   const [reunioes, setReunioes] = useState<ReuniaoRow[]>([]);
   const [visitasRegistradas, setVisitasRegistradas] = useState<VisitaRow[]>([]);
+  const [creatorNameByUserId, setCreatorNameByUserId] = useState<Record<string, string>>({});
 
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
   const saveLayersTimer = useRef<number | null>(null);
@@ -709,6 +710,25 @@ export default function Calendario() {
       setReunioes([]);
     }
   };
+
+  useEffect(() => {
+    const loadEventCreators = async () => {
+      const userIds = Array.from(new Set(rawEventos.map((e) => e.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        setCreatorNameByUserId({});
+        return;
+      }
+
+      const { data } = await supabase.from("profiles").select("id, username").in("id", userIds).limit(200);
+      const next: Record<string, string> = {};
+      (data ?? []).forEach((profile: any) => {
+        if (profile?.id && profile?.username) next[profile.id] = profile.username;
+      });
+      setCreatorNameByUserId(next);
+    };
+
+    void loadEventCreators();
+  }, [rawEventos]);
 
   const loadVisitasRegistradas = async () => {
     try {
@@ -1230,13 +1250,20 @@ export default function Calendario() {
     // evento manual
     const base = rawEventos.find((r) => r.id === ev.resource.baseId);
     const canEditForm = !!user && !!base && base.user_id === user.id;
+    const createdByName = base?.user_id ? creatorNameByUserId[base.user_id] ?? "Usuário" : null;
     setSelectedOccurrence(ev);
     setEventDrawerData({
       title: base?.titulo ?? ev.title,
       kindLabel: `Evento · ${tipoLabel[ev.resource.tipo ?? (base?.tipo as EventoTipo) ?? "ajuntamento"]}`,
       quando: { start, end, allDay: ev.allDay },
       local: base?.local ?? ev.resource.local ?? null,
-      descricao: base?.descricao ?? ev.resource.descricao ?? null,
+      sections: [
+        {
+          label: "Detalhes",
+          value: base?.descricao?.trim() ? <div className="whitespace-pre-wrap">{base.descricao}</div> : "—",
+        },
+        ...(createdByName ? [{ label: "Criado por", value: createdByName }] : []),
+      ],
       canEdit: canEditForm,
     });
     setEventDrawerOpen(true);

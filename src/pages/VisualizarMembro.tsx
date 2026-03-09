@@ -36,6 +36,7 @@ interface Membro {
   inativado_em?: string | null;
   inativado_motivo?: string | null;
   inativado_observacao?: string | null;
+  created_by_user_id?: string | null;
 }
 
 interface Estatisticas {
@@ -62,6 +63,7 @@ const VisualizarMembro = () => {
   const { setConfig } = usePageHeader();
   const [inactivateOpen, setInactivateOpen] = useState(false);
   const [inactivating, setInactivating] = useState(false);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   useEffect(() => {
     loadMembro();
@@ -159,6 +161,17 @@ const VisualizarMembro = () => {
 
       if (error) throw error;
       setMembro(data);
+
+      if (data?.created_by_user_id) {
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", data.created_by_user_id)
+          .maybeSingle();
+        setCreatedByName(creatorProfile?.username ?? null);
+      } else {
+        setCreatedByName(null);
+      }
     } catch (error) {
       console.error("Erro ao carregar membro:", error);
       toast.error("Erro ao carregar dados do membro");
@@ -367,6 +380,12 @@ const VisualizarMembro = () => {
               </div>
             </CardContent>
           </Card>
+
+          {createdByName ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Criado por <span className="font-medium text-foreground">{createdByName}</span>
+            </p>
+          ) : null}
         </div>
 
         <InactivateMemberDialog
@@ -432,6 +451,12 @@ const VisualizarMembro = () => {
             alertaAusencias={estatisticas.alertaAusencias}
             formatarData={formatarData}
           />
+
+          {createdByName ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Criado por <span className="font-medium text-foreground">{createdByName}</span>
+            </p>
+          ) : null}
         </div>
       </div>
 

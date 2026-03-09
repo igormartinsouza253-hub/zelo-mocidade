@@ -44,6 +44,7 @@ interface ReuniaoData {
   quem_atendeu: string | null;
   palavra_referencia: string | null;
   oracoes: Oracao[] | null;
+  created_by_user_id: string | null;
 }
 
 interface ChartData {
@@ -71,6 +72,7 @@ const VisualizarReuniao = () => {
   const [membrosPresentes, setMembrosPresentes] = useState<Membro[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [barChartData, setBarChartData] = useState<any[]>([]);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -108,7 +110,19 @@ const VisualizarReuniao = () => {
         quem_atendeu: reuniaoData.quem_atendeu ?? null,
         palavra_referencia: reuniaoData.palavra_referencia ?? null,
         oracoes: parsedOracoes,
+        created_by_user_id: reuniaoData.created_by_user_id ?? null,
       });
+
+      if (reuniaoData.created_by_user_id) {
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", reuniaoData.created_by_user_id)
+          .maybeSingle();
+        setCreatedByName(creatorProfile?.username ?? null);
+      } else {
+        setCreatedByName(null);
+      }
 
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
@@ -378,6 +392,12 @@ const VisualizarReuniao = () => {
                   </div>
                 ) : null}
               </div>
+
+              {createdByName ? (
+                <div className="pt-1 text-xs text-muted-foreground">
+                  Criado por <span className="font-medium text-foreground">{createdByName}</span>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

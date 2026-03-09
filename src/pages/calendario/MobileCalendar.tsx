@@ -316,6 +316,7 @@ export default function MobileCalendar() {
   const [reunioes, setReunioes] = useState<ReuniaoRow[]>([]);
   const [visitasRegistradas, setVisitasRegistradas] = useState<VisitaRow[]>([]);
   const [membros, setMembros] = useState<MembroRow[]>([]);
+  const [creatorNameByUserId, setCreatorNameByUserId] = useState<Record<string, string>>({});
 
   const [presenceByMeetingId, setPresenceByMeetingId] = useState<Record<string, PresenceCountState>>({});
 
@@ -447,6 +448,25 @@ export default function MobileCalendar() {
 
     void load();
   }, [activeGroupId, monthRange.end, monthRange.start]);
+
+  useEffect(() => {
+    const loadEventCreators = async () => {
+      const userIds = Array.from(new Set(rawEventos.map((e) => e.user_id).filter(Boolean)));
+      if (userIds.length === 0) {
+        setCreatorNameByUserId({});
+        return;
+      }
+
+      const { data } = await supabase.from("profiles").select("id, username").in("id", userIds).limit(200);
+      const next: Record<string, string> = {};
+      (data ?? []).forEach((profile: any) => {
+        if (profile?.id && profile?.username) next[profile.id] = profile.username;
+      });
+      setCreatorNameByUserId(next);
+    };
+
+    void loadEventCreators();
+  }, [rawEventos]);
 
   function parseMMDD(mmdd: string) {
     const [mm, dd] = mmdd.split("-").map((n) => Number(n));
@@ -624,6 +644,7 @@ export default function MobileCalendar() {
       tipo: target.tipo,
       descricao: target.descricao ?? null,
       local: target.local ?? null,
+      createdByName: getEventCreatorName(target.baseId),
     });
     setDetailsOpen(true);
 
@@ -652,6 +673,11 @@ export default function MobileCalendar() {
   }, [upcomingItems]);
 
   const getRawEventoById = (baseId: string) => rawEventos.find((e) => e.id === baseId) ?? null;
+  const getEventCreatorName = (baseId: string) => {
+    const ownerId = getRawEventoById(baseId)?.user_id;
+    if (!ownerId) return null;
+    return creatorNameByUserId[ownerId] ?? "Usuário";
+  };
 
   const loadPresenceCount = async (reuniaoId: string) => {
     setPresenceByMeetingId((prev) => ({
@@ -1058,6 +1084,7 @@ export default function MobileCalendar() {
                               tipo: it.tipo,
                               descricao: it.descricao ?? null,
                               local: it.local ?? null,
+                              createdByName: getEventCreatorName(it.baseId),
                             });
                             setDetailsOpen(true);
                           }}
@@ -1073,6 +1100,7 @@ export default function MobileCalendar() {
                               tipo: it.tipo,
                               descricao: it.descricao ?? null,
                               local: it.local ?? null,
+                              createdByName: getEventCreatorName(it.baseId),
                             });
                             setDetailsOpen(true);
                           }}
@@ -1108,6 +1136,7 @@ export default function MobileCalendar() {
                                   tipo: it.tipo,
                                   descricao: it.descricao ?? null,
                                   local: it.local ?? null,
+                                  createdByName: getEventCreatorName(it.baseId),
                                 });
                                 setDetailsOpen(true);
                               }}
