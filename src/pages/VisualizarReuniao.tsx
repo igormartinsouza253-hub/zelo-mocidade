@@ -72,6 +72,7 @@ const VisualizarReuniao = () => {
   const [membrosPresentes, setMembrosPresentes] = useState<Membro[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [barChartData, setBarChartData] = useState<any[]>([]);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
