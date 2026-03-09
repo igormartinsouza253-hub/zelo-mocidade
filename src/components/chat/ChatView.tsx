@@ -752,7 +752,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
               ? isDockCollapsed
                 ? "grid-cols-[76px_1fr]"
                 : "grid-cols-[240px_1fr]"
-              : "grid-cols-1 md:grid-cols-[280px_1fr] gap-4")
+              : "grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-3")
           }
         >
           <Card className="min-h-0 flex flex-col">
