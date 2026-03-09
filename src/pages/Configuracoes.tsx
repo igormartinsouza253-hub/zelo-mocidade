@@ -2505,45 +2505,6 @@ const Configuracoes = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Gerenciar Cargos */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Gerenciar Cargos</CardTitle>
-                      <CardDescription>Adicione ou remova cargos disponíveis</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <form onSubmit={handleAddCargo} className="flex gap-2 mb-4">
-                        <Input
-                          placeholder="Novo cargo"
-                          value={novoCargo}
-                          onChange={(e) => setNovoCargo(e.target.value)}
-                          disabled={loading}
-                        />
-                        <Button type="submit" disabled={loading || !novoCargo.trim()}>
-                          Adicionar
-                        </Button>
-                      </form>
-
-                      <div className="space-y-2">
-                        {cargos.map((cargo) => (
-                          <div
-                            key={cargo.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <span>{cargo.nome}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCargoParaExcluir(cargo)}
-                              disabled={loading}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
 
                   {/* Usuários Online em tempo real */}
                   <Card>
