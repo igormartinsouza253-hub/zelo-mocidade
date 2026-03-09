@@ -408,7 +408,7 @@ function MessageBubble({
   );
 }
 
-export function MobileChatView() {
+export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "desktop" }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
