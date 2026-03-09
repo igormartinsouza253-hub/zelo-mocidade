@@ -61,6 +61,7 @@ interface Estatisticas {
 const VisualizarMembro = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { isAdmin } = useActiveGroup();
   const [membro, setMembro] = useState<Membro | null>(null);
   const [estatisticas, setEstatisticas] = useState<Estatisticas>({
     totalReunioes: 0,
@@ -71,8 +72,8 @@ const VisualizarMembro = () => {
     alertaAusencias: false,
   });
   const { setConfig } = usePageHeader();
-  const [inactivateOpen, setInactivateOpen] = useState(false);
-  const [inactivating, setInactivating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,39 +87,41 @@ const VisualizarMembro = () => {
   }, [membro?.id, membro?.ativo]);
 
   const handleDelete = useCallback(() => {
-    if (!membro) return;
-    setInactivateOpen(true);
-  }, [membro]);
+    if (!membro || !isAdmin) return;
+    setDeleteOpen(true);
+  }, [membro, isAdmin]);
 
-  const handleConfirmInactivate = useCallback(
-    async ({ reason, note }: { reason: string; note: string | null }) => {
-      if (!membro) return;
+  const handlePermanentDelete = useCallback(async () => {
+    if (!membro || !isAdmin) return;
 
-      try {
-        setInactivating(true);
-        const { error: membroError } = await supabase
-          .from("membros")
-          .update({
-            ativo: false,
-            inativado_em: new Date().toISOString(),
-            inativado_motivo: reason,
-            inativado_observacao: note,
-          })
-          .eq("id", membro.id);
-        if (membroError) throw membroError;
+    try {
+      setDeleting(true);
 
-        toast.success("Membro inativado com sucesso.");
-        navigate("/membros");
-      } catch (error) {
-        console.error("Erro ao inativar membro:", error);
-        toast.error("Erro ao inativar membro");
-      } finally {
-        setInactivating(false);
-        setInactivateOpen(false);
-      }
-    },
-    [membro, navigate],
-  );
+      const memberId = membro.id;
+      const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
+        supabase.from("presencas").delete().eq("membro_id", memberId),
+        supabase.from("eventos").delete().eq("membro_visitado_id", memberId),
+        supabase.from("visitas").delete().eq("membro_visitado_id", memberId),
+        supabase.from("notas").delete().eq("membro_id", memberId),
+      ]);
+
+      const cleanupError =
+        presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
+      if (cleanupError) throw cleanupError;
+
+      const { error: membroError } = await supabase.from("membros").delete().eq("id", memberId);
+      if (membroError) throw membroError;
+
+      toast.success("Membro excluído permanentemente.");
+      navigate("/membros");
+    } catch (error) {
+      console.error("Erro ao excluir membro:", error);
+      toast.error("Erro ao excluir membro");
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  }, [isAdmin, membro, navigate]);
 
   useEffect(() => {
     if (!membro) return;
