@@ -900,7 +900,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
             </div>
           </Card>
 
-          <Card className="min-h-0 flex flex-col overflow-hidden">
+          <Card className="min-h-0 flex flex-col overflow-hidden rounded-xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
             <div className="p-3 border-b border-border/60 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">
