@@ -726,7 +726,7 @@ const EditorNota = () => {
         className={cn(
           "flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 overflow-y-auto",
           isMobile ? "scrollbar-none" : "scrollbar-thin",
-          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "",
+          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+14rem)]" : "",
         )}
       >
         <div className="max-w-4xl mx-auto w-full space-y-4">
