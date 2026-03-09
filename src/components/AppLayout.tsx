@@ -165,6 +165,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const { count: unreadCount } = useUnreadChatCount();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
