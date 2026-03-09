@@ -1000,6 +1000,24 @@ const Configuracoes = () => {
                 </CardHeader>
               </Card>
 
+              <Card
+                className="hover-scale cursor-pointer"
+                onClick={() => setMobileSection("notifications")}
+              >
+                <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                    <Bell className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <CardTitle className="text-sm">Notificações</CardTitle>
+                    <CardDescription className="text-xs">
+                      Gerencie alertas de aniversários, chat, eventos, notas e solicitações.
+                    </CardDescription>
+                  </div>
+                  <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                </CardHeader>
+              </Card>
+
               {isGroupAdmin && activeGroup && (
                 <Card
                   className="hover-scale cursor-pointer"
