@@ -558,7 +558,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                       {location.pathname === "/" && (
                         <button
                           type="button"
-                          onClick={() => navigate("/configuracoes?section=notifications")}
+                          onClick={() => setIsNotificationsDrawerOpen(true)}
                           className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
                           aria-label="Abrir notificações"
                         >
