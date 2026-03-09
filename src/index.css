@@ -36,14 +36,14 @@ All colors MUST be HSL.
     --input: 220 13% 91%;
     --ring: 158 64% 52%;
  
-     --radius: 0.75rem;
- 
-     --gradient-primary: linear-gradient(135deg, hsl(158 64% 52%), hsl(158 64% 42%));
-     --gradient-mobile: linear-gradient(135deg, hsl(248 84% 58%), hsl(263 90% 67%));
-     --shadow-soft: 0 1px 3px 0 hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
-     --shadow-elevated: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
-     --shadow-card: 0 1px 3px 0 hsl(220 13% 18% / 0.05);
-     --shadow-mobile: 0 8px 16px -4px hsl(248 84% 58% / 0.2);
+    --radius: 0.6rem;
+
+    --gradient-primary: linear-gradient(135deg, hsl(158 64% 52%), hsl(158 64% 42%));
+    --gradient-mobile: linear-gradient(135deg, hsl(248 84% 58%), hsl(263 90% 67%));
+    --shadow-soft: 0 1px 2px 0 hsl(220 13% 18% / 0.06), 0 8px 18px -14px hsl(220 13% 18% / 0.2);
+    --shadow-elevated: 0 2px 4px -2px hsl(220 13% 18% / 0.08), 0 16px 28px -20px hsl(220 13% 18% / 0.3);
+    --shadow-card: 0 1px 2px 0 hsl(220 13% 18% / 0.06), 0 10px 24px -20px hsl(220 13% 18% / 0.25);
+    --shadow-mobile: 0 8px 16px -4px hsl(248 84% 58% / 0.2);
  
      --sidebar-background: 0 0% 100%;
      --sidebar-foreground: 220 13% 18%;
@@ -122,7 +122,7 @@ All colors MUST be HSL.
      --input: 220 13% 18%;
      --ring: 158 64% 52%;
  
-     --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.3);
+     --shadow-card: 0 1px 2px 0 hsl(0 0% 0% / 0.22), 0 12px 26px -20px hsl(0 0% 0% / 0.55);
  
      --sidebar-background: 220 13% 12%;
      --sidebar-foreground: 0 0% 98%;

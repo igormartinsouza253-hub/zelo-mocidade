@@ -504,7 +504,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         />
       </div>
 
-       <div className="flex h-screen w-full bg-background md:pl-20 overflow-hidden">
+       <div className="flex h-screen w-full bg-background md:bg-muted/25 md:pl-20 overflow-hidden">
         {/* Modern Sidebar - Desktop/Tablet only */}
         {!isMobileMode && <ModernSidebar />}
 
@@ -651,7 +651,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       {/* Legenda global do grupo ativo (somente desktop/tablet) */}
       {!isMobileMode && (
         <div className="fixed left-3 bottom-20 md:left-4 md:bottom-4 z-40 pointer-events-none">
-          <div className="pointer-events-auto w-[70vw] max-w-xs rounded-full border border-border/60 bg-card/70 backdrop-blur-md shadow-[var(--shadow-card)]">
+          <div className="pointer-events-auto w-[70vw] max-w-xs rounded-xl border border-border/70 bg-card/80 backdrop-blur-md shadow-[var(--shadow-card)]">
             <div className="px-3 py-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] font-medium text-muted-foreground">Grupo</span>
@@ -730,8 +730,8 @@ function DesktopHeader({
     locationPathname !== "/" && (config?.showBackButton ?? true);
 
   return (
-    <div className="hidden md:flex shrink-0 flex-col gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 pt-4 pb-3 border-b border-border/60">
-      <div className="flex items-center gap-3">
+    <div className="hidden md:flex shrink-0 flex-col gap-2 bg-background px-6 pt-4 pb-3 border-b border-border/70 shadow-[var(--shadow-soft)]">
+      <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-card/90 px-3 py-2.5 shadow-[var(--shadow-card)]">
         {showBackButton && (
           <button
             type="button"
@@ -742,7 +742,7 @@ function DesktopHeader({
                 navigate(-1);
               }
             }}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card hover:bg-accent/60 transition-colors"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card hover:bg-accent/60 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -751,7 +751,7 @@ function DesktopHeader({
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <div className="flex items-center gap-2 min-w-0">
             {EffectiveIcon && (
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border/60 text-primary">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent border border-border/60 text-primary">
                 <EffectiveIcon className="h-4 w-4" />
               </span>
             )}
@@ -780,7 +780,7 @@ function DesktopHeader({
           <button
             type="button"
             onClick={onOpenChat}
-            className="relative h-11 w-11 rounded-full bg-accent flex items-center justify-center border border-border/60 shadow-[var(--shadow-card)] text-foreground hover:bg-accent/80 transition-colors"
+            className="relative h-11 w-11 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-foreground hover:bg-accent/80 transition-colors"
             aria-label="Abrir chat"
           >
             <MessageCircle className="h-5 w-5" />
@@ -825,11 +825,11 @@ function AccountMenu({ user, navigate, onSignOut, profile }: AccountMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="h-11 w-11 rounded-full bg-accent flex items-center justify-center border border-border/60 shadow-[var(--shadow-card)] text-sm font-semibold text-foreground"
+          className="h-11 w-11 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-sm font-semibold text-foreground"
         >
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-9 w-9 rounded-md">
             <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="bg-accent text-foreground text-sm font-semibold">
+            <AvatarFallback className="rounded-md bg-accent text-foreground text-sm font-semibold">
               {fallbackInitial}
             </AvatarFallback>
           </Avatar>

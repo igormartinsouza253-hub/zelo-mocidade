@@ -39,7 +39,7 @@ export function DesktopDashboard({
     <div className="h-full w-full bg-background overflow-hidden">
       <div className="flex flex-col h-full w-full">
         <div className="flex-1 min-h-0">
-          <Card className="h-full w-full rounded-[2.5rem] bg-card border border-border/70 shadow-[var(--shadow-card)]">
+          <Card className="h-full w-full rounded-2xl bg-card border border-border/80 shadow-[var(--shadow-card)]">
             <div className="h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)]">
               {/* Coluna esquerda: Aniversariantes + Notas */}
               <div className="flex flex-col gap-4 min-h-0 h-full w-full">
