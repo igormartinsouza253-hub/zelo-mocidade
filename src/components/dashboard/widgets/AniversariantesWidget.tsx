@@ -254,7 +254,7 @@ export const AniversariantesWidget = ({
               </span>
               <span>{totalMes} aniversariantes</span>
             </div>
-            <div className="flex-1 min-h-0 space-y-1.5 overflow-auto pr-1 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
+            <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1 scrollbar-none">
               {aniversariantesHoje.length > 0 && (
                 <div className="space-y-1.5 mb-1.5">
                   {aniversariantesHoje.map((item) => (

@@ -70,7 +70,8 @@ export const NotasWidget = ({
         </CardContent>
       </Card>;
   }
-  const limit = size === "md" ? 4 : 6;
+  const limit = size === "md" ? 4 : undefined;
+  const notasVisiveis = limit ? notasOrdenadas.slice(0, limit) : notasOrdenadas;
   return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING[size] + " px-3"}>
         <div className="flex items-center justify-between">
@@ -82,9 +83,9 @@ export const NotasWidget = ({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-auto px-3 pb-3 pt-0.5 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
+      <CardContent className={size === "lg" ? "flex-1 overflow-y-auto max-h-[300px] px-3 pb-3 pt-0.5 scrollbar-none" : "flex-1 overflow-auto px-3 pb-3 pt-0.5 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent"}>
         <div className={size === "lg" ? "space-y-2.5" : "space-y-2"}>
-           {notasOrdenadas.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma nota cadastrada</p> : notasOrdenadas.slice(0, limit).map(nota => <div key={nota.id} className="p-2.5 rounded-2xl md:rounded-lg bg-accent/20 border border-border/30 group hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigateWithDelay(`/notas/editar/${nota.id}`)} onDoubleClick={cancelScheduledNavigate}>
+           {notasOrdenadas.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma nota cadastrada</p> : notasVisiveis.map(nota => <div key={nota.id} className="p-2.5 rounded-2xl md:rounded-lg bg-accent/20 border border-border/30 group hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigateWithDelay(`/notas/editar/${nota.id}`)} onDoubleClick={cancelScheduledNavigate}>
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="text-[11px] text-muted-foreground">
                       {formatDateLocal(nota.created_at)}
