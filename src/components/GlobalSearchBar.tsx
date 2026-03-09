@@ -318,9 +318,8 @@ export function GlobalSearchBar() {
       aria-label="Busca global"
     >
       {/* Cápsula externa maior */}
-      <div className="relative flex w-full items-center rounded-full bg-card border border-border/60 px-3 py-1.5 shadow-[var(--shadow-card)]">
-        {/* Área interna menor com ícone + input */}
-        <div className="flex flex-1 items-center gap-2 rounded-full bg-muted/60 px-3 py-1">
+      <div className="relative flex w-full items-center rounded-lg border border-border/70 bg-card/90 px-2.5 py-1.5 shadow-[var(--shadow-card)]">
+        <div className="flex flex-1 items-center gap-2 rounded-lg border border-border/50 bg-background/80 px-2.5 py-1">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <div className="relative flex-1">
             <Input
