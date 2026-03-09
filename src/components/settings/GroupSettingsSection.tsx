@@ -1,24 +1,162 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { useGroupMembers } from "@/hooks/groups/useGroupMembers";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-import { Users } from "lucide-react";
+import { Shield, Users } from "lucide-react";
+import { toast } from "sonner";
 
 export function GroupSettingsSection() {
   const navigate = useNavigate();
-  const { activeGroupId, activeGroup } = useActiveGroup();
-  const { loading, members, count } = useGroupMembers(activeGroupId);
+  const { user } = useAuth();
+  const { activeGroupId, activeGroup, refresh } = useActiveGroup();
+  const { loading, members, count, refresh: refreshMembers } = useGroupMembers(activeGroupId);
+
+  const [groupName, setGroupName] = useState("");
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{ userId: string; username: string } | null>(null);
+
+  useEffect(() => {
+    setGroupName(activeGroup?.name ?? "");
+  }, [activeGroup?.name]);
 
   const title = useMemo(() => {
     if (activeGroup?.name) return `Grupo: ${activeGroup.name}`;
     return "Grupo";
   }, [activeGroup?.name]);
+
+  const handleUpdateGroupInfo = async () => {
+    if (!activeGroupId) return;
+
+    const trimmedName = groupName.trim();
+    if (!trimmedName) {
+      toast.error("Informe um nome de grupo válido.");
+      return;
+    }
+
+    setSavingInfo(true);
+    try {
+      const { error } = await supabase.rpc("update_management_group_info", {
+        _group_id: activeGroupId,
+        _name: trimmedName,
+        _description: activeGroup?.description ?? "",
+      });
+      if (error) throw error;
+
+      await refresh();
+      toast.success("Nome do grupo atualizado.");
+    } catch (error) {
+      console.error("[GroupSettingsSection] update group info", error);
+      toast.error("Não foi possível atualizar o nome do grupo.");
+    } finally {
+      setSavingInfo(false);
+    }
+  };
+
+  const handleUpdateGroupPassword = async () => {
+    if (!activeGroupId) return;
+
+    if (newPassword.length < 4) {
+      toast.error("A senha do grupo precisa ter pelo menos 4 caracteres.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const { error } = await supabase.rpc("update_management_group_password", {
+        _group_id: activeGroupId,
+        _new_password: newPassword,
+      });
+      if (error) throw error;
+
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Senha do grupo atualizada.");
+    } catch (error) {
+      console.error("[GroupSettingsSection] update group password", error);
+      toast.error("Não foi possível atualizar a senha do grupo.");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const handleChangeMemberRole = async (memberUserId: string, role: "admin" | "member") => {
+    if (!activeGroupId) return;
+
+    setSavingMemberId(memberUserId);
+    try {
+      const { error } = await supabase
+        .from("group_members")
+        .update({ role })
+        .eq("group_id", activeGroupId)
+        .eq("user_id", memberUserId);
+      if (error) throw error;
+
+      await refreshMembers();
+      toast.success("Permissão do membro atualizada.");
+    } catch (error) {
+      console.error("[GroupSettingsSection] change member role", error);
+      toast.error("Não foi possível atualizar a permissão do membro.");
+    } finally {
+      setSavingMemberId(null);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!activeGroupId || !memberToRemove) return;
+
+    setSavingMemberId(memberToRemove.userId);
+    try {
+      const { error } = await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", activeGroupId)
+        .eq("user_id", memberToRemove.userId);
+      if (error) throw error;
+
+      if (memberToRemove.userId === user?.id) {
+        navigate("/grupo?change=1");
+      }
+
+      await refreshMembers();
+      await refresh();
+      toast.success("Membro removido do grupo.");
+    } catch (error) {
+      console.error("[GroupSettingsSection] remove member", error);
+      toast.error("Não foi possível remover este membro.");
+    } finally {
+      setSavingMemberId(null);
+      setMemberToRemove(null);
+    }
+  };
 
   if (!activeGroupId) {
     return (
@@ -40,43 +178,162 @@ export function GroupSettingsSection() {
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
-        <CardTitle className="text-sm md:text-lg flex items-center gap-2">
-          <Users className="h-4 w-4 md:h-5 md:w-5" />
-          {title}
-          <Badge variant="secondary" className="ml-auto">{count}</Badge>
-        </CardTitle>
-        <CardDescription className="text-xs md:text-sm">
-          Usuários no grupo (usernames) e acesso para trocar de grupo.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-3 md:pb-6 px-3 md:px-6 space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => navigate("/grupo?change=1")}
-            className="h-8 md:h-10 text-xs md:text-sm"
-          >
-            Trocar grupo
-          </Button>
-        </div>
+    <>
+      <Card>
+        <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
+          <CardTitle className="text-sm md:text-lg flex items-center gap-2">
+            <Users className="h-4 w-4 md:h-5 md:w-5" />
+            {title}
+            <Badge variant="secondary" className="ml-auto">{count}</Badge>
+          </CardTitle>
+          <CardDescription className="text-xs md:text-sm">
+            Gerencie nome, senha e membros do grupo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-3 md:pb-6 px-3 md:px-6 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/grupo?change=1")}
+              className="h-8 md:h-10 text-xs md:text-sm"
+            >
+              Trocar grupo
+            </Button>
+          </div>
 
-        <div className="rounded-md border border-border p-3">
-          {loading ? (
-            <p className="text-xs text-muted-foreground">Carregando membros...</p>
-          ) : members.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhum membro encontrado.</p>
-          ) : (
-            <ul className="space-y-1">
-              {members.map((m) => (
-                <li key={m.userId} className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-foreground truncate">{m.username}</span>
-                  {m.role === "admin" && <Badge variant="outline">Admin</Badge>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <div className="space-y-2">
+              <Label className="text-xs md:text-sm">Nome do grupo</Label>
+              <Input
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+                placeholder="Nome do grupo"
+                className="h-8 md:h-10 text-xs md:text-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={handleUpdateGroupInfo}
+              disabled={savingInfo}
+              className="h-8 md:h-10 text-xs md:text-sm"
+            >
+              {savingInfo ? "Salvando..." : "Salvar nome do grupo"}
+            </Button>
+          </div>
+
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <p className="text-sm font-medium">Senha do grupo</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs md:text-sm">Nova senha</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Mínimo 4 caracteres"
+                className="h-8 md:h-10 text-xs md:text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs md:text-sm">Confirmar nova senha</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Repita a senha"
+                className="h-8 md:h-10 text-xs md:text-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={handleUpdateGroupPassword}
+              disabled={savingPassword}
+              className="h-8 md:h-10 text-xs md:text-sm"
+            >
+              {savingPassword ? "Salvando..." : "Atualizar senha"}
+            </Button>
+          </div>
+
+          <div className="rounded-md border border-border p-3">
+            <p className="mb-2 text-sm font-medium">Membros do grupo</p>
+            {loading ? (
+              <p className="text-xs text-muted-foreground">Carregando membros...</p>
+            ) : members.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum membro encontrado.</p>
+            ) : (
+              <ul className="space-y-2">
+                {members.map((member) => {
+                  const isCurrentUser = member.userId === user?.id;
+                  const isSaving = savingMemberId === member.userId;
+
+                  return (
+                    <li key={member.userId} className="rounded-md border border-border p-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-foreground truncate">{member.username}</span>
+                        <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+                          {member.role === "admin" ? "Admin" : "Membro"}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {member.role === "admin" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={isCurrentUser || isSaving}
+                            onClick={() => handleChangeMemberRole(member.userId, "member")}
+                          >
+                            Tornar membro
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={isSaving}
+                            onClick={() => handleChangeMemberRole(member.userId, "admin")}
+                          >
+                            Tornar admin
+                          </Button>
+                        )}
+
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          disabled={isSaving}
+                          onClick={() => setMemberToRemove({ userId: member.userId, username: member.username })}
+                        >
+                          Expulsar
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover membro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover {memberToRemove?.username ?? "este membro"} do grupo?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveMember}>Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
