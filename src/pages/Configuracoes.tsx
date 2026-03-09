@@ -1556,6 +1556,8 @@ const Configuracoes = () => {
                   )}
                 </CardContent>
               </Card>
+                </>
+              )}
             </div>
           )}
 
