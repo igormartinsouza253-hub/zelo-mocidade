@@ -121,6 +121,12 @@ export function MobileEventDetailsDialog({ open, onOpenChange, event, canEdit, c
                 </section>
               ) : null}
 
+              {event.createdByName ? (
+                <section className="text-xs text-muted-foreground">
+                  Criado por <span className="font-medium text-foreground">{event.createdByName}</span>
+                </section>
+              ) : null}
+
               {canEdit || canDelete ? (
                 <section className="flex items-center gap-2">
                   <Button
