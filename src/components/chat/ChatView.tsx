@@ -748,6 +748,7 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
         <div
           className={
             "grid gap-3 h-full min-h-0 " +
+            (isDesktopPage ? "rounded-xl border border-border/60 bg-background/70 p-2 " : "") +
             (isCompactPanel
               ? isDockCollapsed
                 ? "grid-cols-[76px_1fr]"
