@@ -56,7 +56,7 @@ export const AniversariantesWidget = ({
   if (size === "sm") {
     return (
       <Card
-        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex items-center justify-center cursor-pointer md:rounded-[2.5rem]"
+        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex items-center justify-center cursor-pointer md:rounded-xl"
         onClick={() => navigate("/calendario")}
       >
         <CardContent className="flex flex-col items-center justify-center gap-1.5 px-3 pb-3 pt-2">
