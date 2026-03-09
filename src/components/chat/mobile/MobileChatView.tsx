@@ -462,6 +462,8 @@ export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "des
     text,
   });
 
+  const isDesktopLayout = layout === "desktop";
+
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeConversationId) ?? null,
     [conversations, activeConversationId],

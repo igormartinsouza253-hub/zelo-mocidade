@@ -1,6 +1,6 @@
-import { ChatView } from "@/components/chat/ChatView";
+import { MobileChatView } from "@/components/chat/mobile/MobileChatView";
 
-// Desktop/Tablet: usar o modo painel (compacto) embutido na página.
+// Desktop: usar o mesmo motor/recursos do chat mobile, com layout adaptado para desktop.
 export default function DesktopChat() {
-  return <ChatView mode="panel" />;
+  return <MobileChatView layout="desktop" />;
 }
