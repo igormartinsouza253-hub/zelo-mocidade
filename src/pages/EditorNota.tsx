@@ -703,7 +703,7 @@ const EditorNota = () => {
                             <SelectItem value="none">Nenhuma</SelectItem>
                             {reunioes.map((r) => (
                               <SelectItem key={r.id} value={r.id}>
-                                {new Date(r.data).toLocaleDateString("pt-BR")} {r.tema ? `- ${r.tema}` : ""}
+                                {formatDateLocal(r.data)} {r.tema ? `- ${r.tema}` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
