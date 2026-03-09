@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ChatView } from "@/components/chat/ChatView";
+import { MobileChatView } from "@/components/chat/mobile/MobileChatView";
 import { useChatLauncher } from "@/components/chat/ChatLauncherContext";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
