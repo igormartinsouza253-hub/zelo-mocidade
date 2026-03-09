@@ -59,7 +59,7 @@ export const NotasWidget = ({
           </Button>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col justify-center px-2 pb-2 pt-0.5 text-xs">
-          {ultima ? <div className="space-y-1.5 cursor-pointer rounded-2xl md:rounded-full bg-accent/20 px-2.5 py-2" onClick={() => navigateWithDelay(`/notas/editar/${ultima.id}`)} onDoubleClick={cancelScheduledNavigate}>
+          {ultima ? <div className="space-y-1.5 cursor-pointer rounded-2xl md:rounded-lg bg-accent/20 px-2.5 py-2" onClick={() => navigateWithDelay(`/notas/editar/${ultima.id}`)} onDoubleClick={cancelScheduledNavigate}>
               <div className="text-[10px] text-muted-foreground">
                 {formatDateLocal(ultima.created_at)}
               </div>
