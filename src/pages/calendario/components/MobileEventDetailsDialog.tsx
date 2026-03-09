@@ -36,6 +36,7 @@ export type MobileEventDetails = {
   tipo: EventoTipo;
   descricao?: string | null;
   local?: string | null;
+  createdByName?: string | null;
 };
 
 type Props = {
