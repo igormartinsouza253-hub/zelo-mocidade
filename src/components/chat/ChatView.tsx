@@ -328,6 +328,10 @@ export function ChatView({ mode }: { mode: "page" | "panel" }) {
   }, [conversations, location.pathname, location.search, navigate]);
 
   useEffect(() => {
+    if (!activeConversationId) {
+      setMessages([]);
+      return;
+    }
 
     // For group chats, auto-join the conversation so messages RLS allows read/write.
     if (activeConversation?.kind === "group") {

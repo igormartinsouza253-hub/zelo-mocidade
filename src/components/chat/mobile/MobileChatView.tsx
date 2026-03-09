@@ -410,6 +410,7 @@ function MessageBubble({
 
 export function MobileChatView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { activeGroupId, activeGroup } = useActiveGroup();
 
