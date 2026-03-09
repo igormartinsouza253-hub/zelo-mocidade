@@ -49,7 +49,7 @@ export const ReunioesChartWidget = ({
 
   const isSmall = size === "sm";
   const isLarge = size === "lg";
-  const height = isLarge ? 230 : size === "md" ? 230 : 200;
+  const height = isLarge ? 260 : size === "md" ? 230 : 200;
 
   const headerPadding = WIDGET_HEADER_PADDING[size];
   const titleTextSize = size === "sm" ? "sm" : size === "lg" ? "lg" : "md";
