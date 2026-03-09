@@ -46,7 +46,7 @@ export const ReunioesChartWidget = ({
 
   const VISITAS_COLOR = resolveHslFromCssVar("--faixa-visitas", "33 100% 45%");
 
-  const GROUP_KEYS = ["visitas", "Crianças", "Meninas", "Meninos", "Moças", "Moços"] as const;
+  
 
   const navigate = useNavigate();
   const navigateTimerRef = useRef<number | null>(null);
