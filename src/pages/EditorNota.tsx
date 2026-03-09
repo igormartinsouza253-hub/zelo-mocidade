@@ -42,6 +42,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { formatDateLocal } from "@/lib/date-utils";
 
 const HIGHLIGHT_COLORS = [
   { name: "Amarelo", color: "rgba(234, 179, 8, 0.5)" },
