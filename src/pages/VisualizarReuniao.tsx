@@ -110,7 +110,19 @@ const VisualizarReuniao = () => {
         quem_atendeu: reuniaoData.quem_atendeu ?? null,
         palavra_referencia: reuniaoData.palavra_referencia ?? null,
         oracoes: parsedOracoes,
+        created_by_user_id: reuniaoData.created_by_user_id ?? null,
       });
+
+      if (reuniaoData.created_by_user_id) {
+        const { data: creatorProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", reuniaoData.created_by_user_id)
+          .maybeSingle();
+        setCreatedByName(creatorProfile?.username ?? null);
+      } else {
+        setCreatedByName(null);
+      }
 
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
