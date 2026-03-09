@@ -355,6 +355,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
                     type="button"
                     onClick={() => {
                       if (!item.read_at) void markOneAsRead(item.id);
+                      navigate(resolveNotificationHref(item));
                     }}
                     className="w-full rounded-md border border-border p-3 text-left transition-colors hover:bg-accent/40"
                   >
