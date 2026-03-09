@@ -519,16 +519,27 @@ const VisualizarMembro = () => {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir membro permanentemente?</AlertDialogTitle>
+            <AlertDialogTitle>Como deseja remover este membro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação remove o membro e os registros vinculados (presenças, eventos, visitas e notas) e não pode ser desfeita.
+              Você pode inativar para manter histórico ou excluir permanentemente (somente admins).
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="sm:justify-between gap-2">
             <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePermanentDelete} disabled={deleting}>
-              {deleting ? "Excluindo..." : "Excluir permanentemente"}
-            </AlertDialogAction>
+            <div className="flex items-center gap-2">
+              <AlertDialogAction
+                onClick={handleInactivate}
+                disabled={deleting}
+                className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+              >
+                {deleting ? "Processando..." : "Tornar inativo"}
+              </AlertDialogAction>
+              {isAdmin ? (
+                <AlertDialogAction onClick={handlePermanentDelete} disabled={deleting}>
+                  {deleting ? "Excluindo..." : "Excluir permanente"}
+                </AlertDialogAction>
+              ) : null}
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
