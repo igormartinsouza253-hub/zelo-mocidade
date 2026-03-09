@@ -27,28 +27,39 @@ serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader) {
+    if (!authHeader.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Não autorizado" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Client for validating the caller JWT
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Não autorizado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Client for validating JWT claims from the caller token
     const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: userData, error: userError } = await authClient.auth.getUser();
-    if (userError || !userData?.user) {
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    const callerId = claimsData?.claims?.sub;
+    const callerEmail = typeof claimsData?.claims?.email === "string" ? claimsData.claims.email : null;
+
+    if (claimsError || !callerId) {
       return new Response(
         JSON.stringify({ error: "Sessão inválida" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const caller = userData.user;
+    const caller = { id: callerId, email: callerEmail };
 
     // Service role client for privileged DB/admin operations
     const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
