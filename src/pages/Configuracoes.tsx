@@ -1497,6 +1497,43 @@ const Configuracoes = () => {
             </div>
           )}
 
+          {mobileSection === "group" && isGroupAdmin && activeGroup && (
+            <div className="space-y-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-0 gap-1 text-xs mb-1"
+                onClick={() => setMobileSection("root")}
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Voltar
+              </Button>
+
+              <GroupSettingsSection />
+
+              <Card>
+                <CardHeader className="pb-3 pt-3 px-3">
+                  <CardTitle className="flex items-center gap-1.5 text-sm">
+                    <Shield className="h-4 w-4" />
+                    Administração do grupo
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Altere senha, remova membros e promova administradores.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-3 px-3">
+                  <Button
+                    type="button"
+                    className="w-full h-8 text-xs"
+                    onClick={() => navigate("/configuracoes/grupo-admin")}
+                  >
+                    Abrir painel de administração
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {mobileSection === "data" && canManageRestricted && (
             <div className="space-y-4">
               <Button
