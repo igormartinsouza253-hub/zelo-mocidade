@@ -1245,7 +1245,6 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              {/* 4️⃣ Dock de navegação (mobile) */}
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3 flex flex-row items-center justify-between gap-3">
                   <div>
