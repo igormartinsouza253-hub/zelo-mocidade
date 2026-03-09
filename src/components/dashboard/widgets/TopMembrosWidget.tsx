@@ -160,7 +160,7 @@ export const TopMembrosWidget = ({
         </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 px-3 pb-3 pt-0.5">
-        <div className="h-full space-y-2 w-full overflow-y-auto scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
+        <div className="max-h-[290px] space-y-2 w-full overflow-y-auto scrollbar-none pr-1">
           {top5Membros.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
           ) : (
