@@ -36,17 +36,17 @@ export function DesktopDashboard({
   onTopPeriodChange,
 }: DesktopDashboardProps) {
   return (
-    <div className="h-full w-full bg-background overflow-hidden">
-      <div className="flex flex-col h-full w-full">
+    <div className="min-h-full w-full bg-background">
+      <div className="flex min-h-full w-full flex-col">
         <div className="flex-1 min-h-0">
-          <Card className="h-full w-full rounded-xl bg-card border border-border/80 shadow-[var(--shadow-card)]">
-            <div className="h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)]">
+          <Card className="min-h-full w-full rounded-xl bg-card border border-border/80 shadow-[var(--shadow-card)]">
+            <div className="min-h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)]">
               {/* Coluna esquerda: Aniversariantes + Notas */}
-              <div className="flex flex-col gap-4 min-h-0 h-full w-full">
-                <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="grid min-h-[700px] grid-rows-[minmax(300px,1fr)_minmax(300px,1fr)] gap-4">
+                <div className="min-h-0">
                   <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="min-h-0">
                   <ExpandableWidget
                     title="Notas rápidas"
                     renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
@@ -57,8 +57,8 @@ export function DesktopDashboard({
               </div>
 
               {/* Coluna central: Gráfico de presença + Faixa etária */}
-              <div className="flex flex-col gap-4 min-h-0 h-full w-full">
-                <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="grid min-h-[700px] grid-rows-[minmax(360px,1.15fr)_minmax(300px,0.85fr)] gap-4">
+                <div className="min-h-0">
                   <ExpandableWidget
                     title="Gráfico de presença"
                     renderExpanded={() => (
@@ -68,7 +68,7 @@ export function DesktopDashboard({
                     <ReunioesChartWidget size="lg" reunioesRecentes={frequenciaData.reunioesRecentes} />
                   </ExpandableWidget>
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="min-h-0">
                   <ExpandableWidget
                     title="Distribuição por faixa etária"
                     renderExpanded={() => <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} />}
@@ -79,7 +79,7 @@ export function DesktopDashboard({
               </div>
 
               {/* Coluna direita */}
-              <div className="flex flex-col gap-4 min-h-0 h-full w-full">
+              <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(120px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
                 <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)] gap-4">
                   <QuickActionsWidget size="sm" />
                   <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
@@ -95,9 +95,20 @@ export function DesktopDashboard({
                   ultimaReuniao={stats.ultimaReuniao}
                 />
 
-                <ExpandableWidget
-                  title="Mais frequentes"
-                  renderExpanded={() => (
+                <div className="min-h-0">
+                  <ExpandableWidget
+                    title="Mais frequentes"
+                    renderExpanded={() => (
+                      <TopMembrosWidget
+                        size="lg"
+                        top5Membros={frequenciaData.top5Membros}
+                        showLeastFrequent={showLeastFrequent}
+                        onToggleOrder={onToggleOrder}
+                        period={topPeriod}
+                        onPeriodChange={onTopPeriodChange}
+                      />
+                    )}
+                  >
                     <TopMembrosWidget
                       size="lg"
                       top5Membros={frequenciaData.top5Membros}
@@ -106,17 +117,8 @@ export function DesktopDashboard({
                       period={topPeriod}
                       onPeriodChange={onTopPeriodChange}
                     />
-                  )}
-                >
-                  <TopMembrosWidget
-                    size="lg"
-                    top5Membros={frequenciaData.top5Membros}
-                    showLeastFrequent={showLeastFrequent}
-                    onToggleOrder={onToggleOrder}
-                    period={topPeriod}
-                    onPeriodChange={onTopPeriodChange}
-                  />
-                </ExpandableWidget>
+                  </ExpandableWidget>
+                </div>
               </div>
             </div>
           </Card>

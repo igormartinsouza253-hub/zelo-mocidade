@@ -131,7 +131,7 @@ export const TopMembrosWidget = ({
       </Card>;
   }
   return (
-    <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
+    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-[12px]"}>
         <div className="flex flex-col my-[10px] mx-[10px]">
           <CardTitle className={widgetTitleClass("lg")}>
@@ -159,46 +159,46 @@ export const TopMembrosWidget = ({
           </Button>
         </div>
       </CardHeader>
-        <CardContent className="px-3 pb-3 pt-0.5">
-          <div className="space-y-2 w-full max-h-[260px] md:max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
-            {top5Membros.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
-            ) : (
-              top5Membros.map((membro, index) => (
-                <div
-                  key={membro.id}
-                  className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors w-full"
-                  onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
-                  onDoubleClick={cancelScheduledNavigate}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="relative">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
-                        <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-                        {index + 1}
-                      </div>
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span
-                        className="text-sm font-medium text-foreground truncate"
-                        title={membro.nome}
-                      >
-                        {membro.nome}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">Presenças em reuniões</span>
+      <CardContent className="flex-1 min-h-0 px-3 pb-3 pt-0.5">
+        <div className="h-full space-y-2 w-full overflow-y-auto scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
+          {top5Membros.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
+          ) : (
+            top5Membros.map((membro, index) => (
+              <div
+                key={membro.id}
+                className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors w-full"
+                onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
+                onDoubleClick={cancelScheduledNavigate}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
+                      <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                      {index + 1}
                     </div>
                   </div>
-                  <span className="inline-flex items-center justify-center min-w-[28px] px-1.5 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                    {membro.presencas}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span
+                      className="text-sm font-medium text-foreground truncate"
+                      title={membro.nome}
+                    >
+                      {membro.nome}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">Presenças em reuniões</span>
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
+                <span className="inline-flex items-center justify-center min-w-[28px] px-1.5 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  {membro.presencas}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 };

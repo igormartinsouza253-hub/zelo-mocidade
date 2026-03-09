@@ -725,6 +725,14 @@ function DesktopHeader({
   return (
     <div className="hidden md:flex shrink-0 flex-col bg-background px-6 pt-2.5 pb-2">
       <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
+        <div className="inline-flex h-9 items-center rounded-lg border border-border/70 bg-card px-2 shadow-[var(--shadow-card)]">
+          <ThemedLogo
+            src={logoSource}
+            alt="Logo do app"
+            className="h-6 w-auto object-contain rounded-md"
+          />
+        </div>
+
         {showBackButton && (
           <button
             type="button"
