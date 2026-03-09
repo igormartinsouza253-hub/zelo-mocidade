@@ -769,9 +769,20 @@ export function MobileChatView() {
   }, [user?.id, activeGroupId]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    void resolveProfiles([user.id]);
-  }, [user?.id]);
+    const params = new URLSearchParams(location.search);
+    const deepLinkConversationId = params.get("conversationId");
+    if (!deepLinkConversationId) return;
+    if (!conversations.some((c) => c.id === deepLinkConversationId)) return;
+
+    setActiveConversationId(deepLinkConversationId);
+    setScreen("thread");
+
+    params.delete("conversationId");
+    const next = params.toString();
+    navigate({ pathname: location.pathname, search: next ? `?${next}` : "" }, { replace: true });
+  }, [conversations, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
 
   useEffect(() => {
     if (!user?.id) return;

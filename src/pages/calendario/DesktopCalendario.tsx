@@ -441,6 +441,7 @@ export default function Calendario() {
   const { user } = useAuth();
   const { activeGroupId } = useActiveGroup();
   const { setConfig } = usePageHeader();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [view, setView] = useState<View>(Views.MONTH);
