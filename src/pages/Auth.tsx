@@ -46,36 +46,11 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [signupErrors, setSignupErrors] = useState<{ email?: string; username?: string; password?: string }>({});
 
-  const handleGoogleLogin = async () => {
-    try {
-      setIsLoading(true);
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          // Volta para a tela pública (/auth) após o OAuth, evitando cair em rotas protegidas.
-          redirectTo: `${window.location.origin}/auth`,
-        },
-      });
-
-      if (error) {
-        toast.error(error.message);
-        setIsLoading(false);
-      }
-      // Em caso de sucesso, o browser vai redirecionar para o Google.
-    } catch (err) {
-      console.error("Erro ao iniciar login com Google:", err);
-      toast.error("Não foi possível iniciar o login com Google.");
-      setIsLoading(false);
-    }
-  };
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       if (isLogin) {
-        // Validação para login
         const validation = loginSchema.safeParse({
           identifier: identifier.trim(),
           password,
@@ -89,12 +64,10 @@ const Auth = () => {
 
         setIsLoading(true);
 
-        // Permitir login por email OU username
         const trimmedIdentifier = identifier.trim();
         let loginEmail = trimmedIdentifier;
 
         if (!trimmedIdentifier.includes("@")) {
-          // Tratar como username: resolver email associado via função de backend
           const { data: resolved, error: resolveError } = await supabase.functions.invoke(
             "resolve-username",
             {
@@ -136,7 +109,6 @@ const Auth = () => {
         toast.success("Login realizado com sucesso!");
         navigate("/");
       } else {
-        // Validação para cadastro
         setSignupErrors({});
         const validation = signupSchema.safeParse({
           email: email.trim(),
@@ -166,7 +138,6 @@ const Auth = () => {
 
         setIsLoading(true);
 
-        // Verificar se username já está em uso
         const { data: existingUsername, error: usernameError } = await supabase
           .from("profiles")
           .select("id")
@@ -186,11 +157,10 @@ const Auth = () => {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth`,
             data: {
               username: username.trim(),
             },
@@ -207,8 +177,16 @@ const Auth = () => {
           return;
         }
 
-        toast.success("Cadastro realizado com sucesso! Verifique seu email para confirmar o acesso.");
-        navigate("/");
+        if (signUpData.session) {
+          toast.success("Cadastro realizado com sucesso!");
+          navigate("/");
+          return;
+        }
+
+        setIsLogin(true);
+        setIdentifier(email.trim());
+        setPassword("");
+        toast.success("Cadastro realizado com sucesso! Faça login para continuar.");
       }
     } catch (error) {
       console.error("Erro na autenticação:", error);
@@ -232,34 +210,6 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processando...
-                </>
-              ) : (
-                "Continuar com Google"
-              )}
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">ou</span>
-              </div>
-            </div>
-          </div>
-
           <form onSubmit={handleAuth} className="space-y-4">
             {isLogin ? (
               <div className="space-y-2">
