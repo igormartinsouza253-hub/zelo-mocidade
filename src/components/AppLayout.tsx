@@ -613,7 +613,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               isChatRoute
                 ? "overflow-hidden p-0"
                 : !isMobileMode && isDashboard
-                  ? "overflow-hidden"
+                  ? "overflow-y-auto overflow-x-hidden"
                   : "overflow-y-auto overflow-x-hidden"
             } ${isChatRoute ? "pb-0" : "p-3"} ${
               isChatRoute
