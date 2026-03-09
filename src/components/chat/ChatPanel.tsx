@@ -8,7 +8,7 @@ export function ChatPanel() {
   const { isChatPanelOpen, closeChatPanel } = useChatLauncher();
 
   const minWidth = 420;
-  const maxWidth = 860;
+  const maxWidth = 1600;
 
   const [widthPx, setWidthPx] = useState(() => {
     if (typeof window === "undefined") return 560;
@@ -35,8 +35,9 @@ export function ChatPanel() {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
+      const viewportMax = typeof window === "undefined" ? maxWidth : Math.floor(window.innerWidth * 0.92);
       const dx = dragRef.current.startX - e.clientX; // moving left increases width (right sheet)
-      const next = Math.min(maxWidth, Math.max(minWidth, dragRef.current.startWidth + dx));
+      const next = Math.min(viewportMax, Math.max(minWidth, dragRef.current.startWidth + dx));
       setWidthPx(next);
     };
 
@@ -52,8 +53,14 @@ export function ChatPanel() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isChatPanelOpen || typeof window === "undefined") return;
+    const viewportMax = Math.floor(window.innerWidth * 0.92);
+    const target = Math.floor(window.innerWidth * 0.5);
+    setWidthPx(Math.min(viewportMax, Math.max(minWidth, target)));
+  }, [isChatPanelOpen]);
+
   const widthStyle = useMemo(() => {
-    // On very small viewports, keep it mostly full width.
     return { width: `min(92vw, ${widthPx}px)` } as const;
   }, [widthPx]);
 

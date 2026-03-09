@@ -538,14 +538,14 @@ export default function Calendario() {
     );
 
     const SearchBox = (
-      <div className="relative">
+      <div className="relative rounded-lg border border-border/70 bg-card/90 px-2 py-1 shadow-[var(--shadow-card)]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           placeholder="Buscar…"
           aria-label="Buscar no calendário"
-          className="h-9 w-[180px] pl-9 md:w-[240px]"
+          className="h-8 w-[180px] border-0 bg-transparent pl-8 text-xs md:h-9 md:w-[240px] md:text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
     );
@@ -1530,46 +1530,52 @@ export default function Calendario() {
 
   return (
     <div className="h-full w-full">
-      <Card className="h-full overflow-hidden">
+      <Card className="h-full overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
         <CardContent className="flex h-full flex-col gap-3 p-3 md:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge style={tipoColorStyle("ajuntamento")}>Ajuntamento</Badge>
-              <Badge style={tipoColorStyle("saida")}>Saída</Badge>
-              <Badge style={tipoColorStyle("visita")}>Visita (agenda)</Badge>
-                <Badge
-                  style={{
-                    backgroundColor: `hsl(var(--secondary) / 0.92)`,
-                    color: `hsl(var(--secondary-foreground))`,
-                    border: `1px solid hsl(var(--secondary) / 0.35)`,
-                  }}
-                >
-                  Visita (registrada)
-                </Badge>
-                <Badge
-                  style={{
-                    backgroundColor: `hsl(var(--faixa-criancas) / 0.92)`,
-                    color: `hsl(var(--foreground))`,
-                    border: `1px solid hsl(var(--faixa-criancas) / 0.45)`,
-                  }}
-                >
-                  Aniversário
-                </Badge>
-                <Badge
-                  style={{
-                    backgroundColor: `hsl(var(--faixa-mocos) / 0.9)`,
-                    color: `hsl(var(--primary-foreground))`,
-                    border: `1px solid hsl(var(--faixa-mocos) / 0.45)`,
-                  }}
-                >
-                  Reunião
-                </Badge>
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge style={tipoColorStyle("ajuntamento")} className="rounded-md">Ajuntamento</Badge>
+                <Badge style={tipoColorStyle("saida")} className="rounded-md">Saída</Badge>
+                <Badge style={tipoColorStyle("visita")} className="rounded-md">Visita (agenda)</Badge>
+                  <Badge
+                    className="rounded-md"
+                    style={{
+                      backgroundColor: `hsl(var(--secondary) / 0.92)`,
+                      color: `hsl(var(--secondary-foreground))`,
+                      border: `1px solid hsl(var(--secondary) / 0.35)`,
+                    }}
+                  >
+                    Visita (registrada)
+                  </Badge>
+                  <Badge
+                    className="rounded-md"
+                    style={{
+                      backgroundColor: `hsl(var(--faixa-criancas) / 0.92)`,
+                      color: `hsl(var(--foreground))`,
+                      border: `1px solid hsl(var(--faixa-criancas) / 0.45)`,
+                    }}
+                  >
+                    Aniversário
+                  </Badge>
+                  <Badge
+                    className="rounded-md"
+                    style={{
+                      backgroundColor: `hsl(var(--faixa-mocos) / 0.9)`,
+                      color: `hsl(var(--primary-foreground))`,
+                      border: `1px solid hsl(var(--faixa-mocos) / 0.45)`,
+                    }}
+                  >
+                    Reunião
+                  </Badge>
+              </div>
+              {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
             </div>
-            {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
           </div>
 
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 rounded-xl border border-border/70 bg-background/80 p-2 md:p-3 shadow-[var(--shadow-card)] overflow-hidden">
             <DnDCalendar
+              className="calendar-desktop-modern"
               localizer={localizer}
               culture="pt-BR"
               events={events}
