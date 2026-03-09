@@ -496,15 +496,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         setPreferredOpenMode,
       }}
     >
-      <div className="hidden md:flex fixed left-[6.5rem] top-3 z-50 h-10 items-center">
-        <div className="rounded-lg border border-border/70 bg-card/90 p-1 shadow-[var(--shadow-card)]">
-          <ThemedLogo
-            src={logoSource}
-            alt="Logo do app"
-            className="h-7 w-auto object-contain rounded-md"
-          />
-        </div>
-      </div>
 
        <div className="flex h-screen w-full bg-background md:bg-background md:pl-20 overflow-hidden">
         {/* Modern Sidebar - Desktop/Tablet only */}
