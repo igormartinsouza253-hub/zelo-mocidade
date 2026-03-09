@@ -33,6 +33,8 @@ import { membroSchema } from "@/lib/membroSchema";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+
+interface Cargo {
   id: string;
   nome: string;
 }
