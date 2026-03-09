@@ -519,16 +519,53 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   };
 
   const openInactivateDialog = (ids: string[]) => {
-    if (!isAdmin) {
-      toast.error("Apenas admins podem excluir membros permanentemente.");
-      return;
-    }
     setInactivateTargetIds(ids);
     setInactivateDialogOpen(true);
   };
 
   const handleConfirmInactivate = async () => {
-    if (inactivateTargetIds.length === 0 || !isAdmin) return;
+    if (inactivateTargetIds.length === 0) return;
+
+    setDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from("membros")
+        .update({
+          ativo: false,
+          inativado_em: new Date().toISOString(),
+          inativado_motivo: "Inativado manualmente",
+          inativado_observacao: null,
+        })
+        .in("id", inactivateTargetIds);
+
+      if (error) throw error;
+
+      toast.success(
+        inactivateTargetIds.length === 1 ? "Membro inativado." : "Membros inativados.",
+      );
+
+      if (selectedMembro && inactivateTargetIds.includes(selectedMembro.id)) {
+        setSelectedMembro(null);
+      }
+
+      setSelectedIds([]);
+      await loadMembros();
+    } catch (error) {
+      console.error("Erro ao inativar membro(s):", error);
+      toast.error("Erro ao inativar membro(s)");
+    } finally {
+      setDeleting(false);
+      setInactivateDialogOpen(false);
+      setInactivateTargetIds([]);
+    }
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (inactivateTargetIds.length === 0 || !isAdmin) {
+      toast.error("Apenas admins podem excluir permanentemente.");
+      return;
+    }
 
     setDeleting(true);
 
