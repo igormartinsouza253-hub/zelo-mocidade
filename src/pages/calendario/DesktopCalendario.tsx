@@ -538,14 +538,14 @@ export default function Calendario() {
     );
 
     const SearchBox = (
-      <div className="relative">
+      <div className="relative rounded-lg border border-border/70 bg-card/90 px-2 py-1 shadow-[var(--shadow-card)]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           placeholder="Buscar…"
           aria-label="Buscar no calendário"
-          className="h-9 w-[180px] pl-9 md:w-[240px]"
+          className="h-8 w-[180px] border-0 bg-transparent pl-8 text-xs md:h-9 md:w-[240px] md:text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
     );
