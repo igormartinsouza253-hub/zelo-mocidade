@@ -61,7 +61,7 @@ export const useAuth = () => {
 
   // Garantir que usuários vindos de OAuth (ex.: Google) tenham profile para o app.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
 
     let cancelled = false;
 
@@ -72,8 +72,11 @@ export const useAuth = () => {
         try {
           const { error: roleErr } = await supabase.functions.invoke("manage-user-access", {
             body: { action: "bootstrap_user" },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
           });
-          if (roleErr) {
+          if (roleErr && !(roleErr as any)?.message?.includes("401")) {
             console.error("Erro ao bootstrap_user:", roleErr);
           }
         } catch (err) {
@@ -142,7 +145,7 @@ export const useAuth = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
