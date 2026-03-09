@@ -1136,6 +1136,7 @@ export default function MobileCalendar() {
                                   tipo: it.tipo,
                                   descricao: it.descricao ?? null,
                                   local: it.local ?? null,
+                                  createdByName: getEventCreatorName(it.baseId),
                                 });
                                 setDetailsOpen(true);
                               }}
