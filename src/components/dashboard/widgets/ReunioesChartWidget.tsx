@@ -242,12 +242,12 @@ export const ReunioesChartWidget = ({
                   <ResponsiveContainer width="100%" height={height}>
                     <BarChart
                       data={reunioesRecentes}
-                      margin={{
-                        left: 0,
-                        right: 0,
-                        top: 8,
-                        bottom: 0,
-                      }}
+                        margin={{
+                          left: 4,
+                          right: 4,
+                          top: 18,
+                          bottom: 6,
+                        }}
                       barCategoryGap="25%"
                       barGap={0}
                     >

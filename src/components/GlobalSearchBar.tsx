@@ -336,7 +336,7 @@ export function GlobalSearchBar() {
             {isOpen && suggestions.length > 0 && (
               <div
                 id="global-search-suggestions"
-                className="absolute left-0 right-0 mt-2 rounded-xl border border-border bg-popover text-popover-foreground shadow-lg z-50 overflow-hidden"
+                className="absolute left-0 right-0 mt-2 rounded-lg border border-border bg-popover text-popover-foreground shadow-[var(--shadow-elevated)] z-50 overflow-hidden"
                 role="listbox"
               >
                 {suggestions.map((item, index) => (
