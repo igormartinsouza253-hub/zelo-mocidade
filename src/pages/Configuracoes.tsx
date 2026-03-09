@@ -127,7 +127,6 @@ const Configuracoes = () => {
   const [confirmImportOpen, setConfirmImportOpen] = useState(false);
 
   useEffect(() => {
-    loadCargos();
     checkAdminStatus();
     if (user) {
       loadUserPreferences();
