@@ -668,6 +668,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         </div>
       )}
 
+      {user?.id ? (
+        <HomeNotificationsDrawer
+          open={isNotificationsDrawerOpen}
+          onOpenChange={setIsNotificationsDrawerOpen}
+          userId={user.id}
+        />
+      ) : null}
+
       {isMobileMode && isLandscapeMobile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md md:hidden">
           <div className="max-w-xs px-6 py-4 rounded-2xl border border-border bg-card shadow-lg text-center">
