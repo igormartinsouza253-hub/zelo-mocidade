@@ -813,62 +813,6 @@ const Configuracoes = () => {
     }
   };
 
-  const handleAddCargo = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const validation = cargoSchema.safeParse({ nome: novoCargo.trim() });
-
-    if (!validation.success) {
-      const firstError = validation.error.errors[0];
-      toast.error(firstError.message);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("cargos")
-        .insert([{ nome: novoCargo.trim() }]);
-
-      if (error) throw error;
-
-      toast.success("Cargo adicionado com sucesso!");
-      setNovoCargo("");
-      loadCargos();
-    } catch (error: any) {
-      console.error("Erro ao adicionar cargo:", error);
-      if (error.code === "23505") {
-        toast.error("Este cargo já existe");
-      } else {
-        toast.error("Erro ao adicionar cargo");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteCargo = async () => {
-    if (!cargoParaExcluir) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("cargos")
-        .delete()
-        .eq("id", cargoParaExcluir.id);
-
-      if (error) throw error;
-
-      toast.success("Cargo excluído com sucesso!");
-      setCargoParaExcluir(null);
-      loadCargos();
-    } catch (error) {
-      console.error("Erro ao excluir cargo:", error);
-      toast.error("Erro ao excluir cargo");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   type HslColor = { h: number; s: number; l: number };
 
