@@ -732,8 +732,8 @@ function DesktopHeader({
     locationPathname !== "/" && (config?.showBackButton ?? true);
 
   return (
-    <div className="hidden md:flex shrink-0 flex-col gap-2 bg-background px-6 pt-4 pb-3 border-b border-border/70 shadow-[var(--shadow-soft)]">
-      <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-card/90 px-3 py-2.5 shadow-[var(--shadow-card)]">
+    <div className="hidden md:flex shrink-0 flex-col bg-background px-6 pt-2.5 pb-2">
+      <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
         {showBackButton && (
           <button
             type="button"
