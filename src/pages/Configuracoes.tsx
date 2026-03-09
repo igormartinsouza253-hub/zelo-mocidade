@@ -1052,7 +1052,7 @@ const Configuracoes = () => {
                 onClick={() => setMobileSection("theme")}
               >
                 <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                     <Monitor className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
@@ -1067,49 +1067,29 @@ const Configuracoes = () => {
 
               <Card
                 className="hover-scale cursor-pointer"
-                onClick={() => setMobileSection("account")}
+                onClick={() => setMobileSection("users")}
               >
                 <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                    <User className="h-4 w-4" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                    <Shield className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
-                    <CardTitle className="text-sm">Conta</CardTitle>
+                    <CardTitle className="text-sm">Usuários</CardTitle>
                     <CardDescription className="text-xs">
-                      Foto de perfil, username e senha de acesso.
+                      Minha conta e gerenciamento de acesso do app.
                     </CardDescription>
                   </div>
                   <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
                 </CardHeader>
               </Card>
 
-               {canManageRestricted && (
-                <Card
-                  className="hover-scale cursor-pointer"
-                  onClick={() => setMobileSection("users")}
-                >
-                  <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                      <Shield className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <CardTitle className="text-sm">Usuários e cargos</CardTitle>
-                      <CardDescription className="text-xs">
-                        Controle de acesso, papéis e cargos do app.
-                      </CardDescription>
-                    </div>
-                    <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
-                  </CardHeader>
-                </Card>
-              )}
-
-               {canManageRestricted && (
+              {canManageRestricted && (
                 <Card
                   className="hover-scale cursor-pointer"
                   onClick={() => setMobileSection("data")}
                 >
                   <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                       <FileSpreadsheet className="h-4 w-4" />
                     </div>
                     <div className="flex-1 text-left">
