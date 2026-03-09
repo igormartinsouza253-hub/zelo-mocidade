@@ -1153,7 +1153,7 @@ export function MobileChatView({ layout = "mobile" }: { layout?: "mobile" | "des
 
   if (!activeGroupId) {
     return (
-      <div className="h-[100dvh] w-full bg-background">
+      <div className={(isDesktopLayout ? "h-full" : "h-[100dvh]") + " w-full bg-background"}>
         <div className="p-4">
           <Card className="p-4">
             <p className="text-sm text-muted-foreground">Defina um grupo ativo antes de usar o chat.</p>
