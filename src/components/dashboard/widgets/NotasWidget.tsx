@@ -71,7 +71,7 @@ export const NotasWidget = ({
       </Card>;
   }
   const limit = size === "md" ? 4 : 6;
-  return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+  return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING[size] + " px-3"}>
         <div className="flex items-center justify-between">
           <CardTitle className={widgetTitleClass(size)}>

@@ -43,7 +43,7 @@ export const FaixaEtariaWidget = ({
   const outerRadius = isSmall ? 82 : isLarge ? 92 : 88;
 
   return (
-    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={headerPadding}>
         <CardTitle className={widgetTitleClass(size)}>Distribuição por faixa etária</CardTitle>
       </CardHeader>

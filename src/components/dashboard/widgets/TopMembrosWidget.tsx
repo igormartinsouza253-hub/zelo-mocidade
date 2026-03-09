@@ -131,7 +131,7 @@ export const TopMembrosWidget = ({
       </Card>;
   }
   return (
-    <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-[2.5rem] overflow-hidden">
+    <Card className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-[12px]"}>
         <div className="flex flex-col my-[10px] mx-[10px]">
           <CardTitle className={widgetTitleClass("lg")}>
