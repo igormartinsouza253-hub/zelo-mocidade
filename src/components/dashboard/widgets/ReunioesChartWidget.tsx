@@ -156,7 +156,8 @@ export const ReunioesChartWidget = ({
   const maxTotal = Math.max(1, ...meetings.map((r) => (typeof r.total === "number" ? r.total : 0)));
 
   const barSize = isLarge ? 36 : size === "md" ? 28 : 22;
-  const chartHeight = isLarge ? 300 : size === "md" ? 260 : 220;
+  // PT-BR: no desktop, o gráfico principal ganha altura para ocupar o espaço inferior vazio.
+  const chartHeight: number | string = isLarge ? "100%" : size === "md" ? 260 : 220;
 
   const TopLabel = (props: any) => {
     const { x, y, width, payload } = props;
@@ -248,7 +249,7 @@ export const ReunioesChartWidget = ({
             }`}
           >
             <div className="min-h-0 rounded-xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
-              <div className="h-full min-h-[220px] md:min-h-[260px]">
+              <div className={`h-full ${isLarge ? "min-h-[360px]" : "min-h-[220px] md:min-h-[260px]"}`}>
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
                     data={meetings}

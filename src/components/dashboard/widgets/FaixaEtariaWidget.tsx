@@ -41,30 +41,32 @@ export const FaixaEtariaWidget = ({
   const data = orderedData.filter((d) => (d.total ?? 0) > 0);
   const hasData = data.length > 0;
 
-  const chartHeight = isSmall ? 170 : isLarge ? 210 : 190;
+  const chartHeight = isSmall ? 170 : isLarge && legendPosition === "bottom" ? "100%" : isLarge ? 210 : 190;
   const innerRadius = isSmall ? 52 : isLarge ? 60 : 56;
   const outerRadius = isSmall ? 82 : isLarge ? 92 : 88;
   // PT-BR: no desktop do dashboard queremos gráfico acima e legenda abaixo.
   const useBottomLegend = isLarge && legendPosition === "bottom";
 
   return (
-    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
+    <Card className="h-full overflow-hidden border-border/40 bg-card text-card-foreground shadow-[var(--shadow-card)] md:rounded-xl">
       <CardHeader className={headerPadding}>
         <CardTitle className={widgetTitleClass(size)}>Distribuição por faixa etária</CardTitle>
       </CardHeader>
 
-      <CardContent className={isSmall ? "flex-1 min-h-0 pt-1 pb-2 px-3" : "flex-1 min-h-0 pt-3 pb-4 px-4"}>
+      <CardContent className={isSmall ? "flex min-h-0 flex-1 flex-col pt-1 pb-2 px-3" : "flex min-h-0 flex-1 flex-col pt-3 pb-4 px-4"}>
         {!hasData ? (
           <div className="h-full flex items-center justify-center">
             <p className="text-xs text-muted-foreground">Sem dados para exibir.</p>
           </div>
         ) : (
-          <div className={isSmall || useBottomLegend ? "h-full flex flex-col" : "flex h-full items-center gap-4"}>
+          <div className={isSmall || useBottomLegend ? "flex h-full min-h-0 flex-col" : "flex h-full min-h-0 items-center gap-4"}>
             <div
               className={
-                isSmall || useBottomLegend
+                isSmall
                   ? "flex-1 min-h-0 flex items-center justify-center"
-                  : "flex-1 min-w-0 flex items-center"
+                  : useBottomLegend
+                    ? "flex-[1.35] min-h-[240px] flex items-center justify-center"
+                    : "flex-1 min-w-0 flex items-center"
               }
             >
               <ResponsiveContainer width="100%" height={chartHeight}>
@@ -107,11 +109,11 @@ export const FaixaEtariaWidget = ({
               </ResponsiveContainer>
             </div>
 
-            {/* PT-BR: legenda embaixo no layout solicitado; lateral nos demais casos. */}
+            {/* PT-BR: legenda em uma única coluna para ocupar o espaço vertical do card. */}
             <div
               className={
                 isSmall || useBottomLegend
-                  ? "mt-2 grid grid-cols-2 gap-2"
+                  ? "mt-2 grid min-h-0 grid-cols-1 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                   : "flex flex-col gap-1.5 text-xs min-w-[140px]"
               }
             >
