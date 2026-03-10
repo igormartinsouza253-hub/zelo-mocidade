@@ -9,10 +9,13 @@ interface FaixaEtariaWidgetProps {
     faixa: string;
     total: number;
   }[];
+  // PT-BR: permite alternar a posição da legenda sem mexer na lógica de dados.
+  legendPosition?: "side" | "bottom";
 }
 export const FaixaEtariaWidget = ({
   size,
-  porFaixaEtaria
+  porFaixaEtaria,
+  legendPosition = "side",
 }: FaixaEtariaWidgetProps) => {
   const FAIXA_COLORS: Record<string, string> = {
     "Crianças": resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
