@@ -44,6 +44,8 @@ export const FaixaEtariaWidget = ({
   const chartHeight = isSmall ? 170 : isLarge ? 210 : 190;
   const innerRadius = isSmall ? 52 : isLarge ? 60 : 56;
   const outerRadius = isSmall ? 82 : isLarge ? 92 : 88;
+  // PT-BR: no desktop do dashboard queremos gráfico acima e legenda abaixo.
+  const useBottomLegend = isLarge && legendPosition === "bottom";
 
   return (
     <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
