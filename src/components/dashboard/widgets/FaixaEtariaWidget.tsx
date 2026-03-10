@@ -59,8 +59,14 @@ export const FaixaEtariaWidget = ({
             <p className="text-xs text-muted-foreground">Sem dados para exibir.</p>
           </div>
         ) : (
-          <div className={isSmall ? "h-full flex flex-col" : "flex h-full items-center gap-4"}>
-            <div className={isSmall ? "flex-1 min-h-0 flex items-center justify-center" : "flex-1 min-w-0 flex items-center"}>
+          <div className={isSmall || useBottomLegend ? "h-full flex flex-col" : "flex h-full items-center gap-4"}>
+            <div
+              className={
+                isSmall || useBottomLegend
+                  ? "flex-1 min-h-0 flex items-center justify-center"
+                  : "flex-1 min-w-0 flex items-center"
+              }
+            >
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <PieChart>
                   <Pie
@@ -101,10 +107,10 @@ export const FaixaEtariaWidget = ({
               </ResponsiveContainer>
             </div>
 
-            {/* Legenda (mobile: abaixo; demais: lateral) */}
+            {/* PT-BR: legenda embaixo no layout solicitado; lateral nos demais casos. */}
             <div
               className={
-                isSmall
+                isSmall || useBottomLegend
                   ? "mt-2 grid grid-cols-2 gap-2"
                   : "flex flex-col gap-1.5 text-xs min-w-[140px]"
               }
