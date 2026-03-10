@@ -40,24 +40,21 @@ export function DesktopDashboard({
       <div className="flex min-h-full w-full flex-col">
         <div className="flex-1 min-h-0">
           <Card className="min-h-full w-full rounded-xl bg-card border border-border/80 shadow-[var(--shadow-card)]">
-            <div className="min-h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)]">
-              {/* Coluna esquerda: Aniversariantes + Notas */}
-              <div className="grid min-h-[700px] grid-rows-[minmax(300px,1fr)_minmax(300px,1fr)] gap-4">
-                <div className="min-h-0">
-                  <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />
-                </div>
-                <div className="min-h-0">
-                  <ExpandableWidget
-                    title="Notas rápidas"
-                    renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
-                  >
-                    <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />
-                  </ExpandableWidget>
-                </div>
+            <div className="min-h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,2.8fr)_minmax(0,5fr)_minmax(0,3fr)]">
+              {/* PT-BR: Coluna esquerda fixa com Faixa Etária em altura total */}
+              <div className="min-h-[700px]">
+                <ExpandableWidget
+                  title="Distribuição por faixa etária"
+                  renderExpanded={() => (
+                    <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
+                  )}
+                >
+                  <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
+                </ExpandableWidget>
               </div>
 
-              {/* Coluna central: Gráfico de presença + Faixa etária */}
-              <div className="grid min-h-[700px] grid-rows-[minmax(360px,1.15fr)_minmax(300px,0.85fr)] gap-4">
+              {/* PT-BR: Coluna central com gráfico principal maior + aniversariantes/notas lado a lado */}
+              <div className="grid min-h-[700px] grid-rows-[minmax(420px,1.35fr)_minmax(260px,0.8fr)] gap-4">
                 <div className="min-h-0">
                   <ExpandableWidget
                     title="Gráfico de presença"
@@ -68,17 +65,24 @@ export function DesktopDashboard({
                     <ReunioesChartWidget size="lg" reunioesRecentes={frequenciaData.reunioesRecentes} />
                   </ExpandableWidget>
                 </div>
-                <div className="min-h-0">
-                  <ExpandableWidget
-                    title="Distribuição por faixa etária"
-                    renderExpanded={() => <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} />}
-                  >
-                    <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} />
-                  </ExpandableWidget>
+
+                {/* PT-BR: mesmos tamanhos e scroll interno invisível para conteúdo excedente */}
+                <div className="grid min-h-0 grid-cols-2 gap-4">
+                  <div className="min-h-0">
+                    <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />
+                  </div>
+                  <div className="min-h-0">
+                    <ExpandableWidget
+                      title="Notas rápidas"
+                      renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
+                    >
+                      <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />
+                    </ExpandableWidget>
+                  </div>
                 </div>
               </div>
 
-              {/* Coluna direita */}
+              {/* PT-BR: Coluna direita preservada para ações, resumo e ranking */}
               <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
                 <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)] gap-4">
                   <QuickActionsWidget size="sm" />

@@ -66,8 +66,13 @@ export function ChatPanel() {
 
   return (
     <Sheet open={isChatPanelOpen} onOpenChange={(open) => (open ? undefined : closeChatPanel())}>
-      <SheetContent side="right" className="p-0 max-w-none sm:max-w-none flex flex-col" style={widthStyle}>
-        {/* Drag handle */}
+      {/* PT-BR: reservamos uma faixa superior para o botão "X" nativo do Sheet não sobrepor os botões do chat */}
+      <SheetContent
+        side="right"
+        className="p-0 pt-12 max-w-none sm:max-w-none flex flex-col [&>button]:top-3 [&>button]:right-3"
+        style={widthStyle}
+      >
+        {/* PT-BR: alça de redimensionamento lateral do painel */}
         <div
           className="absolute left-0 top-0 h-full w-2 cursor-ew-resize"
           role="separator"
@@ -80,7 +85,9 @@ export function ChatPanel() {
           <div className="absolute left-0 top-0 h-full w-px bg-border" />
         </div>
 
-        <MobileChatView layout="desktop" />
+        <div className="min-h-0 flex-1">
+          <MobileChatView layout="desktop" />
+        </div>
       </SheetContent>
     </Sheet>
   );

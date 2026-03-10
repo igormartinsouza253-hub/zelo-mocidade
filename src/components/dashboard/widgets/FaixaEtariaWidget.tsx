@@ -9,10 +9,13 @@ interface FaixaEtariaWidgetProps {
     faixa: string;
     total: number;
   }[];
+  // PT-BR: permite alternar a posição da legenda sem mexer na lógica de dados.
+  legendPosition?: "side" | "bottom";
 }
 export const FaixaEtariaWidget = ({
   size,
-  porFaixaEtaria
+  porFaixaEtaria,
+  legendPosition = "side",
 }: FaixaEtariaWidgetProps) => {
   const FAIXA_COLORS: Record<string, string> = {
     "Crianças": resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
@@ -41,6 +44,8 @@ export const FaixaEtariaWidget = ({
   const chartHeight = isSmall ? 170 : isLarge ? 210 : 190;
   const innerRadius = isSmall ? 52 : isLarge ? 60 : 56;
   const outerRadius = isSmall ? 82 : isLarge ? 92 : 88;
+  // PT-BR: no desktop do dashboard queremos gráfico acima e legenda abaixo.
+  const useBottomLegend = isLarge && legendPosition === "bottom";
 
   return (
     <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
@@ -54,8 +59,14 @@ export const FaixaEtariaWidget = ({
             <p className="text-xs text-muted-foreground">Sem dados para exibir.</p>
           </div>
         ) : (
-          <div className={isSmall ? "h-full flex flex-col" : "flex h-full items-center gap-4"}>
-            <div className={isSmall ? "flex-1 min-h-0 flex items-center justify-center" : "flex-1 min-w-0 flex items-center"}>
+          <div className={isSmall || useBottomLegend ? "h-full flex flex-col" : "flex h-full items-center gap-4"}>
+            <div
+              className={
+                isSmall || useBottomLegend
+                  ? "flex-1 min-h-0 flex items-center justify-center"
+                  : "flex-1 min-w-0 flex items-center"
+              }
+            >
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <PieChart>
                   <Pie
@@ -96,10 +107,10 @@ export const FaixaEtariaWidget = ({
               </ResponsiveContainer>
             </div>
 
-            {/* Legenda (mobile: abaixo; demais: lateral) */}
+            {/* PT-BR: legenda embaixo no layout solicitado; lateral nos demais casos. */}
             <div
               className={
-                isSmall
+                isSmall || useBottomLegend
                   ? "mt-2 grid grid-cols-2 gap-2"
                   : "flex flex-col gap-1.5 text-xs min-w-[140px]"
               }
@@ -107,11 +118,11 @@ export const FaixaEtariaWidget = ({
               {data.map((item) => (
                 <div
                   key={item.faixa}
-                  className={
-                    isSmall
-                      ? "rounded-2xl border border-border/40 bg-muted/20 px-2.5 py-2 flex items-center justify-between gap-2"
-                      : "flex items-center justify-between gap-2 rounded-full px-2 py-1"
-                  }
+                    className={
+                      isSmall || useBottomLegend
+                        ? "rounded-2xl border border-border/40 bg-muted/20 px-2.5 py-2 flex items-center justify-between gap-2"
+                        : "flex items-center justify-between gap-2 rounded-full px-2 py-1"
+                    }
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span
