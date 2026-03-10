@@ -42,7 +42,7 @@ export function DesktopDashboard({
           <Card className="min-h-full w-full rounded-xl bg-card border border-border/80 shadow-[var(--shadow-card)]">
             <div className="min-h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,2.8fr)_minmax(0,5fr)_minmax(0,3fr)]">
               {/* PT-BR: Coluna esquerda fixa com Faixa Etária em altura total */}
-              <div className="min-h-[700px] min-h-0">
+              <div className="min-h-[700px]">
                 <ExpandableWidget
                   title="Distribuição por faixa etária"
                   renderExpanded={() => (
