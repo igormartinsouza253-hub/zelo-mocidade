@@ -156,86 +156,11 @@ export const ReunioesChartWidget = ({
   const maxTotal = Math.max(1, ...meetings.map((r) => (typeof r.total === "number" ? r.total : 0)));
 
   const barSize = isLarge ? 36 : size === "md" ? 28 : 22;
-  const chartHeight = isLarge ? 300 : size === "md" ? 260 : 220;
+  // PT-BR: no desktop, o gráfico principal ganha altura para ocupar o espaço inferior vazio.
+  const chartHeight: number | string = isLarge ? "100%" : size === "md" ? 260 : 220;
 
   const TopLabel = (props: any) => {
-    const { x, y, width, payload } = props;
-    if (!payload) return null;
-
-    const ri = payload.recitativos_individuais ?? 0;
-    const total = payload.total ?? 0;
-    const tr = ri + total;
-
-    const cx = (x ?? 0) + (width ?? 0) / 2;
-    const cy = (y ?? 0) - 6;
-
-    return (
-      <text
-        x={cx}
-        y={cy}
-        textAnchor="middle"
-        className="select-none"
-        fill="hsl(var(--muted-foreground))"
-        fontSize={10}
-        fontWeight={600}
-      >
-        <tspan x={cx} dy={0}>
-          RI {ri}
-        </tspan>
-        <tspan x={cx} dy={12}>
-          TR {tr}
-        </tspan>
-      </text>
-    );
-  };
-
-  const DateTick = ({ x, y, payload }: any) => {
-    if (!payload?.value) return null;
-
-    const tickIndex = meetings.findIndex((meeting) => meeting.data === payload.value);
-    if (tickIndex === -1) return null;
-
-    const isSelected = tickIndex === selectedIndex;
-    const tickWidth = isSmall ? 52 : 68;
-    const tickX = -(tickWidth / 2);
-
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <foreignObject x={tickX} y={4} width={tickWidth} height={30}>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setSelectedIndex(tickIndex);
-            }}
-            className={`mx-auto block h-7 rounded-md border text-[10px] font-semibold leading-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
-              isSelected
-                ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"
-                : "border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-            style={{ width: tickWidth }}
-            aria-pressed={isSelected}
-            aria-label={`Selecionar reunião ${formatMeetingLabel(payload.value)}`}
-          >
-            {formatMeetingLabel(payload.value)}
-          </button>
-        </foreignObject>
-      </g>
-    );
-  };
-
-  return (
-    <Card
-      className={`h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col overflow-hidden ${
-        isLarge ? "cursor-pointer transition-shadow hover:shadow-[var(--shadow-elevated)]" : ""
-      }`}
-      onClick={scheduleNavigate}
-      onDoubleClick={cancelScheduledNavigate}
-    >
-      <CardHeader className={`${headerPadding} md:px-4`}>
-        <CardTitle className={widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
-      </CardHeader>
-
+...
       <CardContent className={isSmall ? "flex-1 px-2 pb-2 pt-1" : "flex-1 px-3 pb-3 pt-2"}>
         {meetings.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 text-center text-sm text-muted-foreground">
@@ -248,7 +173,7 @@ export const ReunioesChartWidget = ({
             }`}
           >
             <div className="min-h-0 rounded-xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
-              <div className="h-full min-h-[220px] md:min-h-[260px]">
+              <div className={`h-full ${isLarge ? "min-h-[360px]" : "min-h-[220px] md:min-h-[260px]"}`}>
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
                     data={meetings}

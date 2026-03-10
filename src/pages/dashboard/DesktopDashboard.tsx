@@ -39,23 +39,26 @@ export function DesktopDashboard({
     <div className="min-h-full w-full bg-background">
       <div className="flex min-h-full w-full flex-col">
         <div className="flex-1 min-h-0">
-          <Card className="min-h-full w-full rounded-xl bg-card border border-border/80 shadow-[var(--shadow-card)]">
-            <div className="min-h-full w-full p-3 md:p-4 xl:p-5 2xl:p-6 grid gap-3 md:gap-4 xl:gap-5 2xl:gap-6 grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
-              {/* PT-BR: Coluna esquerda fixa com Faixa Etária em altura total */}
-              <div className="min-h-[700px]">
-                <ExpandableWidget
-                  title="Distribuição por faixa etária"
-                  renderExpanded={() => (
+          <Card className="h-[820px] w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-card shadow-[var(--shadow-card)]">
+            {/* PT-BR: Container principal com dimensão fixa no desktop; filhos ocupam 100% sem extrapolar bordas. */}
+            <div className="grid h-full w-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] gap-3 overflow-hidden p-3 md:gap-4 md:p-4 xl:gap-5 xl:p-5 2xl:gap-6 2xl:p-6">
+              {/* PT-BR: Coluna esquerda ocupa toda a altura e mantém a Faixa Etária esticada. */}
+              <div className="h-full min-h-0 overflow-hidden">
+                <div className="h-full min-h-0 [&>div]:h-full">
+                  <ExpandableWidget
+                    title="Distribuição por faixa etária"
+                    renderExpanded={() => (
+                      <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
+                    )}
+                  >
                     <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
-                  )}
-                >
-                  <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
-                </ExpandableWidget>
+                  </ExpandableWidget>
+                </div>
               </div>
 
-              {/* PT-BR: Coluna central com gráfico principal maior + aniversariantes/notas lado a lado */}
-              <div className="grid min-h-[700px] grid-rows-[minmax(420px,1.35fr)_minmax(260px,0.8fr)] gap-4">
-                <div className="min-h-0">
+              {/* PT-BR: Coluna central preenche a altura fixa e amplia o bloco principal do gráfico. */}
+              <div className="grid h-full min-h-0 grid-rows-[minmax(0,1.65fr)_minmax(0,1fr)] gap-4 overflow-hidden">
+                <div className="min-h-0 [&>div]:h-full">
                   <ExpandableWidget
                     title="Gráfico de presença"
                     renderExpanded={() => (
@@ -66,12 +69,12 @@ export function DesktopDashboard({
                   </ExpandableWidget>
                 </div>
 
-                {/* PT-BR: mesmos tamanhos e scroll interno invisível para conteúdo excedente */}
-                <div className="grid min-h-0 grid-cols-2 gap-4">
-                  <div className="min-h-0">
+                {/* PT-BR: cards inferiores respeitam a altura disponível sem ultrapassar o container. */}
+                <div className="grid min-h-0 grid-cols-2 gap-4 overflow-hidden">
+                  <div className="min-h-0 overflow-hidden">
                     <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />
                   </div>
-                  <div className="min-h-0">
+                  <div className="min-h-0 overflow-hidden">
                     <ExpandableWidget
                       title="Notas rápidas"
                       renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
@@ -82,8 +85,8 @@ export function DesktopDashboard({
                 </div>
               </div>
 
-              {/* PT-BR: Coluna direita preservada para ações, resumo e ranking */}
-              <div className="grid min-h-[700px] grid-rows-[minmax(130px,auto)_minmax(170px,auto)_minmax(280px,1fr)] gap-4">
+              {/* PT-BR: Coluna direita preservada para ações, resumo e ranking. */}
+              <div className="grid h-full min-h-0 grid-rows-[minmax(130px,auto)_minmax(170px,auto)_minmax(0,1fr)] gap-4 overflow-hidden">
                 <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)] gap-4">
                   <QuickActionsWidget size="sm" />
                   <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
