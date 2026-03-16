@@ -74,10 +74,10 @@ export function DesktopDashboard({
                   <ExpandableWidget
                     title="Distribuição por faixa etária"
                     renderExpanded={() => (
-                      <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
+                      <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="side" />
                     )}
                   >
-                    <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="bottom" />
+                    <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="side" />
                   </ExpandableWidget>
                 </div>
               </div>
