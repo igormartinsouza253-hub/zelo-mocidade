@@ -23,11 +23,6 @@ interface MainChartData {
   [key: string]: number | string;
 }
 
-interface Oracao {
-  nome: string;
-  tipo: "membro" | "visita" | "nao_identificado";
-  membro_id?: string;
-}
 
 interface PrayerStats {
   totalOracoes: number;

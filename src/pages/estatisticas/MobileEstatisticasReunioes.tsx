@@ -44,11 +44,6 @@ type MainChartData = {
   [key: string]: number | string;
 };
 
-type Oracao = {
-  nome: string;
-  tipo: "membro" | "visita" | "nao_identificado";
-  membro_id?: string;
-};
 
 type RankedPrayerMember = { id: string; nome: string; total: number; foto_url?: string | null };
 
