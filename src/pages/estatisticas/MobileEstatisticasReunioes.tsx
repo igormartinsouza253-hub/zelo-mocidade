@@ -248,27 +248,28 @@ export default function MobileEstatisticasReunioes() {
 
   const loadTopPrayerMembers = async () => {
     try {
-      const { data: reunioes } = await supabase
-        .from("reunioes")
-        .select("id, data, oracoes")
-        .order("data", { ascending: false });
+      const { data: presencasOracao } = await supabase
+        .from("presencas")
+        .select("membro_id, membro_nome")
+        .eq("orou", true)
+        .limit(5000);
 
-      if (!reunioes || reunioes.length === 0) {
+      if (!presencasOracao || presencasOracao.length === 0) {
         setTopPrayerMembers([]);
         return;
       }
 
       const prayerCountMap: Record<string, { nome: string; total: number }> = {};
-
-      for (const reuniao of reunioes as any[]) {
-        const oracoesArray = Array.isArray(reuniao.oracoes) ? (reuniao.oracoes as Oracao[]) : [];
-        oracoesArray.forEach((oracao) => {
-          if (oracao.tipo !== "membro") return;
-          const key = oracao.membro_id || oracao.nome.toLowerCase();
-          if (!prayerCountMap[key]) prayerCountMap[key] = { nome: oracao.nome, total: 0 };
-          prayerCountMap[key].total += 1;
-        });
-      }
+      presencasOracao.forEach((presenca) => {
+        const key = presenca.membro_id || `nome:${(presenca.membro_nome || "não identificado").toLowerCase()}`;
+        if (!prayerCountMap[key]) {
+          prayerCountMap[key] = {
+            nome: presenca.membro_nome || "Membro",
+            total: 0,
+          };
+        }
+        prayerCountMap[key].total += 1;
+      });
 
       const topRaw = Object.entries(prayerCountMap)
         .sort((a, b) => b[1].total - a[1].total)

@@ -20,7 +20,7 @@ export function ModernSidebar() {
   const { shortcuts } = useSidebarPreferences();
   const location = useLocation();
   const navigate = useNavigate();
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const visibleShortcuts = shortcuts

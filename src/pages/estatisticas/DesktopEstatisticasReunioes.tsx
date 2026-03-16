@@ -146,8 +146,9 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
     try {
       const { data: reunioes } = await supabase
         .from("reunioes")
-        .select("id, data, tema, oracoes, palavra_referencia")
-        .order("data", { ascending: false });
+        .select("id, data, tema, palavra_referencia")
+        .order("data", { ascending: false })
+        .limit(5000);
 
       if (!reunioes || reunioes.length === 0) {
         setPrayerStats({ totalOracoes: 0, mediaPorReuniao: 0, reunioesComPalavra: 0 });
@@ -156,41 +157,37 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
         return;
       }
 
-      let totalOracoes = 0;
-      let reunioesComPalavra = 0;
-      const palavrasRecentes: {
-        id: string;
-        data: string;
-        tema: string | null;
-        palavra_referencia: string;
-      }[] = [];
+      const { data: presencasOracao } = await supabase
+        .from("presencas")
+        .select("membro_id, membro_nome")
+        .eq("orou", true)
+        .limit(5000);
+
       const prayerCountMap: Record<string, { nome: string; total: number }> = {};
-
-      for (const reuniao of reunioes as any[]) {
-        if (reuniao.palavra_referencia) {
-          reunioesComPalavra += 1;
-          palavrasRecentes.push({
-            id: reuniao.id,
-            data: reuniao.data,
-            tema: reuniao.tema ?? null,
-            palavra_referencia: reuniao.palavra_referencia,
-          });
+      (presencasOracao || []).forEach((presenca) => {
+        const key = presenca.membro_id || `nome:${(presenca.membro_nome || "não identificado").toLowerCase()}`;
+        if (!prayerCountMap[key]) {
+          prayerCountMap[key] = {
+            nome: presenca.membro_nome || "Membro",
+            total: 0,
+          };
         }
+        prayerCountMap[key].total += 1;
+      });
 
-        const oracoesArray = Array.isArray(reuniao.oracoes) ? (reuniao.oracoes as Oracao[]) : [];
-        totalOracoes += oracoesArray.length;
+      const reunioesComPalavra = reunioes.filter((r) => Boolean(r.palavra_referencia)).length;
+      const palavrasRecentes = reunioes
+        .filter((r) => Boolean(r.palavra_referencia))
+        .slice(0, 5)
+        .map((r) => ({
+          id: r.id,
+          data: r.data,
+          tema: r.tema ?? null,
+          palavra_referencia: r.palavra_referencia as string,
+        }));
 
-        oracoesArray.forEach((oracao) => {
-          if (oracao.tipo !== "membro") return;
-          const key = oracao.membro_id || oracao.nome.toLowerCase();
-          if (!prayerCountMap[key]) {
-            prayerCountMap[key] = { nome: oracao.nome, total: 0 };
-          }
-          prayerCountMap[key].total += 1;
-        });
-      }
-
-      const mediaPorReuniao = Math.round(totalOracoes / reunioes.length);
+      const totalOracoes = presencasOracao?.length || 0;
+      const mediaPorReuniao = reunioes.length ? Math.round(totalOracoes / reunioes.length) : 0;
 
       const top = Object.entries(prayerCountMap)
         .sort((a, b) => b[1].total - a[1].total)
@@ -198,7 +195,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
         .map(([id, info]) => ({ id, nome: info.nome, total: info.total }));
 
       setPrayerStats({ totalOracoes, mediaPorReuniao, reunioesComPalavra });
-      setRecentWords(palavrasRecentes.slice(0, 5));
+      setRecentWords(palavrasRecentes);
       setTopPrayerMembers(top);
     } catch (error) {
       console.error("Erro ao carregar estatísticas de orações e palavras:", error);
