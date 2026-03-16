@@ -1,11 +1,26 @@
 /**
- * Formata uma data no formato YYYY-MM-DD para exibição em português
- * Evita problemas de timezone mantendo a data local
+ * Faz parse de datas locais no formato YYYY-MM-DD (ou ISO com horário)
+ * sem sofrer deslocamento de timezone.
+ */
+const parseLocalDate = (value: string): Date | null => {
+  if (!value) return null;
+
+  const normalized = value.includes("T") ? value.split("T")[0] : value;
+  const [year, month, day] = normalized.split("-").map(Number);
+
+  if (!year || !month || !day) return null;
+
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/**
+ * Formata uma data local para exibição longa em português.
  */
 export const formatDateLocal = (dateString: string): string => {
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  
+  const date = parseLocalDate(dateString);
+  if (!date) return "Data inválida";
+
   return date.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
@@ -14,12 +29,12 @@ export const formatDateLocal = (dateString: string): string => {
 };
 
 /**
- * Formata uma data no formato YYYY-MM-DD para exibição curta em português
+ * Formata uma data local para exibição curta em português.
  */
 export const formatDateShort = (dateString: string): string => {
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  
+  const date = parseLocalDate(dateString);
+  if (!date) return "--/--/----";
+
   return date.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
