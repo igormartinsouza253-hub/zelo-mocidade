@@ -167,21 +167,37 @@ const NovaReuniao = () => {
   }, [setConfig, isMobile, loading, navigate]);
 
   const loadCargos = useCallback(async () => {
+    if (!activeGroupId) {
+      setCargosDisponiveis([]);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase.from("cargos").select("*").order("nome");
+      const { data, error } = await supabase
+        .from("cargos")
+        .select("*")
+        .eq("group_id", activeGroupId)
+        .order("nome");
       if (error) throw error;
       setCargosDisponiveis(data || []);
     } catch (error) {
       console.error("Erro ao carregar cargos:", error);
     }
-  }, []);
+  }, [activeGroupId]);
 
   const loadMembros = useCallback(async () => {
+    if (!activeGroupId) {
+      setMembros([]);
+      setMembrosLoading(false);
+      return;
+    }
+
     setMembrosLoading(true);
     try {
       const { data, error } = await supabase
         .from("membros")
         .select("id, nome, cargos, faixa_etaria, foto_url, ativo")
+        .eq("group_id", activeGroupId)
         .eq("ativo", true)
         .order("nome");
 
@@ -192,7 +208,7 @@ const NovaReuniao = () => {
     } finally {
       setMembrosLoading(false);
     }
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     void loadCargos();
@@ -291,6 +307,11 @@ const NovaReuniao = () => {
 
     if (!formData.data) {
       toast.error("Por favor, selecione uma data");
+      return;
+    }
+
+    if (!activeGroupId) {
+      toast.error("Selecione um grupo antes de registrar uma reunião.");
       return;
     }
 
