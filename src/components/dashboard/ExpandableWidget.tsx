@@ -35,7 +35,7 @@ export function ExpandableWidget({ title, children, renderExpanded }: Expandable
 
   return (
     <>
-      <div onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd}>
+      <div className="h-full min-h-0" onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd}>
         {children}
       </div>
 

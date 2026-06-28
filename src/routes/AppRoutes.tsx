@@ -27,7 +27,6 @@ import Visitas from "@/pages/Visitas";
 import NovaVisita from "@/pages/NovaVisita";
 import VisualizarVisita from "@/pages/VisualizarVisita";
 import GrupoGestor from "@/pages/GrupoGestor";
-import Chat from "@/pages/Chat";
 import ConfiguracoesGrupoAdmin from "@/pages/ConfiguracoesGrupoAdmin";
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -80,7 +79,6 @@ export function AppRoutes() {
       <Route path="/configuracoes/grupo-admin" element={<ProtectedLayout><ConfiguracoesGrupoAdmin /></ProtectedLayout>} />
 
       <Route path="/grupo" element={<ProtectedLayout><GrupoGestor /></ProtectedLayout>} />
-      <Route path="/chat" element={<ProtectedLayout><Chat /></ProtectedLayout>} />
 
       <Route path="/notas" element={<ProtectedLayout><Notas /></ProtectedLayout>} />
       <Route path="/notas/nova" element={<ProtectedLayout><EditorNota /></ProtectedLayout>} />

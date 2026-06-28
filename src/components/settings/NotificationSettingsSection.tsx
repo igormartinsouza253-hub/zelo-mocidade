@@ -18,7 +18,6 @@ const DEFAULT_PREFS = {
   enabled: true,
   birthdays_enabled: true,
   notes_enabled: true,
-  chat_enabled: true,
   group_requests_enabled: true,
   events_enabled: true,
 };
@@ -57,12 +56,6 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   );
 
   const resolveNotificationHref = (item: NotificationRow) => {
-    if (item.entity_type === "chat_message") {
-      const conversationId = typeof item.metadata?.conversation_id === "string" ? item.metadata.conversation_id : null;
-      if (conversationId) return `/chat?conversationId=${encodeURIComponent(conversationId)}`;
-      return "/chat";
-    }
-
     if (item.entity_type === "nota" && item.entity_id) {
       return `/notas/editar/${encodeURIComponent(item.entity_id)}`;
     }
@@ -79,7 +72,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
 
     const { data, error } = await supabase
       .from("notification_preferences")
-      .select("enabled, birthdays_enabled, notes_enabled, chat_enabled, group_requests_enabled, events_enabled")
+      .select("enabled, birthdays_enabled, notes_enabled, group_requests_enabled, events_enabled")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -100,7 +93,6 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
       enabled: data.enabled ?? true,
       birthdays_enabled: data.birthdays_enabled ?? true,
       notes_enabled: data.notes_enabled ?? true,
-      chat_enabled: data.chat_enabled ?? true,
       group_requests_enabled: data.group_requests_enabled ?? true,
       events_enabled: data.events_enabled ?? true,
     });
@@ -267,7 +259,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
           {unreadCount > 0 && <Badge className="ml-auto">{unreadCount}</Badge>}
         </CardTitle>
         <CardDescription className={compact ? "text-xs" : undefined}>
-          Mensagens curtas e objetivas para aniversários, notas, chat, solicitações e eventos.
+          Mensagens curtas e objetivas para aniversários, notas, solicitações e eventos.
         </CardDescription>
       </CardHeader>
 
@@ -293,14 +285,6 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
                 checked={prefs.notes_enabled}
                 disabled={saving || !prefs.enabled}
                 onCheckedChange={(checked) => void savePreference({ notes_enabled: checked })}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <Label className={compact ? "text-xs" : "text-sm"}>Mensagens do chat</Label>
-              <Switch
-                checked={prefs.chat_enabled}
-                disabled={saving || !prefs.enabled}
-                onCheckedChange={(checked) => void savePreference({ chat_enabled: checked })}
               />
             </div>
             <div className="flex items-center justify-between gap-2">

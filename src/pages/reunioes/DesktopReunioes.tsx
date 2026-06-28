@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { resolveHslFromCssVar } from "@/lib/resolve-color";
 import { useLongPress } from "@/hooks/useLongPress";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 interface Reuniao {
   id: string;
@@ -144,6 +145,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
   const [loadingDemographics, setLoadingDemographics] = useState(false);
   const navigate = useNavigate();
   const { setConfig } = usePageHeader();
+  const { activeGroupId } = useActiveGroup();
   const [quickFilter, setQuickFilter] = useState<"all" | "this-month" | "last-3-months">(
     "all",
   );
@@ -162,7 +164,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
 
   useEffect(() => {
     loadReunioes();
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     applyFiltersAndSort();
@@ -170,7 +172,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
 
   useEffect(() => {
     const loadDemographics = async () => {
-      if (!selectedReuniao) {
+      if (!activeGroupId || !selectedReuniao) {
         setAgeGroupCounts({});
         setAgeChartData([]);
         return;
@@ -180,12 +182,12 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
       try {
         const { data: presencas, error: presencasError } = await supabase
           .from("presencas")
-          .select("membro_id")
+          .select("membro_faixa_etaria")
+          .eq("group_id", activeGroupId)
           .eq("reuniao_id", selectedReuniao.id);
 
         if (presencasError) throw presencasError;
 
-        const membroIds = presencas?.map((p) => p.membro_id) || [];
         const counts: Record<string, number> = {
           Crianças: 0,
           Meninos: 0,
@@ -194,20 +196,12 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           Moças: 0,
         };
 
-        if (membroIds.length > 0) {
-          const { data: membros, error: membrosError } = await supabase
-            .from("membros")
-            .select("id, faixa_etaria")
-            .in("id", membroIds);
-
-          if (membrosError) throw membrosError;
-
-          (membros || []).forEach((membro) => {
-            if (counts[membro.faixa_etaria] !== undefined) {
-              counts[membro.faixa_etaria] += 1;
-            }
-          });
-        }
+        (presencas || []).forEach((presenca) => {
+          const faixa = presenca.membro_faixa_etaria;
+          if (faixa && counts[faixa] !== undefined) {
+            counts[faixa] += 1;
+          }
+        });
 
         setAgeGroupCounts(counts);
 
@@ -230,7 +224,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     };
 
     loadDemographics();
-  }, [selectedReuniao?.id]);
+  }, [activeGroupId, selectedReuniao?.id]);
 
   useEffect(() => {
     const now = new Date();
@@ -475,11 +469,20 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
   ]);
 
   const loadReunioes = async () => {
+    if (!activeGroupId) {
+      setReunioes([]);
+      setFilteredReunioes([]);
+      setSelectedReuniao(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("reunioes")
         .select("*")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false });
 
       if (error) throw error;
@@ -489,6 +492,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           const { data: presencas } = await supabase
             .from("presencas")
             .select("id")
+            .eq("group_id", activeGroupId)
             .eq("reuniao_id", reuniao.id);
 
           const totalMembros = presencas?.length || 0;

@@ -122,14 +122,14 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
   const { setConfig } = usePageHeader();
-  const { activeGroup, isAdmin } = useActiveGroup();
+  const { activeGroupId, activeGroup, isAdmin } = useActiveGroup();
 
   const hasSelected = selectedIds.length > 0;
 
   useEffect(() => {
     loadMembros();
     loadCargos();
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     localStorage.setItem("membros_sort", sortBy);
@@ -367,8 +367,17 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   ]);
 
   const loadCargos = async () => {
+    if (!activeGroupId) {
+      setCargosDisponiveis([]);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase.from("cargos").select("*").order("nome");
+      const { data, error } = await supabase
+        .from("cargos")
+        .select("*")
+        .eq("group_id", activeGroupId)
+        .order("nome");
       if (error) throw error;
       setCargosDisponiveis(data || []);
     } catch (error) {
@@ -377,9 +386,18 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   };
 
   const loadMembros = async () => {
+    if (!activeGroupId) {
+      setMembros([]);
+      setLoadingMembros(false);
+      return;
+    }
+
     try {
       setLoadingMembros(true);
-      const { data: membrosData, error: membrosError } = await supabase.from("membros").select("*");
+      const { data: membrosData, error: membrosError } = await supabase
+        .from("membros")
+        .select("*")
+        .eq("group_id", activeGroupId);
       if (membrosError) throw membrosError;
 
       const membrosComPresencas = await Promise.all(
@@ -387,6 +405,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
           const { count } = await supabase
             .from("presencas")
             .select("*", { count: "exact", head: true })
+            .eq("group_id", activeGroupId)
             .eq("membro_id", membro.id);
 
           return {

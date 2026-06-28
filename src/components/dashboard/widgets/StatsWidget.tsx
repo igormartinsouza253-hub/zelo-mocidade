@@ -1,4 +1,4 @@
-import { Users, Calendar, TrendingUp, Clock } from "lucide-react";
+import { CalendarCheck, Clock3, TrendingUp, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { WidgetSize } from "../types";
 
@@ -15,11 +15,7 @@ export const StatsWidget = ({
   totalReunioes,
   mediaPresenca,
   ultimaReuniao,
-  size,
 }: StatsWidgetProps) => {
-  const isSmall = size === "sm";
-  const isLarge = size === "lg";
-
   let ultimaDia = "-";
   let ultimaMes = "";
 
@@ -32,77 +28,61 @@ export const StatsWidget = ({
     if (!Number.isNaN(ano) && !Number.isNaN(mes) && !Number.isNaN(dia)) {
       const data = new Date(ano, mes - 1, dia);
       ultimaDia = String(data.getDate()).padStart(2, "0");
-      ultimaMes = data
-        .toLocaleString("pt-BR", { month: "short" })
-        .toUpperCase()
-        .slice(0, 3);
+      ultimaMes = data.toLocaleString("pt-BR", { month: "short" }).toUpperCase().slice(0, 3);
     }
   }
 
   const stats = [
-    { icon: Users, label: "Membros", value: totalMembros, color: "hsl(var(--primary))" },
-    { icon: Calendar, label: "Reuniões", value: totalReunioes, color: "hsl(var(--chart-2))" },
-    { icon: TrendingUp, label: "Média", value: mediaPresenca, color: "hsl(var(--chart-3))" },
     {
-      icon: Clock,
+      icon: Users,
+      label: "Membros",
+      value: totalMembros,
+      helper: "ativos no grupo",
+      iconClass: "bg-emerald-500 text-white",
+    },
+    {
+      icon: CalendarCheck,
+      label: "Reuniões",
+      value: totalReunioes,
+      helper: "registradas",
+      iconClass: "bg-sky-500 text-white",
+    },
+    {
+      icon: TrendingUp,
+      label: "Média",
+      value: mediaPresenca,
+      helper: "por reunião",
+      iconClass: "bg-violet-500 text-white",
+    },
+    {
+      icon: Clock3,
       label: "Última",
       value: ultimaDia,
-      month: ultimaMes,
-      color: "hsl(var(--chart-4))",
+      helper: ultimaMes || "sem data",
+      iconClass: "bg-amber-500 text-white",
     },
   ] as const;
 
-  const displayedStats = isSmall ? stats.slice(0, 2) : stats;
-
   return (
-    <div
-      className={`grid ${
-        isSmall ? "grid-cols-2 gap-2" : isLarge ? "grid-cols-4 gap-4" : "grid-cols-2 gap-3"
-      }`}
-    >
-      {displayedStats.map((stat, index) => (
+    <div className="grid h-full min-h-0 grid-cols-4 gap-3">
+      {stats.map((stat) => (
         <Card
-          key={index}
-          className="bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-shadow md:rounded-xl overflow-hidden"
+          key={stat.label}
+          className="h-full min-h-0 overflow-hidden rounded-xl border-border/60 bg-card text-card-foreground shadow-[var(--shadow-card)]"
         >
-          <CardContent
-            className={`${
-              isSmall ? "p-2.5" : isLarge ? "p-4" : "p-3"
-            } flex flex-col items-center justify-center gap-1.5`}
-          >
-            <div className="flex items-center justify-center mb-1">
-              <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                 <stat.icon
-                   className={isSmall ? "h-3.5 w-3.5" : isLarge ? "h-5 w-5" : "h-4 w-4"}
-                 />
+          <CardContent className="flex h-full min-h-0 items-center gap-3 px-3 py-2">
+            <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconClass}`}>
+              <stat.icon className="h-[18px] w-[18px]" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-bold leading-none text-foreground">{stat.value}</span>
+                {stat.label === "Última" && ultimaMes && (
+                  <span className="text-[10px] font-semibold uppercase text-muted-foreground">{ultimaMes}</span>
+                )}
               </div>
-            </div>
-            <div
-              className={`${
-                isSmall
-                  ? "text-lg"
-                  : isLarge
-                    ? "text-2xl md:text-[24px] lg:text-[28px] xl:text-[30px] 2xl:text-[32px]"
-                    : "text-2xl"
-              } font-bold text-foreground leading-tight`}
-            >
-              {stat.value}
-            </div>
-            {stat.label === "Última" && "month" in stat && stat.month && stat.value !== "-" && (
-              <div
-                className={`${
-                  isSmall ? "text-[10px]" : "text-xs"
-                } font-semibold uppercase text-muted-foreground tracking-[0.16em]`}
-              >
-                {stat.month}
-              </div>
-            )}
-            <div
-              className={`${
-                isSmall ? "text-[10px]" : "text-xs"
-              } text-muted-foreground text-center`}
-            >
-              {stat.label}
+              <p className="mt-1 truncate text-xs font-semibold text-foreground/80">{stat.label}</p>
+              <p className="truncate text-[10px] text-muted-foreground">{stat.helper}</p>
             </div>
           </CardContent>
         </Card>

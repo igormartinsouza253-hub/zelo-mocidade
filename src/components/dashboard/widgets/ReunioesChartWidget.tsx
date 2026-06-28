@@ -19,6 +19,7 @@ import { resolveHslFromCssVar } from "@/lib/resolve-color";
 
 interface ReunioesChartWidgetProps {
   size: WidgetSize;
+  compactMobile?: boolean;
   reunioesRecentes: {
     data: string;
     total: number;
@@ -34,6 +35,7 @@ interface ReunioesChartWidgetProps {
 
 export const ReunioesChartWidget = ({
   size,
+  compactMobile = false,
   reunioesRecentes,
 }: ReunioesChartWidgetProps) => {
   const SERIES_COLORS: Record<string, string> = {
@@ -57,14 +59,20 @@ export const ReunioesChartWidget = ({
   const headerPadding = WIDGET_HEADER_PADDING[size];
   const titleTextSize = size === "sm" ? "sm" : size === "lg" ? "lg" : "md";
 
-  const meetings = useMemo(() => reunioesRecentes.slice(-5), [reunioesRecentes]);
+  const meetingsLimit = compactMobile ? 5 : isLarge ? 7 : isSmall ? 4 : 5;
+  const meetings = useMemo(
+    () => reunioesRecentes.slice(-meetingsLimit),
+    [meetingsLimit, reunioesRecentes],
+  );
 
   const [selectedIndex, setSelectedIndex] = useState(
     meetings.length > 0 ? meetings.length - 1 : 0,
   );
+  const [compactExpandedIndex, setCompactExpandedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setSelectedIndex(meetings.length > 0 ? meetings.length - 1 : 0);
+    setCompactExpandedIndex(null);
 
     return () => {
       if (navigateTimerRef.current) {
@@ -74,7 +82,18 @@ export const ReunioesChartWidget = ({
     };
   }, [meetings]);
 
-  const selectedReuniao = meetings.length > 0 ? meetings[Math.min(selectedIndex, meetings.length - 1)] : null;
+  const activeIndex = compactMobile ? compactExpandedIndex : selectedIndex;
+  const selectedReuniao =
+    activeIndex !== null && activeIndex >= 0 && meetings.length > 0
+      ? meetings[Math.min(activeIndex, meetings.length - 1)]
+      : null;
+  const visibleMeetings = useMemo(
+    () =>
+      compactMobile && compactExpandedIndex !== null
+        ? [{ ...meetings[compactExpandedIndex], __meetingIndex: compactExpandedIndex }]
+        : meetings.map((meeting, index) => ({ ...meeting, __meetingIndex: index })),
+    [compactExpandedIndex, compactMobile, meetings],
+  );
 
   const resumoItems = selectedReuniao
     ? [
@@ -154,10 +173,11 @@ export const ReunioesChartWidget = ({
   };
 
   const maxTotal = Math.max(1, ...meetings.map((r) => (typeof r.total === "number" ? r.total : 0)));
+  const chartMaxTotal = compactMobile && selectedReuniao ? Math.max(1, selectedReuniao.total) : maxTotal;
 
-  const barSize = isLarge ? 36 : size === "md" ? 28 : 22;
+  const barSize = compactMobile ? 22 : isLarge ? (meetings.length > 5 ? 30 : 36) : size === "md" ? 28 : 22;
   // PT-BR: no desktop, o gráfico principal ganha altura para ocupar o espaço inferior vazio.
-  const chartHeight: number | string = isLarge ? "100%" : size === "md" ? 260 : 220;
+  const chartHeight: number | string = compactMobile ? "100%" : isLarge ? "100%" : size === "md" ? 260 : 220;
 
   const TopLabel = (props: any) => {
     const { x, y, width, payload } = props;
@@ -196,24 +216,27 @@ export const ReunioesChartWidget = ({
     const tickIndex = meetings.findIndex((meeting) => meeting.data === payload.value);
     if (tickIndex === -1) return null;
 
-    const isSelected = tickIndex === selectedIndex;
-    const tickWidth = isSmall ? 52 : 68;
+    const isSelected = compactMobile ? compactExpandedIndex === tickIndex : tickIndex === selectedIndex;
+    const tickWidth = compactMobile ? (compactExpandedIndex !== null ? 50 : meetings.length >= 5 ? 46 : 52) : isLarge && meetings.length > 5 ? 58 : isSmall ? 52 : 68;
     const tickX = -(tickWidth / 2);
 
     return (
       <g transform={`translate(${x},${y})`}>
-        <foreignObject x={tickX} y={4} width={tickWidth} height={30}>
+        <foreignObject x={tickX} y={2} width={tickWidth} height={26}>
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              if (compactMobile) {
+                setCompactExpandedIndex((current) => (current === tickIndex ? null : tickIndex));
+              }
               setSelectedIndex(tickIndex);
             }}
-            className={`mx-auto block h-7 rounded-md border text-[10px] font-semibold leading-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
+            className={`mx-auto block rounded-md border font-semibold leading-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
               isSelected
                 ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"
                 : "border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
+            } ${compactMobile ? "h-6 text-[8px]" : "h-7 text-[10px]"}`}
             style={{ width: tickWidth }}
             aria-pressed={isSelected}
             aria-label={`Selecionar reunião ${formatMeetingLabel(payload.value)}`}
@@ -225,6 +248,13 @@ export const ReunioesChartWidget = ({
     );
   };
 
+  const handleSelectMeeting = (index: number) => {
+    if (compactMobile) {
+      setCompactExpandedIndex((current) => (current === index ? null : index));
+    }
+    setSelectedIndex(index);
+  };
+
   return (
     <Card
       className={`h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col overflow-hidden ${
@@ -234,28 +264,43 @@ export const ReunioesChartWidget = ({
       onDoubleClick={cancelScheduledNavigate}
     >
       <CardHeader className={`${headerPadding} md:px-4`}>
-        <CardTitle className={widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
+        <div className="flex items-baseline justify-between gap-3">
+          <CardTitle className={widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
+          <span className="text-[11px] font-medium text-muted-foreground">
+            Últimas {meetings.length} reuniões
+          </span>
+        </div>
       </CardHeader>
 
-      <CardContent className={isSmall ? "flex-1 px-2 pb-2 pt-1" : "flex-1 px-3 pb-3 pt-2"}>
+      <CardContent className={compactMobile ? "min-h-0 flex-1 px-2 pb-2 pt-1" : isSmall ? "min-h-0 flex-1 px-2 pb-2 pt-1" : "min-h-0 flex-1 px-3 pb-3 pt-2"}>
         {meetings.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 text-center text-sm text-muted-foreground">
             Sem reuniões recentes para exibir.
           </div>
         ) : (
           <div
-            className={`grid h-full min-h-0 gap-3 ${
-              isLarge ? "grid-cols-[minmax(0,1.9fr)_minmax(240px,1fr)]" : "grid-cols-1"
+            className={`grid h-full min-h-0 gap-2 ${
+              compactMobile
+                ? compactExpandedIndex !== null
+                  ? "grid-cols-[minmax(88px,0.42fr)_minmax(0,1fr)]"
+                  : "grid-cols-1"
+                : isLarge
+                  ? "grid-cols-[minmax(0,1.9fr)_minmax(240px,1fr)]"
+                  : "grid-cols-1"
             }`}
           >
             <div className="min-h-0 rounded-xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
-              <div className={`h-full ${isLarge ? "min-h-[360px]" : "min-h-[220px] md:min-h-[260px]"}`}>
+              <div className="h-full min-h-0">
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
-                    data={meetings}
-                    margin={{ top: 22, right: 0, left: 0, bottom: 38 }}
-                    barCategoryGap="22%"
+                    data={visibleMeetings}
+                    margin={compactMobile ? { top: 8, right: 0, left: 0, bottom: 28 } : { top: 22, right: 0, left: 0, bottom: 38 }}
+                    barCategoryGap={visibleMeetings.length > 5 ? "14%" : "22%"}
                     barGap={0}
+                    onClick={(state: any) => {
+                      const index = state?.activePayload?.[0]?.payload?.__meetingIndex;
+                      if (typeof index === "number") handleSelectMeeting(index);
+                    }}
                   >
                     <CartesianGrid
                       strokeDasharray="3 6"
@@ -269,7 +314,7 @@ export const ReunioesChartWidget = ({
                       axisLine={false}
                       interval={0}
                       tickMargin={0}
-                      height={36}
+                      height={compactMobile ? 28 : 36}
                       padding={{ left: 0, right: 0 }}
                       tick={<DateTick />}
                     />
@@ -279,7 +324,7 @@ export const ReunioesChartWidget = ({
                       tickLine={false}
                       axisLine={false}
                       tick={false}
-                      domain={[0, Math.max(1, maxTotal)]}
+                      domain={[0, chartMaxTotal]}
                     />
 
                     <Tooltip
@@ -294,27 +339,27 @@ export const ReunioesChartWidget = ({
                     />
 
                     <Bar dataKey="Crianças" stackId="a" fill={SERIES_COLORS["Crianças"]} barSize={barSize} radius={[0, 0, 10, 10]}>
-                      {meetings.map((_, index) => (
+                      {visibleMeetings.map((meeting: any, index) => (
                         <Cell
                           key={`criancas-${index}`}
-                          fillOpacity={index === selectedIndex ? 1 : 0.46}
-                          stroke={index === selectedIndex ? "hsl(var(--ring))" : "transparent"}
-                          strokeWidth={index === selectedIndex ? 1.5 : 0}
+                          fillOpacity={compactMobile ? 1 : index === selectedIndex ? 1 : 0.46}
+                          stroke={(meeting.__meetingIndex ?? index) === activeIndex ? "hsl(var(--ring))" : "transparent"}
+                          strokeWidth={(meeting.__meetingIndex ?? index) === activeIndex ? 1.5 : 0}
                         />
                       ))}
                     </Bar>
 
                     {(["Meninas", "Meninos", "Moças", "Moços"] as const).map((faixa) => (
                       <Bar key={faixa} dataKey={faixa} stackId="a" fill={SERIES_COLORS[faixa]} barSize={barSize} radius={[0, 0, 0, 0]}>
-                        {meetings.map((_, index) => (
-                          <Cell key={`${faixa}-${index}`} fillOpacity={index === selectedIndex ? 1 : 0.46} />
+                        {visibleMeetings.map((meeting: any, index) => (
+                          <Cell key={`${faixa}-${index}`} fillOpacity={compactMobile ? 1 : (meeting.__meetingIndex ?? index) === selectedIndex ? 1 : 0.46} />
                         ))}
                       </Bar>
                     ))}
 
                     <Bar dataKey="visitas" stackId="a" fill={VISITAS_COLOR} barSize={barSize} radius={[10, 10, 0, 0]}>
-                      {meetings.map((_, index) => (
-                        <Cell key={`visitas-${index}`} fillOpacity={index === selectedIndex ? 1 : 0.46} />
+                      {visibleMeetings.map((meeting: any, index) => (
+                        <Cell key={`visitas-${index}`} fillOpacity={compactMobile ? 1 : (meeting.__meetingIndex ?? index) === selectedIndex ? 1 : 0.46} />
                       ))}
                       <LabelList content={TopLabel} />
                     </Bar>
@@ -323,37 +368,39 @@ export const ReunioesChartWidget = ({
               </div>
             </div>
 
-            <aside className="min-h-0 rounded-xl border border-border/50 bg-[hsl(var(--info-card-bg))] px-3 py-3 text-[hsl(var(--info-card-foreground))] shadow-[var(--shadow-soft)] md:px-4 md:py-4">
+            {(!compactMobile || compactExpandedIndex !== null) && (
+            <aside className={`min-h-0 overflow-hidden rounded-xl border border-border/50 bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] shadow-[var(--shadow-soft)] md:px-4 ${compactMobile ? "px-2.5 py-2" : "px-3 py-3"}`}>
               {selectedReuniao && (
-                <div className="flex h-full flex-col">
-                  <div className="space-y-1">
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className={compactMobile ? "flex shrink-0 items-start justify-between gap-2" : "shrink-0 space-y-1"}>
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-75">Resumo da reunião</p>
-                    <h4 className="inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-1 text-sm font-semibold">
+                    <h4 className={compactMobile ? "inline-flex max-w-[54px] shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-primary-foreground/15 px-1.5 py-1 text-[clamp(9px,2.7vw,12px)] font-semibold leading-none" : "inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-1 text-sm font-semibold"}>
                       {formatMeetingLabel(selectedReuniao.data)}
                     </h4>
                   </div>
 
-                  <div className="mt-4 space-y-2.5">
+                  <div className={compactMobile ? "mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1 scrollbar-none" : "mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-none"}>
                     {resumoItems.map((item) => (
-                      <div key={item.key} className="flex items-center justify-between gap-3">
+                      <div key={item.key} className="flex min-w-0 items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
-                          <span className="truncate text-sm font-medium opacity-90">{item.label}</span>
+                          <span className={compactMobile ? "h-2 w-2 shrink-0 rounded-full" : "h-2.5 w-2.5 shrink-0 rounded-full"} style={{ backgroundColor: item.color }} />
+                          <span className={compactMobile ? "truncate text-[11px] font-medium opacity-90" : "truncate text-sm font-medium opacity-90"}>{item.label}</span>
                         </div>
-                        <span className="text-sm font-semibold tabular-nums">{item.value}</span>
+                        <span className={compactMobile ? "shrink-0 text-xs font-bold tabular-nums" : "text-sm font-semibold tabular-nums"}>{item.value}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-auto pt-4">
-                    <div className="flex items-center justify-between border-t border-primary-foreground/20 pt-3">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">Total geral</span>
-                      <span className="text-2xl font-extrabold leading-none tabular-nums">{totalSelecionado}</span>
+                  <div className={compactMobile ? "shrink-0 pt-1.5" : "shrink-0 pt-3"}>
+                    <div className={compactMobile ? "flex items-center justify-between border-t border-primary-foreground/20 pt-1.5" : "flex items-center justify-between border-t border-primary-foreground/20 pt-2"}>
+                      <span className={compactMobile ? "text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80" : "text-xs font-semibold uppercase tracking-[0.12em] opacity-80"}>Total geral</span>
+                      <span className={compactMobile ? "text-base font-extrabold leading-none tabular-nums" : "text-xl font-extrabold leading-none tabular-nums"}>{totalSelecionado}</span>
                     </div>
                   </div>
                 </div>
               )}
             </aside>
+            )}
           </div>
         )}
       </CardContent>

@@ -53,11 +53,11 @@ export function MobileBottomNav() {
   };
 
   return (
-    <nav className="md:hidden fixed inset-x-0 bottom-2 z-50 flex justify-center pointer-events-none">
+    <nav className="md:hidden fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-50 flex justify-center pointer-events-none">
       <div className="pointer-events-auto flex items-end gap-2">
         {/* Dock retangular arredondada (menos curva que a atual) */}
-        <div className="w-[78vw] max-w-sm rounded-2xl bg-background/85 border border-border/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75 shadow-[var(--shadow-card)]">
-          <div className="flex items-center justify-between h-14 px-2">
+        <div className="inline-flex rounded-2xl bg-background/82 border border-border/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 shadow-[var(--shadow-card)]">
+          <div className="flex h-[52px] items-center gap-1 px-2 py-1.5">
             {FIXED_DOCK.map((item) => {
               const active = isActive(item.url);
               const Icon = item.icon;
@@ -66,17 +66,17 @@ export function MobileBottomNav() {
                   key={item.id}
                   to={item.url}
                     end={item.url === "/"}
-                  className="flex-1 h-full flex items-center justify-center"
+                    className="h-full flex items-center justify-center"
                 >
                   <div
-                    className={`flex flex-col items-center justify-center h-11 w-14 rounded-xl transition-colors ${
+                    className={`flex h-10 w-[52px] flex-col items-center justify-center rounded-xl transition-colors ${
                       active
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground"
                     }`}
                   >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-[10px] leading-none mt-1 font-medium">
+                    <Icon className="h-[18px] w-[18px]" />
+                    <span className="text-[9px] leading-none mt-1 font-medium">
                       {item.label}
                     </span>
                   </div>
@@ -98,7 +98,7 @@ export function MobileBottomNav() {
               return (
                 <button
                   type="button"
-                  className="h-14 w-14 rounded-2xl bg-background/85 border border-border/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75 shadow-[var(--shadow-card)] flex items-center justify-center text-foreground"
+                  className="h-[52px] w-[52px] rounded-2xl bg-background/82 border border-border/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 shadow-[var(--shadow-card)] flex items-center justify-center text-foreground"
                   aria-label={fixedActive ? "Abrir menu" : `Abrir menu (${label})`}
                 >
                   <MenuIcon className="h-5 w-5" />

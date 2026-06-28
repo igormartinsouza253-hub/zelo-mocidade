@@ -31,6 +31,7 @@ export const TopMembrosWidget = ({
 }: TopMembrosWidgetProps) => {
   const navigate = useNavigate();
   const navigateTimerRef = useRef<number | null>(null);
+  const displayedMembros = size === "sm" ? top5Membros.slice(0, 3) : top5Membros;
 
   const cancelScheduledNavigate = () => {
     if (navigateTimerRef.current) {
@@ -62,11 +63,11 @@ export const TopMembrosWidget = ({
             <ArrowUpDown className="h-3 w-3" />
           </Button>
         </CardHeader>
-        <CardContent className="flex-1 space-y-1.5 overflow-hidden px-2 pb-2 pt-0.5">
+        <CardContent className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2 pb-2 pt-0.5 scrollbar-none">
           {top5Membros.length === 0 ? (
             <p className="text-[11px] text-muted-foreground">Nenhum dado disponível</p>
           ) : (
-            top5Membros.slice(0, 3).map((membro, index) => (
+            displayedMembros.map((membro, index) => (
               <button
                 key={membro.id}
                 type="button"
@@ -107,9 +108,9 @@ export const TopMembrosWidget = ({
             <ArrowUpDown className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="flex-1 overflow-auto px-3 pb-3 pt-0 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent">
-          <div className="space-y-1.5 w-full">
-            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : top5Membros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
+        <CardContent className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-0 scrollbar-none">
+          <div className="h-full min-h-0 space-y-1.5 w-full overflow-y-auto pr-1 scrollbar-none">
+            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : displayedMembros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="relative">
                       <Avatar className="h-7 w-7">
@@ -132,13 +133,13 @@ export const TopMembrosWidget = ({
   }
   return (
     <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
-      <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-[12px]"}>
-        <div className="flex flex-col my-[10px] mx-[10px]">
+      <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-3"}>
+        <div className="flex min-w-0 flex-col">
           <CardTitle className={widgetTitleClass("lg")}>
             {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
           </CardTitle>
         </div>
-        <div className="flex items-center gap-2 mr-2">
+        <div className="flex shrink-0 items-center gap-2">
           <select
             value={period}
             onChange={(e) => onPeriodChange(e.target.value as "1m" | "3m" | "1y")}
@@ -160,11 +161,11 @@ export const TopMembrosWidget = ({
         </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 px-3 pb-3 pt-0.5">
-        <div className="max-h-[290px] space-y-2 w-full overflow-y-auto scrollbar-none pr-1">
+        <div className="h-full min-h-0 space-y-2 w-full overflow-y-auto scrollbar-none pr-1">
           {top5Membros.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
           ) : (
-            top5Membros.map((membro, index) => (
+            displayedMembros.map((membro, index) => (
               <div
                 key={membro.id}
                 className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors w-full"

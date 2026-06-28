@@ -89,9 +89,7 @@ const DetalhesReuniao = () => {
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
 
   useEffect(() => {
-    loadReuniao();
-    loadMembros();
-    loadCargos();
+    void loadReuniao();
   }, [id]);
 
   useEffect(() => {
@@ -131,11 +129,17 @@ const DetalhesReuniao = () => {
     return () => setConfig(null);
   }, [navigate, loading, setConfig, isMobile]);
 
-  const loadCargos = async () => {
+  const loadCargos = async (groupId: string | null) => {
+    if (!groupId) {
+      setCargosDisponiveis([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("cargos")
         .select("*")
+        .eq("group_id", groupId)
         .order("nome");
       if (error) throw error;
       setCargosDisponiveis(data || []);
@@ -144,13 +148,25 @@ const DetalhesReuniao = () => {
     }
   };
 
-  const loadMembros = async () => {
+  const loadMembros = async (groupId: string | null, presentMemberIds: string[] = []) => {
+    if (!groupId) {
+      setMembros([]);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("membros")
         .select("id, nome, cargos, faixa_etaria, foto_url, ativo")
-        .eq("ativo", true)
+        .eq("group_id", groupId)
         .order("nome");
+
+      query =
+        presentMemberIds.length > 0
+          ? query.or(`ativo.eq.true,id.in.(${presentMemberIds.join(",")})`)
+          : query.eq("ativo", true);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setMembros(data || []);
@@ -178,7 +194,8 @@ const DetalhesReuniao = () => {
         quem_atendeu: reuniao.quem_atendeu || "",
         palavra_referencia: reuniao.palavra_referencia || "",
       });
-      setReuniaoGroupId(reuniao.group_id ?? null);
+      const groupId = reuniao.group_id ?? null;
+      setReuniaoGroupId(groupId);
 
 
       // Carregar orações se existirem
@@ -196,6 +213,7 @@ const DetalhesReuniao = () => {
           .filter((p: any) => Boolean(p.orou))
           .map((p: any) => p.membro_id)
       );
+      await Promise.all([loadCargos(groupId), loadMembros(groupId, presentes)]);
     } catch (error) {
       console.error("Erro ao carregar reunião:", error);
       toast.error("Erro ao carregar dados da reunião");
@@ -230,8 +248,9 @@ const DetalhesReuniao = () => {
 
   const filteredMembros = membros.filter((membro) => {
     const matchesSearch = membro.nome.toLowerCase().includes(search.toLowerCase());
+    const cargosDoMembro = Array.isArray(membro.cargos) ? membro.cargos : [];
     const matchesCargo =
-      selectedCargos.length === 0 || selectedCargos.some((cargo) => membro.cargos.includes(cargo));
+      selectedCargos.length === 0 || selectedCargos.some((cargo) => cargosDoMembro.includes(cargo));
     const matchesFaixa =
       selectedFaixas.length === 0 || selectedFaixas.includes(membro.faixa_etaria);
     return matchesSearch && matchesCargo && matchesFaixa;

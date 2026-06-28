@@ -33,17 +33,6 @@ type Props = {
 };
 
 function resolveNotificationHref(item: NotificationRow) {
-  if (item.entity_type === "chat_message") {
-    const conversationId =
-      typeof item.metadata?.conversation_id === "string"
-        ? item.metadata.conversation_id
-        : null;
-    if (conversationId) {
-      return `/chat?conversationId=${encodeURIComponent(conversationId)}`;
-    }
-    return "/chat";
-  }
-
   if (item.entity_type === "nota" && item.entity_id) {
     return `/notas/editar/${encodeURIComponent(item.entity_id)}`;
   }

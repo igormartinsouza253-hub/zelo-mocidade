@@ -14,7 +14,6 @@ import {
   BarChart3,
   LogOut,
   ArrowLeft,
-  MessageCircle,
   Bell,
 } from "lucide-react";
 import {
@@ -27,8 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import logoSource from "@/assets/app-logo-aw.png";
-import { ThemedLogo } from "@/components/ThemedLogo";
+import logoSource from "@/assets/logo-zelo-transparent.png";
 import { ThemePresetId } from "@/lib/theme-presets";
 import {
   DropdownMenu,
@@ -42,9 +40,6 @@ import { toast } from "sonner";
 import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { PageHeaderProvider, usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
-import { ChatLauncherProvider } from "@/components/chat/ChatLauncherContext";
-import { ChatPanel } from "@/components/chat/ChatPanel";
-import { useUnreadChatCount } from "@/components/chat/useUnreadChatCount";
 import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
 
 interface AppLayoutProps {
@@ -52,18 +47,17 @@ interface AppLayoutProps {
 }
 
 const routeTitles: Record<string, { title: string; icon: any }> = {
-  "/": { title: "Início - Reuniões de Jovem", icon: Home },
+  "/": { title: "InÃ­cio - ReuniÃµes de Jovem", icon: Home },
   "/membros": { title: "Membros", icon: Users },
-  "/reunioes": { title: "Reuniões", icon: Handshake },
+  "/reunioes": { title: "ReuniÃµes", icon: Handshake },
   "/calendario": { title: "Agenda", icon: CalendarDays },
   "/cargos": { title: "Cargos", icon: Award },
-  "/estatisticas": { title: "Estatísticas", icon: BarChart3 },
-  "/estatisticas-reunioes": { title: "Estatísticas", icon: BarChart3 },
+  "/estatisticas": { title: "EstatÃ­sticas", icon: BarChart3 },
+  "/estatisticas-reunioes": { title: "EstatÃ­sticas", icon: BarChart3 },
   "/notas": { title: "Notas", icon: Sparkles },
-  "/configuracoes": { title: "Configurações", icon: Settings },
+  "/configuracoes": { title: "ConfiguraÃ§Ãµes", icon: Settings },
   "/busca": { title: "Busca global", icon: Search },
   "/visitas": { title: "Visitas", icon: Handshake },
-  "/chat": { title: "Chat", icon: Sparkles },
   "/grupo": { title: "Grupo gestor", icon: Users },
 };
 
@@ -78,7 +72,6 @@ function resolveRoute(pathname: string) {
   if (pathname.startsWith("/estatisticas")) return routeTitles["/estatisticas"];
   if (pathname.startsWith("/configuracoes")) return routeTitles["/configuracoes"];
   if (pathname.startsWith("/busca")) return routeTitles["/busca"];
-  if (pathname.startsWith("/chat")) return routeTitles["/chat"];
   if (pathname.startsWith("/grupo")) return routeTitles["/grupo"];
 
   return routeTitles["/"];
@@ -120,18 +113,10 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   }, [user, loadingGroup, activeGroupId, location.pathname, navigate]);
 
   const isDashboard = location.pathname === "/";
-  const isChatRoute = location.pathname.startsWith("/chat");
   const [isLandscapeMobile, setIsLandscapeMobile] = useState(false);
   const [hideMobileDockOverride, setHideMobileDockOverride] = useState(false);
 
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [preferredOpenMode, setPreferredOpenModeState] = useState<"panel" | "page">(() => {
-    if (typeof window === "undefined") return "panel";
-    const raw = window.localStorage.getItem("chatPreferredOpenMode");
-    return raw === "page" ? "page" : "panel";
-  });
-
-  // Permite que telas mobile peçam para esconder/mostrar a dock inferior.
+  // Permite que telas mobile peÃ§am para esconder/mostrar a dock inferior.
   useEffect(() => {
     const handler = (event: Event) => {
       const e = event as CustomEvent<{ hidden?: boolean }>;
@@ -149,21 +134,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     const orientation = (screen as any)?.orientation;
     if (orientation?.lock) {
       void orientation.lock("portrait").catch(() => {
-        // Nem todos os navegadores permitem — fallback é o overlay de landscape.
+        // Nem todos os navegadores permitem â€” fallback Ã© o overlay de landscape.
       });
     }
   }, [isMobileMode]);
 
-  const setPreferredOpenMode = (mode: "panel" | "page") => {
-    setPreferredOpenModeState(mode);
-    try {
-      window.localStorage.setItem("chatPreferredOpenMode", mode);
-    } catch {
-      // ignore
-    }
-  };
-
-  const { count: unreadCount } = useUnreadChatCount();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState(false);
 
@@ -232,7 +207,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           return;
         }
       } catch (error) {
-        console.warn("Falha ao exibir notificação via Service Worker:", error);
+        console.warn("Falha ao exibir notificaÃ§Ã£o via Service Worker:", error);
       }
 
       new Notification(incoming.title, notificationOptions);
@@ -271,7 +246,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user?.id, activeGroupId]);
 
-  // Heartbeat (presença por grupo): atualiza last_seen_at periodicamente no DB
+  // Heartbeat (presenÃ§a por grupo): atualiza last_seen_at periodicamente no DB
   useEffect(() => {
     if (!user) return;
     if (!activeGroupId) return;
@@ -295,8 +270,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           );
         if (error) throw error;
       } catch (e) {
-        // Não bloqueia UI — apenas diagnóstico
-        console.warn("Heartbeat: falha ao atualizar presença:", e);
+        // NÃ£o bloqueia UI â€” apenas diagnÃ³stico
+        console.warn("Heartbeat: falha ao atualizar presenÃ§a:", e);
       }
     };
 
@@ -318,7 +293,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user, activeGroupId]);
 
-  // Presença online (mantido exatamente como antes)
+  // PresenÃ§a online (mantido exatamente como antes)
   useEffect(() => {
     if (!user) return;
 
@@ -339,7 +314,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           username:
             user.user_metadata?.username ||
             user.email?.split("@")[0] ||
-            "Usuário",
+            "UsuÃ¡rio",
           email: user.email,
           online_at: onlineAt,
           last_active_at: new Date().toISOString(),
@@ -353,7 +328,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         username:
           user.user_metadata?.username ||
           user.email?.split("@")[0] ||
-          "Usuário",
+          "UsuÃ¡rio",
         email: user.email,
         online_at: onlineAt,
         last_active_at: new Date().toISOString(),
@@ -381,7 +356,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user]);
 
-  // Aplica automaticamente o tema salvo como padrão para o usuário ao entrar no app
+  // Aplica automaticamente o tema salvo como padrÃ£o para o usuÃ¡rio ao entrar no app
   useEffect(() => {
     if (!user) return;
 
@@ -412,14 +387,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         const { applyThemePreset } = await import("@/lib/theme-presets");
         applyThemePreset(preset, customConfig || undefined);
       } catch (error) {
-        console.error("Erro ao aplicar tema padrão do usuário:", error);
+        console.error("Erro ao aplicar tema padrÃ£o do usuÃ¡rio:", error);
       }
     };
 
     void applyUserTheme();
   }, [user]);
 
-  // Detecção de orientação apenas no mobile
+  // DetecÃ§Ã£o de orientaÃ§Ã£o apenas no mobile
   useEffect(() => {
     if (!isMobileMode) {
       setIsLandscapeMobile(false);
@@ -455,22 +430,19 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     if (pathname.startsWith("/membros/editar/")) return true;
 
     if (pathname === "/reunioes/nova") return true;
-    // edição de reunião: /reunioes/:id
+    // ediÃ§Ã£o de reuniÃ£o: /reunioes/:id
     if (/^\/reunioes\/[^/]+$/.test(pathname)) return true;
-    // visualizar reunião: /reunioes/visualizar/:id
+    // visualizar reuniÃ£o: /reunioes/visualizar/:id
     if (/^\/reunioes\/visualizar\/[^/]+$/.test(pathname)) return true;
 
-    // Visitas: criação/edição e visualização (mobile)
+    // Visitas: criaÃ§Ã£o/ediÃ§Ã£o e visualizaÃ§Ã£o (mobile)
     if (pathname === "/visitas/nova") return true;
-    // visualização: /visitas/:id
+    // visualizaÃ§Ã£o: /visitas/:id
     if (/^\/visitas\/[^/]+$/.test(pathname) && pathname !== "/visitas/nova") return true;
 
-    // Notas (mobile): o rodapé vira toolbar do editor
+    // Notas (mobile): o rodapÃ© vira toolbar do editor
     if (pathname === "/notas/nova") return true;
     if (/^\/notas\/editar\/[^/]+$/.test(pathname)) return true;
-
-    // Chat mobile: a barra inferior vira a barra de mensagens
-    if (pathname.startsWith("/chat")) return true;
 
     return false;
   };
@@ -487,16 +459,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   };
 
   return (
-    <ChatLauncherProvider
-      value={{
-        isChatPanelOpen,
-        openChatPanel: () => setIsChatPanelOpen(true),
-        closeChatPanel: () => setIsChatPanelOpen(false),
-        preferredOpenMode,
-        setPreferredOpenMode,
-      }}
-    >
-
+    <>
        <div className="flex h-screen w-full bg-background md:bg-background md:pl-20 overflow-hidden">
         {/* Modern Sidebar - Desktop/Tablet only */}
         {!isMobileMode && <ModernSidebar />}
@@ -505,12 +468,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
          <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {/* Mobile Top Header */}
             {isMobileMode &&
-              !location.pathname.startsWith("/chat") &&
-              // Visualização de visita tem header próprio (action bar)
+              // VisualizaÃ§Ã£o de visita tem header prÃ³prio (action bar)
               !(/^\/visitas\/[^/]+$/.test(location.pathname) && location.pathname !== "/visitas/nova") && (
                 <div className="md:hidden sticky top-0 z-30 h-14 flex items-center px-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border">
-                  <div className="flex items-center w-full gap-2">
-                    {/* Voltar / Chat + título à esquerda */}
+                  <div className="relative flex items-center w-full gap-2">
+                    {/* Voltar + tÃ­tulo Ã  esquerda */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {showMobileBackButton ? (
                         <button
@@ -521,48 +483,20 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                         >
                           <ArrowLeft className="h-4 w-4" />
                         </button>
-                      ) : location.pathname === "/" ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate("/chat")}
-                          className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
-                          aria-label="Abrir chat"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          {unreadCount > 0 && (
-                            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </button>
                       ) : (
-                        <div className="h-10 w-10" />
+                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary p-1 shadow-[var(--shadow-card)]">
+                          <img src={logoSource} alt="Zelo" className="h-full w-full object-contain" />
+                        </div>
                       )}
-
-                      <h1 className="text-sm font-semibold text-foreground truncate">
-                        {effectiveTitle}
-                      </h1>
                     </div>
 
-                    {/* Ações + Perfil à direita */}
+                    <h1 className="pointer-events-none absolute left-1/2 max-w-[42vw] -translate-x-1/2 truncate text-center text-xs font-extrabold uppercase tracking-[0.12em] text-foreground">
+                      {effectiveTitle}
+                    </h1>
+
+                    {/* AÃ§Ãµes + Perfil Ã  direita */}
                     <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
                       {config?.secondaryActions}
-
-                      {location.pathname === "/" && (
-                        <button
-                          type="button"
-                          onClick={() => setIsNotificationsDrawerOpen(true)}
-                          className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
-                          aria-label="Abrir notificações"
-                        >
-                          <Bell className="h-4 w-4" />
-                          {unreadNotifications > 0 && (
-                            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
-                              {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                            </span>
-                          )}
-                        </button>
-                      )}
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -580,7 +514,19 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate("/configuracoes")}>Configurações</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate("/configuracoes")} className="cursor-pointer">
+                            <Settings className="h-4 w-4 mr-2" />
+                            {"Configura\u00e7\u00f5es"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setIsNotificationsDrawerOpen(true)}>
+                            <Bell className="h-4 w-4 mr-2" />
+                            {"Notifica\u00e7\u00f5es"}
+                            {unreadNotifications > 0 && (
+                              <span className="ml-auto min-w-5 rounded-full bg-destructive px-1.5 py-0.5 text-center text-[10px] font-semibold text-destructive-foreground">
+                                {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                              </span>
+                            )}
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={handleSignOut}>
                             <LogOut className="h-4 w-4 mr-2" />
@@ -602,27 +548,23 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                navigate={navigate}
                handleSignOut={handleSignOut}
                locationPathname={location.pathname}
-               onOpenChat={() => setIsChatPanelOpen(true)}
-               unreadCount={unreadCount}
              />
            )}
 
           {/* Main Content */}
           <main
             className={`flex-1 min-h-0 min-w-0 ${
-              isChatRoute
-                ? "overflow-hidden p-0"
-                : !isMobileMode && isDashboard
-                  ? "overflow-y-auto overflow-x-hidden"
+              !isMobileMode && isDashboard
+                  ? "overflow-hidden"
                   : "overflow-y-auto overflow-x-hidden"
-            } ${isChatRoute ? "pb-0" : "p-3"} ${
-              isChatRoute
-                ? ""
-                : isMobileMode && shouldHideMobileDock(location.pathname)
+            } ${isMobileMode && isDashboard ? "p-0" : "p-3"} ${
+              isMobileMode && isDashboard
+                  ? "pb-0"
+                  : isMobileMode && shouldHideMobileDock(location.pathname)
                   ? location.pathname === "/visitas/nova"
                     ? "pb-[calc(env(safe-area-inset-bottom)+6.5rem)]"
                     : "pb-6"
-                  : "pb-24"
+                  : "pb-16"
             } md:px-6 md:pb-6 ${
               isMobileMode
                 ? location.pathname === "/visitas/nova"
@@ -650,7 +592,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                 <span className="text-[11px] font-medium text-muted-foreground">Grupo</span>
                 <span className="text-[11px] font-semibold text-foreground/90 truncate">
                   {loadingGroup
-                    ? "Carregando…"
+                    ? "Carregandoâ€¦"
                     : activeGroup?.name
                       ? activeGroup.name
                       : "Nenhum"}
@@ -676,13 +618,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               Gire o aparelho para o modo retrato
             </p>
             <p className="text-xs text-muted-foreground">
-              Este app foi otimizado para uso apenas na orientação vertical.
+              Este app foi otimizado para uso apenas na orientaÃ§Ã£o vertical.
             </p>
           </div>
         </div>
       )}
-      {!isMobileMode && <ChatPanel />}
-    </ChatLauncherProvider>
+    </>
   );
 }
 
@@ -700,8 +641,6 @@ function DesktopHeader({
   navigate,
   handleSignOut,
   locationPathname,
-  onOpenChat,
-  unreadCount,
 }: {
   currentRoute: { title: string; icon: any };
   user: any;
@@ -709,8 +648,6 @@ function DesktopHeader({
   navigate: NavigateFunction;
   handleSignOut: () => void;
   locationPathname: string;
-  onOpenChat: () => void;
-  unreadCount: number;
 }) {
   const { config } = usePageHeader();
   const showGlobalSearch = locationPathname === "/";
@@ -723,16 +660,17 @@ function DesktopHeader({
     locationPathname !== "/" && (config?.showBackButton ?? true);
 
   return (
-    <div className="hidden md:flex shrink-0 flex-col bg-background px-6 pt-2.5 pb-2">
-      <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
-        <div className="inline-flex h-9 items-center rounded-lg border border-border/70 bg-card px-2 shadow-[var(--shadow-card)]">
-          <ThemedLogo
+    <div className="hidden md:flex shrink-0 bg-background -ml-20 w-[calc(100%+5rem)] px-4 pt-2 pb-2">
+      <div className="flex w-full items-stretch gap-5">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary p-1.5 shadow-[var(--shadow-card)]">
+          <img
             src={logoSource}
             alt="Logo do app"
-            className="h-6 w-auto object-contain rounded-md"
+            className="h-full w-full scale-110 object-contain"
           />
         </div>
 
+        <div className="flex min-h-16 flex-1 items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
         {showBackButton && (
           <button
             type="button"
@@ -757,7 +695,7 @@ function DesktopHeader({
               </span>
             )}
 
-            {/* Título único (substitui breadcrumbs) */}
+            {/* TÃ­tulo Ãºnico (substitui breadcrumbs) */}
             <h1 className="text-sm md:text-base font-semibold text-foreground truncate">
               {effectiveTitle}
             </h1>
@@ -778,26 +716,13 @@ function DesktopHeader({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={onOpenChat}
-            className="relative h-10 w-10 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-foreground hover:bg-accent/80 transition-colors"
-            aria-label="Abrir chat"
-          >
-            <MessageCircle className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </button>
-
           <AccountMenu
             user={user}
             navigate={navigate}
             onSignOut={handleSignOut}
             profile={profile}
           />
+        </div>
         </div>
       </div>
     </div>
@@ -881,7 +806,7 @@ function AccountMenu({ user, navigate, onSignOut, profile }: AccountMenuProps) {
           className="cursor-pointer"
         >
           <Settings className="mr-2 h-4 w-4" />
-          <span>Configurações</span>
+          <span>ConfiguraÃ§Ãµes</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem

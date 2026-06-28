@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateShort } from "@/lib/date-utils";
 import { toast } from "sonner";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 export type DashboardStats = {
   totalMembros: number;
@@ -33,6 +34,7 @@ export type AniversarianteItem = {
 };
 
 export function useDashboardData() {
+  const { activeGroupId } = useActiveGroup();
   const [showLeastFrequent, setShowLeastFrequent] = useState(false);
   const [topPeriod, setTopPeriod] = useState<"1m" | "3m" | "1y">("1y");
 
@@ -54,21 +56,49 @@ export function useDashboardData() {
   const [aniversariantes, setAniversariantes] = useState<AniversarianteItem[]>([]);
 
   useEffect(() => {
+    if (!activeGroupId) {
+      setStats({
+        totalMembros: 0,
+        totalReunioes: 0,
+        mediaPresenca: 0,
+        ultimaReuniao: "-",
+      });
+      setFrequenciaData({
+        reunioesRecentes: [],
+        porFaixaEtaria: [],
+        top5Membros: [],
+        percentualGeral: 0,
+      });
+      setNotas([]);
+      setAniversariantes([]);
+      return;
+    }
+
     void loadStats();
     void loadFrequenciaData();
     void loadNotas();
     void loadAniversariantes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showLeastFrequent, topPeriod]);
+  }, [activeGroupId, showLeastFrequent, topPeriod]);
 
   const loadStats = async () => {
+    if (!activeGroupId) return;
+
     try {
-      const { data: membros } = await supabase.from("membros").select("id");
+      const { data: membros } = await supabase
+        .from("membros")
+        .select("id")
+        .eq("group_id", activeGroupId)
+        .eq("ativo", true);
       const { data: reunioes } = await supabase
         .from("reunioes")
         .select("id, data, numero_visitas")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false });
-      const { data: presencas } = await supabase.from("presencas").select("id");
+      const { data: presencas } = await supabase
+        .from("presencas")
+        .select("id")
+        .eq("group_id", activeGroupId);
 
       const totalMembros = membros?.length || 0;
       const totalReunioes = reunioes?.length || 0;
@@ -86,10 +116,13 @@ export function useDashboardData() {
   };
 
   const loadNotas = async () => {
+    if (!activeGroupId) return;
+
     try {
       const { data, error } = await supabase
         .from("notas")
         .select("*")
+        .eq("group_id", activeGroupId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setNotas((data || []) as DashboardNota[]);
@@ -99,6 +132,8 @@ export function useDashboardData() {
   };
 
   const loadAniversariantes = async () => {
+    if (!activeGroupId) return;
+
     try {
       const hoje = new Date();
       const mesAtual = hoje.getMonth() + 1;
@@ -108,6 +143,8 @@ export function useDashboardData() {
       const { data, error } = await supabase
         .from("membros")
         .select("id, nome, data_aniversario, data_nascimento, foto_url")
+        .eq("group_id", activeGroupId)
+        .eq("ativo", true)
         .order("nome");
       if (error) throw error;
 
@@ -214,6 +251,8 @@ export function useDashboardData() {
   };
 
   const loadFrequenciaData = async () => {
+    if (!activeGroupId) return;
+
     try {
       const now = new Date();
       let cutoffDate: Date | null = null;
@@ -233,6 +272,7 @@ export function useDashboardData() {
         const { data: reunioesPeriodo } = await supabase
           .from("reunioes")
           .select("id, data")
+          .eq("group_id", activeGroupId)
           .gte("data", cutoffIso);
         reunioesPeriodoIds = (reunioesPeriodo || []).map((r) => r.id);
       }
@@ -240,25 +280,24 @@ export function useDashboardData() {
       const { data: reunioes } = await supabase
         .from("reunioes")
         .select("id, data, numero_visitas, recitativos_individuais")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false })
-        .limit(5);
+        .limit(7);
 
       const reunioesComPresencas = await Promise.all(
         (reunioes || []).map(async (reuniao) => {
           const { data: presencas } = await supabase
             .from("presencas")
-            .select("membro_id")
+            .select("membro_id, membro_faixa_etaria")
+            .eq("group_id", activeGroupId)
             .eq("reuniao_id", reuniao.id);
 
-          const membroIds = presencas?.map((p) => p.membro_id) || [];
-          const { data: membrosPresentes } = await supabase
-            .from("membros")
-            .select("faixa_etaria")
-            .in("id", membroIds);
-
           const faixasCount: Record<string, number> = {};
-          (membrosPresentes || []).forEach((membro) => {
-            faixasCount[membro.faixa_etaria] = (faixasCount[membro.faixa_etaria] || 0) + 1;
+          (presencas || []).forEach((presenca) => {
+            const faixa = presenca.membro_faixa_etaria;
+            if (faixa) {
+              faixasCount[faixa] = (faixasCount[faixa] || 0) + 1;
+            }
           });
 
           return {
@@ -278,7 +317,11 @@ export function useDashboardData() {
         }),
       );
 
-      const { data: membros } = await supabase.from("membros").select("id, nome, faixa_etaria, foto_url");
+      const { data: membros } = await supabase
+        .from("membros")
+        .select("id, nome, faixa_etaria, foto_url")
+        .eq("group_id", activeGroupId)
+        .eq("ativo", true);
 
       const faixasMap = new Map<string, number>();
       (membros || []).forEach((membro) => {
@@ -294,7 +337,11 @@ export function useDashboardData() {
             return { id: membro.id, nome: membro.nome, foto_url: membro.foto_url ?? null, presencas: 0 };
           }
 
-          let query = supabase.from("presencas").select("id").eq("membro_id", membro.id);
+          let query = supabase
+            .from("presencas")
+            .select("id")
+            .eq("group_id", activeGroupId)
+            .eq("membro_id", membro.id);
           if (reunioesPeriodoIds.length > 0) {
             query = query.in("reuniao_id", reunioesPeriodoIds);
           }

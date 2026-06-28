@@ -149,6 +149,18 @@ All colors MUST be HSL.
     overflow: hidden;
   }
 
+  @keyframes loading-bar {
+    0% {
+      transform: translateX(-110%);
+    }
+    50% {
+      transform: translateX(60%);
+    }
+    100% {
+      transform: translateX(210%);
+    }
+  }
+
   html[data-theme-preset="amarelo"] {
     --primary-foreground: 0 0% 0%;
     --sidebar-primary-foreground: 0 0% 0%;
@@ -260,6 +272,7 @@ All colors MUST be HSL.
     width: 0;
     height: 0;
   }
+
 }
 
 @media (max-width: 767px) {

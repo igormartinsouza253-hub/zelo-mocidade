@@ -76,14 +76,14 @@ export const AniversariantesWidget = ({
 
     return (
       <Card
-        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl"
+        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl overflow-hidden"
         onClick={() => navigate("/calendario")}
       >
-        <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex items-center"}>
+        <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex flex-row items-center justify-between gap-2"}>
           <CardTitle className={widgetTitleClass("md") + " text-left mr-auto"}>
             Aniversariantes
           </CardTitle>
-          <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="ml-auto flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
             <button
               type="button"
               className="h-6 w-6 inline-flex items-center justify-center rounded-full border border-border/60 bg-background hover:bg-accent/60"
@@ -109,7 +109,7 @@ export const AniversariantesWidget = ({
             </button>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-auto px-3 pb-3 pt-0">
+        <CardContent className="min-h-0 flex-1 overflow-auto px-3 pb-3 pt-0 scrollbar-none">
           {totalMes === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nenhum aniversariante cadastrado para este mês.
@@ -135,7 +135,7 @@ export const AniversariantesWidget = ({
                     {aniversariantesHoje.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-2xl md:rounded-lg border border-border/50 bg-primary/10 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/5 px-3 py-2 text-sm md:rounded-lg"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar className="h-7 w-7">
@@ -164,7 +164,7 @@ export const AniversariantesWidget = ({
                     {proximos.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-lg border border-border/40 bg-accent/20 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/40"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar className="h-7 w-7">
@@ -183,7 +183,7 @@ export const AniversariantesWidget = ({
                           </div>
                         </div>
         <div className="text-right text-[11px] text-muted-foreground">
-          <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-0.5 rounded-full bg-accent text-foreground font-semibold">
+          <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
             {getDia(item.data)}
           </span>
         </div>
@@ -208,13 +208,13 @@ export const AniversariantesWidget = ({
       className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl overflow-hidden"
       onClick={() => navigate("/calendario")}
     >
-      <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex flex-row items-center justify-between px-[12px]"}>
-        <div className="flex flex-col my-[10px] mx-[10px]">
+      <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex flex-row items-center justify-between px-3"}>
+        <div className="flex min-w-0 flex-col">
           <CardTitle className={widgetTitleClass("lg")}>
             Aniversariantes
           </CardTitle>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mr-2">
+        <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           <button
             type="button"
             className="h-6 w-6 inline-flex items-center justify-center rounded-full border border-border/60 bg-background hover:bg-accent/60"
@@ -240,7 +240,7 @@ export const AniversariantesWidget = ({
           </button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-2 px-3 pb-3 pt-0.5">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3 pt-0.5">
         {totalMes === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nenhum aniversariante cadastrado para este mês.
@@ -254,13 +254,13 @@ export const AniversariantesWidget = ({
               </span>
               <span>{totalMes} aniversariantes</span>
             </div>
-            <div className="max-h-[300px] space-y-1.5 overflow-y-auto pr-1 scrollbar-none">
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1 scrollbar-none">
               {aniversariantesHoje.length > 0 && (
                 <div className="space-y-1.5 mb-1.5">
                   {aniversariantesHoje.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between rounded-lg border border-border/50 bg-primary/10 px-3 py-2 text-sm"
+                      className="flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-7 w-7">
@@ -289,7 +289,7 @@ export const AniversariantesWidget = ({
                   {proximos.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between rounded-lg border border-border/40 bg-accent/20 px-3 py-2 text-sm"
+                      className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/40"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-7 w-7">
@@ -308,7 +308,7 @@ export const AniversariantesWidget = ({
                         </div>
                       </div>
                       <div className="text-right text-[11px] text-muted-foreground">
-                        <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-0.5 rounded-full bg-accent text-foreground font-semibold">
+                        <span className="inline-flex items-center justify-center min-w-[30px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
                           {getDia(item.data)}
                         </span>
                       </div>

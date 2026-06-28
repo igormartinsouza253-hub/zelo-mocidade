@@ -6,7 +6,84 @@
     <title>Zelo - Mocidade CCB</title>
     <meta name="description" content="Sistema de gestão e controle de frequência para Reunião de Jovens. Gerencie membros, registre reuniões e acompanhe estatísticas de presença.">
     <meta name="author" content="Reunião de Jovens" />
-    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/pwa-192.png" />
+    <meta name="theme-color" content="#30cb90" />
+    <style>
+      :root {
+        --initial-primary: 158 64% 52%;
+        --initial-background: 0 0% 98%;
+      }
+
+      html,
+      body,
+      #root {
+        min-height: 100%;
+      }
+
+      #app-loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        background: hsl(var(--background, var(--initial-background)));
+      }
+
+      .app-loading-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .app-loading-logo {
+        width: 96px;
+        height: 96px;
+        padding: 16px;
+        border-radius: 28px;
+        background: hsl(var(--primary, var(--initial-primary)));
+        box-shadow: 0 18px 42px -30px rgb(0 0 0 / 0.55);
+      }
+
+      .app-loading-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .app-loading-bar {
+        width: 96px;
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: hsl(var(--primary, var(--initial-primary)) / 0.16);
+      }
+
+      .app-loading-bar::before {
+        content: "";
+        display: block;
+        width: 50%;
+        height: 100%;
+        border-radius: inherit;
+        background: hsl(var(--primary, var(--initial-primary)));
+        animation: initial-loading-bar 1.1s ease-in-out infinite;
+      }
+
+      @keyframes initial-loading-bar {
+        0% {
+          transform: translateX(-110%);
+        }
+        50% {
+          transform: translateX(60%);
+        }
+        100% {
+          transform: translateX(210%);
+        }
+      }
+    </style>
+
     <!-- Preconnect to font domains for faster font loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,11 +102,10 @@
     
     
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/80b488d0-5ef0-4b34-ab85-4cbf8bb772f8?Expires=1773061638&amp;GoogleAccessId=go-api-on-aws%40gpt-engineer-390607.iam.gserviceaccount.com&amp;Signature=eX%2BkoYKXhPoBcVVMhZWxvUU6%2BxJSZFSqWZOHocZ0Fmtj88vdRmg9oCUGTvhWYQU%2F8X43De2mbI%2FDj%2Boo0XqZPhBP2Z9ygtzgML55UMhreUXYIo2il7QKuDC7g2XW5fbjVS%2BoHMnedREPwVOvdhG2lFrVbNl5YZyw1SjQ1D8FuDLy9h4WwKfb6DO%2Fwp3KIw7AN1XjIMVZTB3nVFMGdzs4zkLq9V61nSRDLHSWRcArwrKt1vzK5Qokk3GR%2Fszl36cRRl516TwFBAocjt8k9%2FT3sy73bBUqGWmyc6jbS%2Fz0akOYgsxWyyOuIqEzMs4iT7cpCaAn7b95QCDHJoUaB73qew%3D%3D">
+    <meta property="og:image" content="/pwa-512.png">
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/80b488d0-5ef0-4b34-ab85-4cbf8bb772f8?Expires=1773061638&amp;GoogleAccessId=go-api-on-aws%40gpt-engineer-390607.iam.gserviceaccount.com&amp;Signature=eX%2BkoYKXhPoBcVVMhZWxvUU6%2BxJSZFSqWZOHocZ0Fmtj88vdRmg9oCUGTvhWYQU%2F8X43De2mbI%2FDj%2Boo0XqZPhBP2Z9ygtzgML55UMhreUXYIo2il7QKuDC7g2XW5fbjVS%2BoHMnedREPwVOvdhG2lFrVbNl5YZyw1SjQ1D8FuDLy9h4WwKfb6DO%2Fwp3KIw7AN1XjIMVZTB3nVFMGdzs4zkLq9V61nSRDLHSWRcArwrKt1vzK5Qokk3GR%2Fszl36cRRl516TwFBAocjt8k9%2FT3sy73bBUqGWmyc6jbS%2Fz0akOYgsxWyyOuIqEzMs4iT7cpCaAn7b95QCDHJoUaB73qew%3D%3D">
+    <meta name="twitter:image" content="/pwa-512.png">
   
   
   
@@ -41,6 +117,14 @@
 </head>
 
   <body>
+    <div id="app-loading-screen" aria-label="Carregando Zelo">
+      <div class="app-loading-card">
+        <div class="app-loading-logo">
+          <img src="/logo-zelo-transparent.png" alt="Zelo" />
+        </div>
+        <div class="app-loading-bar"></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

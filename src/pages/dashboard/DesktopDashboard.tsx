@@ -1,15 +1,12 @@
-import { Card } from "@/components/ui/card";
-import { StatsWidget } from "@/components/dashboard/widgets/StatsWidget";
-
-import { FrequencySummaryWidget } from "@/components/dashboard/widgets/FrequencySummaryWidget";
+import { ExpandableWidget } from "@/components/dashboard/ExpandableWidget";
+import { AniversariantesWidget, type AniversarianteItem } from "@/components/dashboard/widgets/AniversariantesWidget";
 import { FaixaEtariaWidget } from "@/components/dashboard/widgets/FaixaEtariaWidget";
-import { ReunioesChartWidget } from "@/components/dashboard/widgets/ReunioesChartWidget";
-import { TopMembrosWidget } from "@/components/dashboard/widgets/TopMembrosWidget";
+import { FrequencySummaryWidget } from "@/components/dashboard/widgets/FrequencySummaryWidget";
 import { NotasWidget } from "@/components/dashboard/widgets/NotasWidget";
 import { QuickActionsWidget } from "@/components/dashboard/widgets/QuickActionsWidget";
-import { AniversariantesWidget, type AniversarianteItem } from "@/components/dashboard/widgets/AniversariantesWidget";
-import { ExpandableWidget } from "@/components/dashboard/ExpandableWidget";
-
+import { ReunioesChartWidget } from "@/components/dashboard/widgets/ReunioesChartWidget";
+import { StatsWidget } from "@/components/dashboard/widgets/StatsWidget";
+import { TopMembrosWidget } from "@/components/dashboard/widgets/TopMembrosWidget";
 import type { DashboardFrequenciaData, DashboardNota, DashboardStats } from "@/hooks/dashboard/useDashboardData";
 
 type DesktopDashboardProps = {
@@ -35,95 +32,128 @@ export function DesktopDashboard({
   topPeriod,
   onTopPeriodChange,
 }: DesktopDashboardProps) {
+  const statsWidget = (
+    <StatsWidget
+      size="lg"
+      totalMembros={stats.totalMembros}
+      totalReunioes={stats.totalReunioes}
+      mediaPresenca={stats.mediaPresenca}
+      ultimaReuniao={stats.ultimaReuniao}
+    />
+  );
+
+  const reunioesChart = (size: "md" | "lg" = "lg") => (
+    <ExpandableWidget
+      title="Gráfico de presença"
+      renderExpanded={() => (
+        <ReunioesChartWidget size="lg" reunioesRecentes={frequenciaData.reunioesRecentes} />
+      )}
+    >
+      <ReunioesChartWidget size={size} reunioesRecentes={frequenciaData.reunioesRecentes} />
+    </ExpandableWidget>
+  );
+
+  const faixaEtariaChart = (size: "md" | "lg" = "lg", legendPosition: "side" | "bottom" = "side") => (
+    <ExpandableWidget
+      title="Distribuição por faixa etária"
+      renderExpanded={() => (
+        <FaixaEtariaWidget
+          size="lg"
+          porFaixaEtaria={frequenciaData.porFaixaEtaria}
+          legendPosition="side"
+        />
+      )}
+    >
+      <FaixaEtariaWidget
+        size={size}
+        porFaixaEtaria={frequenciaData.porFaixaEtaria}
+        legendPosition={legendPosition}
+      />
+    </ExpandableWidget>
+  );
+
+  const topMembros = (size: "md" | "lg" = "lg") => (
+    <ExpandableWidget
+      title="Mais frequentes"
+      renderExpanded={() => (
+        <TopMembrosWidget
+          size="lg"
+          top5Membros={frequenciaData.top5Membros}
+          showLeastFrequent={showLeastFrequent}
+          onToggleOrder={onToggleOrder}
+          period={topPeriod}
+          onPeriodChange={onTopPeriodChange}
+        />
+      )}
+    >
+      <TopMembrosWidget
+        size={size}
+        top5Membros={frequenciaData.top5Membros}
+        showLeastFrequent={showLeastFrequent}
+        onToggleOrder={onToggleOrder}
+        period={topPeriod}
+        onPeriodChange={onTopPeriodChange}
+      />
+    </ExpandableWidget>
+  );
+
+  const notasWidget = (size: "md" | "lg" = "lg") => (
+    <ExpandableWidget
+      title="Notas rápidas"
+      renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
+    >
+      <NotasWidget size={size} notas={notas} onDelete={onDeleteNota} />
+    </ExpandableWidget>
+  );
+
+  const aniversariantesWidget = (size: "md" | "lg" = "lg") => (
+    <ExpandableWidget
+      title="Aniversariantes"
+      renderExpanded={() => <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />}
+    >
+      <AniversariantesWidget size={size} aniversariantes={aniversariantes} />
+    </ExpandableWidget>
+  );
+
   return (
-    <div className="min-h-full w-full bg-background">
-      <div className="flex min-h-full w-full flex-col">
-        <div className="flex-1 min-h-0">
-          <Card className="h-[820px] w-full max-w-full overflow-hidden rounded-xl border border-border/80 bg-card shadow-[var(--shadow-card)]">
-            {/* PT-BR: Container principal com dimensão fixa no desktop; filhos ocupam 100% sem extrapolar bordas. */}
-            <div className="grid h-full w-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] gap-3 overflow-hidden p-3 md:gap-4 md:p-4 xl:gap-5 xl:p-5 2xl:gap-6 2xl:p-6">
-              {/* PT-BR: Coluna esquerda volta ao layout antigo com aniversariantes e notas rápidas. */}
-              <div className="grid h-full min-h-0 grid-rows-2 gap-4 overflow-hidden">
-                <div className="min-h-0 overflow-hidden">
-                  <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />
-                </div>
-                <div className="min-h-0 overflow-hidden">
-                  <ExpandableWidget
-                    title="Notas rápidas"
-                    renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
-                  >
-                    <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />
-                  </ExpandableWidget>
-                </div>
-              </div>
+    <div className="h-full min-h-0 w-full overflow-hidden bg-background">
+      <div className="hidden h-full min-h-0 grid-cols-[minmax(0,1.55fr)_minmax(310px,0.72fr)] grid-rows-[76px_minmax(0,1.02fr)_minmax(0,0.98fr)] gap-3 overflow-hidden xl:grid">
+        <div className="min-h-0 overflow-hidden">{statsWidget}</div>
+        <div className="min-h-0 overflow-hidden">
+          <QuickActionsWidget size="sm" />
+        </div>
 
-              {/* PT-BR: Coluna central com gráfico principal no topo e distribuição por faixa etária embaixo. */}
-              <div className="grid h-full min-h-0 grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4 overflow-hidden">
-                <div className="min-h-0 [&>div]:h-full">
-                  <ExpandableWidget
-                    title="Gráfico de presença"
-                    renderExpanded={() => (
-                      <ReunioesChartWidget size="lg" reunioesRecentes={frequenciaData.reunioesRecentes} />
-                    )}
-                  >
-                    <ReunioesChartWidget size="lg" reunioesRecentes={frequenciaData.reunioesRecentes} />
-                  </ExpandableWidget>
-                </div>
+        <section className="min-h-0 overflow-hidden">{reunioesChart("lg")}</section>
 
-                <div className="min-h-0 overflow-hidden [&>div]:h-full">
-                  <ExpandableWidget
-                    title="Distribuição por faixa etária"
-                    renderExpanded={() => (
-                      <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="side" />
-                    )}
-                  >
-                    <FaixaEtariaWidget size="lg" porFaixaEtaria={frequenciaData.porFaixaEtaria} legendPosition="side" />
-                  </ExpandableWidget>
-                </div>
-              </div>
+        <aside className="grid min-h-0 grid-rows-[minmax(104px,0.36fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+          <div className="min-h-0 overflow-hidden">
+            <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
+          </div>
+          <div className="min-h-0 overflow-hidden">{topMembros("lg")}</div>
+        </aside>
 
-              {/* PT-BR: Coluna direita preservada para ações, resumo e ranking. */}
-              <div className="grid h-full min-h-0 grid-rows-[minmax(130px,auto)_minmax(170px,auto)_minmax(0,1fr)] gap-4 overflow-hidden">
-                <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)] gap-4">
-                  <QuickActionsWidget size="sm" />
-                  <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
-                </div>
+        <section className="grid min-h-0 grid-cols-[minmax(0,1.15fr)_minmax(260px,0.55fr)] gap-3 overflow-hidden">
+          <div className="min-h-0 overflow-hidden">{faixaEtariaChart("lg", "side")}</div>
+          <div className="min-h-0 overflow-hidden">{notasWidget("md")}</div>
+        </section>
 
-                <StatsWidget
-                  size="lg"
-                  totalMembros={stats.totalMembros}
-                  totalReunioes={stats.totalReunioes}
-                  mediaPresenca={stats.mediaPresenca}
-                  ultimaReuniao={stats.ultimaReuniao}
-                />
+        <div className="min-h-0 overflow-hidden">{aniversariantesWidget("lg")}</div>
+      </div>
 
-                <div className="min-h-0">
-                  <ExpandableWidget
-                    title="Mais frequentes"
-                    renderExpanded={() => (
-                      <TopMembrosWidget
-                        size="lg"
-                        top5Membros={frequenciaData.top5Membros}
-                        showLeastFrequent={showLeastFrequent}
-                        onToggleOrder={onToggleOrder}
-                        period={topPeriod}
-                        onPeriodChange={onTopPeriodChange}
-                      />
-                    )}
-                  >
-                    <TopMembrosWidget
-                      size="lg"
-                      top5Membros={frequenciaData.top5Membros}
-                      showLeastFrequent={showLeastFrequent}
-                      onToggleOrder={onToggleOrder}
-                      period={topPeriod}
-                      onPeriodChange={onTopPeriodChange}
-                    />
-                  </ExpandableWidget>
-                </div>
-              </div>
-            </div>
-          </Card>
+      <div className="grid h-full min-h-0 grid-cols-[minmax(0,1.35fr)_minmax(250px,0.85fr)] grid-rows-[76px_minmax(0,0.98fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-3 overflow-hidden xl:hidden">
+        <div className="col-span-2 min-h-0 overflow-hidden">{statsWidget}</div>
+        <div className="min-h-0 overflow-hidden">{reunioesChart("md")}</div>
+        <div className="min-h-0 overflow-hidden">{topMembros("md")}</div>
+        <div className="min-h-0 overflow-hidden">{faixaEtariaChart("md", "bottom")}</div>
+        <div className="min-h-0 overflow-hidden">{aniversariantesWidget("md")}</div>
+        <div className="min-h-0 overflow-hidden">{notasWidget("md")}</div>
+        <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(86px,0.55fr)] gap-3 overflow-hidden">
+          <div className="min-h-0 overflow-hidden">
+            <FrequencySummaryWidget size="md" percentualGeral={frequenciaData.percentualGeral} />
+          </div>
+          <div className="min-h-0 overflow-hidden">
+            <QuickActionsWidget size="sm" />
+          </div>
         </div>
       </div>
     </div>

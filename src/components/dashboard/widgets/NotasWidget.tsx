@@ -18,6 +18,17 @@ interface NotasWidgetProps {
   notas: Nota[];
   onDelete: (id: string) => void;
 }
+
+const getNotaPreview = (conteudo: string) =>
+  conteudo
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+
 export const NotasWidget = ({
   size,
   notas,
@@ -63,14 +74,14 @@ export const NotasWidget = ({
               <div className="text-[10px] text-muted-foreground">
                 {formatDateLocal(ultima.created_at)}
               </div>
-              <div className="text-foreground leading-snug line-clamp-4" dangerouslySetInnerHTML={{
-            __html: ultima.conteudo
-          }} />
+              <p className="text-foreground leading-snug line-clamp-4">
+                {getNotaPreview(ultima.conteudo) || "Nota sem texto"}
+              </p>
             </div> : <p className="text-[11px] text-muted-foreground">Nenhuma nota cadastrada</p>}
         </CardContent>
       </Card>;
   }
-  const limit = size === "md" ? 4 : undefined;
+  const limit = size === "md" ? 3 : undefined;
   const notasVisiveis = limit ? notasOrdenadas.slice(0, limit) : notasOrdenadas;
   return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
       <CardHeader className={WIDGET_HEADER_PADDING[size] + " px-3"}>
@@ -83,7 +94,7 @@ export const NotasWidget = ({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className={size === "lg" ? "flex-1 overflow-y-auto max-h-[300px] px-3 pb-3 pt-0.5 scrollbar-none" : "flex-1 overflow-auto px-3 pb-3 pt-0.5 scrollbar-thin scrollbar-thumb-muted/50 scrollbar-track-transparent"}>
+      <CardContent className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-0.5 scrollbar-none">
         <div className={size === "lg" ? "space-y-2.5" : "space-y-2"}>
            {notasOrdenadas.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma nota cadastrada</p> : notasVisiveis.map(nota => <div key={nota.id} className="p-2.5 rounded-2xl md:rounded-lg bg-accent/20 border border-border/30 group hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigateWithDelay(`/notas/editar/${nota.id}`)} onDoubleClick={cancelScheduledNavigate}>
                   <div className="flex items-start justify-between gap-2 mb-1">
@@ -117,9 +128,9 @@ export const NotasWidget = ({
                       </Button>
                     </div>
                   </div>
-                  <div className={size === "lg" ? "text-sm text-foreground leading-snug line-clamp-4" : "text-sm text-foreground leading-snug line-clamp-2"} dangerouslySetInnerHTML={{
-            __html: nota.conteudo.slice(0, 200)
-          }} />
+                  <p className={size === "lg" ? "text-sm text-foreground leading-snug line-clamp-4" : "text-sm text-foreground leading-snug line-clamp-2"}>
+                    {getNotaPreview(nota.conteudo) || "Nota sem texto"}
+                  </p>
                 </div>)}
         </div>
       </CardContent>

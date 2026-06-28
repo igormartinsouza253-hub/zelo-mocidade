@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, MessageCircle, UserPlus } from "lucide-react";
+import { CalendarDays, CalendarPlus, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Card } from "@/components/ui/card";
@@ -61,7 +61,7 @@ export function MobileDashboardHome({
 
   // Altura estável por slide (evita “pulo” entre widgets no carrossel).
   // Ajustada para encaixar bem em 390x844 mantendo respiro para header/dock.
-  const slideHeightClass = "h-[clamp(280px,38vh,340px)]";
+  const slideHeightClass = "h-[320px]";
 
   const [api, setApi] = useState<CarouselApi | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -84,7 +84,7 @@ export function MobileDashboardHome({
 
   return (
     <div className="h-full w-full bg-background overflow-x-hidden">
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-24 space-y-3 scrollbar-none">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-20 space-y-3 scrollbar-none">
         <MobileStatsGrid
           totalMembros={stats.totalMembros}
           totalReunioes={stats.totalReunioes}
@@ -98,36 +98,36 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/membros/novo")}
-              className="h-24 rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-shadow flex flex-col items-center justify-center gap-2"
+              className="h-[74px] rounded-2xl border-border/50 bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)] transition-all flex flex-col items-center justify-center gap-1.5"
             >
-              <div className="h-10 w-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center">
-                <UserPlus className="h-5 w-5" />
+              <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+                <UserPlus className="h-4 w-4" />
               </div>
-              <span className="text-[11px] font-semibold tracking-[0.08em] uppercase">Novo membro</span>
+              <span className="text-[9px] font-extrabold leading-tight tracking-[0.08em] uppercase">Novo membro</span>
             </Button>
 
             <Button
               type="button"
               variant="outline"
               onClick={() => navigate("/reunioes/nova")}
-              className="h-24 rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-shadow flex flex-col items-center justify-center gap-2"
+              className="h-[74px] rounded-2xl border-border/50 bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)] transition-all flex flex-col items-center justify-center gap-1.5"
             >
-              <div className="h-10 w-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center">
-                <CalendarPlus className="h-5 w-5" />
+              <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+                <CalendarPlus className="h-4 w-4" />
               </div>
-              <span className="text-[11px] font-semibold tracking-[0.08em] uppercase">Reunião</span>
+              <span className="text-[9px] font-extrabold leading-tight tracking-[0.08em] uppercase">Reunião</span>
             </Button>
 
             <Button
               type="button"
               variant="outline"
               onClick={() => navigate("/calendario?new=1")}
-              className="h-24 rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-shadow flex flex-col items-center justify-center gap-2"
+              className="h-[74px] rounded-2xl border-border/50 bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)] transition-all flex flex-col items-center justify-center gap-1.5"
             >
-              <div className="h-10 w-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center">
-                <MessageCircle className="h-5 w-5" />
+              <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
+                <CalendarDays className="h-4 w-4" />
               </div>
-              <span className="text-[11px] font-semibold tracking-[0.08em] uppercase">Novo evento</span>
+              <span className="text-[9px] font-extrabold leading-tight tracking-[0.08em] uppercase">Novo evento</span>
             </Button>
           </div>
         </section>
@@ -143,13 +143,13 @@ export function MobileDashboardHome({
                 <CarouselContent>
                   <CarouselItem>
                     <div className={slideHeightClass + " w-full min-w-0"}>
-                      <ReunioesChartWidget size="md" reunioesRecentes={frequenciaData.reunioesRecentes} />
+                      <ReunioesChartWidget size="md" reunioesRecentes={frequenciaData.reunioesRecentes} compactMobile />
                     </div>
                   </CarouselItem>
                   <CarouselItem>
                     <div className={slideHeightClass + " w-full min-w-0"}>
                       {/* sm no mobile evita a legenda e melhora o encaixe em 390px */}
-                      <FaixaEtariaWidget size="sm" porFaixaEtaria={frequenciaData.porFaixaEtaria} />
+                      <FaixaEtariaWidget size="sm" porFaixaEtaria={frequenciaData.porFaixaEtaria} compactMobile />
                     </div>
                   </CarouselItem>
                   <CarouselItem>
@@ -184,11 +184,11 @@ export function MobileDashboardHome({
           </Card>
         </section>
 
-        <section aria-label="Aniversariantes" className="w-full">
+        <section aria-label="Aniversariantes" className="h-[310px] w-full">
           <AniversariantesWidget size="md" aniversariantes={aniversariantes} />
         </section>
 
-        <section aria-label="Notas rápidas" className="w-full">
+        <section aria-label="Notas rápidas" className="h-[220px] w-full">
           <NotasWidget size="md" notas={notas} onDelete={onDeleteNota} />
         </section>
       </div>

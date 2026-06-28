@@ -25,3 +25,7 @@ if (import.meta.env.PROD && !isPreviewHost) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+requestAnimationFrame(() => {
+  document.getElementById("app-loading-screen")?.remove();
+});

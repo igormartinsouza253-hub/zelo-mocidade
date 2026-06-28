@@ -1020,7 +1020,7 @@ const Configuracoes = () => {
                   <div className="flex-1 text-left">
                     <CardTitle className="text-sm">Notificações</CardTitle>
                     <CardDescription className="text-xs">
-                      Gerencie alertas de aniversários, chat, eventos, notas e solicitações.
+                      Gerencie alertas de aniversários, eventos, notas e solicitações.
                     </CardDescription>
                   </div>
                   <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
