@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,6 +73,7 @@ function toActiveGroup(row: ActiveGroupRpcRow): ActiveGroup {
 export function useActiveGroup() {
   const { user } = useAuth();
   const cached = readActiveGroupCache(user?.id);
+  const requestSeqRef = useRef(0);
   const [loading, setLoading] = useState(!cached);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(cached?.group.id ?? null);
   const [activeGroup, setActiveGroup] = useState<ActiveGroup | null>(cached?.group ?? null);
@@ -102,6 +103,8 @@ export function useActiveGroup() {
   );
 
   const refresh = useCallback(async () => {
+    const requestSeq = ++requestSeqRef.current;
+
     if (!user) {
       setActiveGroupId(null);
       setActiveGroup(null);
@@ -118,9 +121,12 @@ export function useActiveGroup() {
       const { data, error } = await supabase.rpc("ensure_active_group_for_current_user" as any);
 
       if (error) throw error;
+      if (requestSeq !== requestSeqRef.current) return false;
 
       return applyResolvedGroup(firstRpcRow(data));
     } catch (error) {
+      if (requestSeq !== requestSeqRef.current) return false;
+
       console.error("[useActiveGroup] Nao foi possivel carregar o grupo ativo:", error);
       setActiveGroupId(null);
       setActiveGroup(null);
@@ -128,8 +134,10 @@ export function useActiveGroup() {
       clearActiveGroupCache();
       return false;
     } finally {
-      setLoadedUserId(user.id);
-      setLoading(false);
+      if (requestSeq === requestSeqRef.current) {
+        setLoadedUserId(user.id);
+        setLoading(false);
+      }
     }
   }, [applyResolvedGroup, user]);
 
@@ -141,6 +149,7 @@ export function useActiveGroup() {
     async (groupId: string) => {
       if (!user) throw new Error("Usuario nao autenticado");
 
+      const requestSeq = ++requestSeqRef.current;
       setLoading(true);
       try {
         const { data, error } = await supabase.rpc("set_active_group_for_current_user" as any, {
@@ -148,11 +157,15 @@ export function useActiveGroup() {
         });
 
         if (error) throw error;
+        if (requestSeq !== requestSeqRef.current) return;
+
         const resolved = firstRpcRow(data);
         if (!applyResolvedGroup(resolved)) throw new Error("Grupo nao encontrado para este usuario");
       } finally {
-        setLoadedUserId(user.id);
-        setLoading(false);
+        if (requestSeq === requestSeqRef.current) {
+          setLoadedUserId(user.id);
+          setLoading(false);
+        }
       }
     },
     [applyResolvedGroup, user],
