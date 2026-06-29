@@ -108,7 +108,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     if (loadingGroup) return;
     if (location.pathname.startsWith("/grupo")) return;
     if (!activeGroupId) {
-      navigate("/grupo", { replace: true });
+      const redirectId = window.setTimeout(() => {
+        navigate("/grupo", { replace: true });
+      }, 1200);
+
+      return () => window.clearTimeout(redirectId);
     }
   }, [user, loadingGroup, activeGroupId, location.pathname, navigate]);
 

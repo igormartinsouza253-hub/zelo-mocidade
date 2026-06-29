@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +35,17 @@ type ActiveGroupRpcRow = {
   description: string | null;
   role: GroupRole | null;
   is_active?: boolean | null;
+};
+
+type ActiveGroupContextValue = {
+  loading: boolean;
+  activeGroupId: string | null;
+  activeGroup: ActiveGroup | null;
+  groups: ActiveGroup[];
+  role: GroupRole | null;
+  isAdmin: boolean;
+  refresh: () => Promise<boolean>;
+  setActiveGroupById: (groupId: string) => Promise<void>;
 };
 
 const GROUP_RPC_TIMEOUT_MS = 12000;
@@ -114,7 +134,7 @@ function applyCacheSnapshot(
   setters.setLoadedUserId(snapshot.userId);
 }
 
-export function useActiveGroup() {
+function useActiveGroupState(): ActiveGroupContextValue {
   const { user } = useAuth();
   const cached = readActiveGroupCache(user?.id);
   const requestSeqRef = useRef(0);
@@ -320,4 +340,19 @@ export function useActiveGroup() {
     refresh,
     setActiveGroupById,
   };
+}
+
+const ActiveGroupContext = createContext<ActiveGroupContextValue | null>(null);
+
+export function ActiveGroupProvider({ children }: { children: ReactNode }) {
+  const value = useActiveGroupState();
+  return <ActiveGroupContext.Provider value={value}>{children}</ActiveGroupContext.Provider>;
+}
+
+export function useActiveGroup() {
+  const context = useContext(ActiveGroupContext);
+  if (!context) {
+    throw new Error("useActiveGroup precisa ser usado dentro de ActiveGroupProvider");
+  }
+  return context;
 }

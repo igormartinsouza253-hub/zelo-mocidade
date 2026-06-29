@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AppRoutes } from "@/routes/AppRoutes";
 import { useThemeColorMeta } from "@/hooks/useThemeColorMeta";
+import { ActiveGroupProvider } from "@/hooks/useActiveGroup";
 
 const queryClient = new QueryClient();
 
@@ -16,9 +17,11 @@ const App = () => {
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <Toaster />
         <Sonner />
-          <BrowserRouter>
+        <BrowserRouter>
+          <ActiveGroupProvider>
             <AppRoutes />
-          </BrowserRouter>
+          </ActiveGroupProvider>
+        </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
   );
