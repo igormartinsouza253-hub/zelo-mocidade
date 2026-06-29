@@ -97,6 +97,23 @@ function toActiveGroup(row: ActiveGroupRpcRow): ActiveGroup {
   };
 }
 
+function applyCacheSnapshot(
+  snapshot: ActiveGroupCache,
+  setters: {
+    setActiveGroupId: (value: string | null) => void;
+    setActiveGroup: (value: ActiveGroup | null) => void;
+    setGroups: (value: ActiveGroup[]) => void;
+    setRole: (value: GroupRole | null) => void;
+    setLoadedUserId: (value: string | null) => void;
+  },
+) {
+  setters.setActiveGroupId(snapshot.group.id);
+  setters.setActiveGroup(snapshot.group);
+  setters.setGroups([snapshot.group]);
+  setters.setRole(snapshot.role);
+  setters.setLoadedUserId(snapshot.userId);
+}
+
 export function useActiveGroup() {
   const { user } = useAuth();
   const cached = readActiveGroupCache(user?.id);
@@ -191,6 +208,17 @@ export function useActiveGroup() {
       return false;
     }
 
+    const cachedForUser = readActiveGroupCache(user.id);
+    if (cachedForUser && !activeGroupRef.current.group?.id) {
+      applyCacheSnapshot(cachedForUser, {
+        setActiveGroupId,
+        setActiveGroup,
+        setGroups,
+        setRole,
+        setLoadedUserId,
+      });
+    }
+
     setLoading(true);
 
     try {
@@ -202,7 +230,19 @@ export function useActiveGroup() {
       if (error) throw error;
       if (requestSeq !== requestSeqRef.current) return false;
 
-      return applyGroupContext(rpcRows(data));
+      const rows = rpcRows(data);
+      if (rows.length === 0 && cachedForUser?.group.id) {
+        applyCacheSnapshot(cachedForUser, {
+          setActiveGroupId,
+          setActiveGroup,
+          setGroups,
+          setRole,
+          setLoadedUserId,
+        });
+        return true;
+      }
+
+      return applyGroupContext(rows);
     } catch (error) {
       if (requestSeq !== requestSeqRef.current) return false;
 
