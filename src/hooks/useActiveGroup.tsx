@@ -20,8 +20,10 @@ type ActiveGroupCache = {
   cachedAt: string;
 };
 
-type GroupDetails = {
-  group: ActiveGroup;
+type ActiveGroupRpcRow = {
+  group_id: string;
+  name: string;
+  description: string | null;
   role: GroupRole | null;
 };
 
@@ -55,58 +57,17 @@ function clearActiveGroupCache() {
   localStorage.removeItem(ACTIVE_GROUP_CACHE_KEY);
 }
 
-async function persistActiveGroup(userId: string, groupId: string) {
-  const { error } = await supabase.from("user_active_group").upsert(
-    {
-      user_id: userId,
-      group_id: groupId,
-    },
-    { onConflict: "user_id" },
-  );
-
-  if (error) throw error;
+function firstRpcRow(data: unknown): ActiveGroupRpcRow | null {
+  if (Array.isArray(data)) return (data[0] as ActiveGroupRpcRow | undefined) ?? null;
+  return (data as ActiveGroupRpcRow | null) ?? null;
 }
 
-async function loadGroupDetails(userId: string, groupId: string): Promise<GroupDetails | null> {
-  const [{ data: group, error: groupErr }, { data: member, error: memberErr }] =
-    await Promise.all([
-      supabase
-        .from("management_groups_public")
-        .select("id, name, description")
-        .eq("id", groupId)
-        .maybeSingle(),
-      supabase
-        .from("group_members")
-        .select("role")
-        .eq("group_id", groupId)
-        .eq("user_id", userId)
-        .maybeSingle(),
-    ]);
-
-  if (groupErr) throw groupErr;
-  if (memberErr) throw memberErr;
-  if (!group?.id || !group?.name) return null;
-
+function toActiveGroup(row: ActiveGroupRpcRow): ActiveGroup {
   return {
-    group: {
-      id: group.id,
-      name: group.name,
-      description: (group.description as string | null) ?? null,
-    },
-    role: (member?.role as GroupRole | null) ?? null,
+    id: row.group_id,
+    name: row.name,
+    description: row.description ?? null,
   };
-}
-
-async function findFirstMembership(userId: string) {
-  const { data, error } = await supabase
-    .from("group_members")
-    .select("group_id, role, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .limit(1);
-
-  if (error) throw error;
-  return (data as { group_id: string; role: GroupRole | null }[] | null)?.[0] ?? null;
 }
 
 export function useActiveGroup() {
@@ -118,6 +79,28 @@ export function useActiveGroup() {
   const [role, setRole] = useState<GroupRole | null>(cached?.role ?? null);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(cached?.userId ?? null);
 
+  const applyResolvedGroup = useCallback(
+    (row: ActiveGroupRpcRow | null) => {
+      if (!user || !row?.group_id) {
+        setActiveGroupId(null);
+        setActiveGroup(null);
+        setRole(null);
+        clearActiveGroupCache();
+        return false;
+      }
+
+      const nextGroup = toActiveGroup(row);
+      const nextRole = row.role ?? null;
+
+      setActiveGroupId(nextGroup.id);
+      setActiveGroup(nextGroup);
+      setRole(nextRole);
+      writeActiveGroupCache(user.id, nextGroup, nextRole);
+      return true;
+    },
+    [user],
+  );
+
   const refresh = useCallback(async () => {
     if (!user) {
       setActiveGroupId(null);
@@ -126,62 +109,29 @@ export function useActiveGroup() {
       setLoadedUserId(null);
       clearActiveGroupCache();
       setLoading(false);
-      return;
+      return false;
     }
 
     setLoading(true);
 
     try {
-      const { data: active, error: activeErr } = await supabase
-        .from("user_active_group")
-        .select("group_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("ensure_active_group_for_current_user" as any);
 
-      if (activeErr) throw activeErr;
+      if (error) throw error;
 
-      let gid = (active?.group_id as string | null) ?? null;
-
-      setActiveGroup(null);
-      setRole(null);
-
-      if (!gid) {
-        const firstMembership = await findFirstMembership(user.id);
-
-        if (!firstMembership?.group_id) {
-          setActiveGroupId(null);
-          clearActiveGroupCache();
-          return;
-        }
-
-        gid = firstMembership.group_id;
-        await persistActiveGroup(user.id, gid);
-      }
-
-      setActiveGroupId(gid);
-
-      const details = await loadGroupDetails(user.id, gid);
-
-      if (!details) {
-        setActiveGroupId(null);
-        clearActiveGroupCache();
-        return;
-      }
-
-      setActiveGroup(details.group);
-      setRole(details.role);
-      writeActiveGroupCache(user.id, details.group, details.role);
+      return applyResolvedGroup(firstRpcRow(data));
     } catch (error) {
       console.error("[useActiveGroup] Nao foi possivel carregar o grupo ativo:", error);
       setActiveGroupId(null);
       setActiveGroup(null);
       setRole(null);
       clearActiveGroupCache();
+      return false;
     } finally {
       setLoadedUserId(user.id);
       setLoading(false);
     }
-  }, [user]);
+  }, [applyResolvedGroup, user]);
 
   useEffect(() => {
     void refresh();
@@ -190,10 +140,22 @@ export function useActiveGroup() {
   const setActiveGroupById = useCallback(
     async (groupId: string) => {
       if (!user) throw new Error("Usuario nao autenticado");
-      await persistActiveGroup(user.id, groupId);
-      await refresh();
+
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("set_active_group_for_current_user" as any, {
+          _group_id: groupId,
+        });
+
+        if (error) throw error;
+        const resolved = firstRpcRow(data);
+        if (!applyResolvedGroup(resolved)) throw new Error("Grupo nao encontrado para este usuario");
+      } finally {
+        setLoadedUserId(user.id);
+        setLoading(false);
+      }
     },
-    [refresh, user],
+    [applyResolvedGroup, user],
   );
 
   const hasLoadedCurrentUser = !user || loadedUserId === user.id;

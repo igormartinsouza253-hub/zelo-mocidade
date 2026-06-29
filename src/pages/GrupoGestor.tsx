@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -89,6 +89,8 @@ export default function GrupoGestor() {
 
   const [pendingRequests, setPendingRequests] = useState<JoinRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [activatingApprovedGroup, setActivatingApprovedGroup] = useState(false);
+  const activatingApprovedGroupRef = useRef(false);
 
   useEffect(() => {
     setConfig({
@@ -171,12 +173,18 @@ export default function GrupoGestor() {
         if (error) throw error;
         const approved = (data as any)?.[0] as { group_id: string } | undefined;
         if (!approved?.group_id) return;
+        if (activatingApprovedGroupRef.current) return;
 
         if (cancelled) return;
+        activatingApprovedGroupRef.current = true;
+        setActivatingApprovedGroup(true);
         await setActiveGroupById(approved.group_id);
+        if (cancelled) return;
         toast.success("Entrada aprovada! Redirecionando...");
-        navigate("/");
+        navigate("/", { replace: true });
       } catch (e) {
+        activatingApprovedGroupRef.current = false;
+        if (!cancelled) setActivatingApprovedGroup(false);
         // silencioso: o polling não pode ficar spammando toasts
         console.error("[GrupoGestor] Erro ao checar aprovação", e);
       }
@@ -354,12 +362,14 @@ export default function GrupoGestor() {
     }
   };
 
-  if (loadingActiveGroup && !changeMode) {
+  if ((loadingActiveGroup || activatingApprovedGroup) && !changeMode) {
     return (
       <div className="flex h-full min-h-[50vh] items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Carregando grupo...</p>
+          <p className="text-sm text-muted-foreground">
+            {activatingApprovedGroup ? "Ativando grupo..." : "Carregando grupo..."}
+          </p>
         </div>
       </div>
     );
