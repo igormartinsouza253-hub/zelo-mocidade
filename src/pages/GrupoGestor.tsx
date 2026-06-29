@@ -111,17 +111,6 @@ export default function GrupoGestor() {
 
   const canContinueToApp = !!activeGroupId;
 
-  if (loadingActiveGroup && !changeMode) {
-    return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Carregando grupo...</p>
-        </div>
-      </div>
-    );
-  }
-
   const loadGroups = async () => {
     setLoadingGroups(true);
     try {
@@ -364,6 +353,17 @@ export default function GrupoGestor() {
       toast.error("Não foi possível concluir a ação.");
     }
   };
+
+  if (loadingActiveGroup && !changeMode) {
+    return (
+      <div className="flex h-full min-h-[50vh] items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Carregando grupo...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-background">
