@@ -42,7 +42,7 @@ interface Cargo {
 const DetalhesMembro = () => {
   const navigate = useNavigate();
   const { setConfig } = usePageHeader();
-  const { isAdmin } = useActiveGroup();
+  const { activeGroupId, isAdmin } = useActiveGroup();
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -90,14 +90,21 @@ const DetalhesMembro = () => {
     loadMembro();
     loadCargos();
     loadPresencas();
-  }, [id]);
+  }, [id, activeGroupId]);
 
   const loadCargos = async () => {
+    if (!activeGroupId) {
+      setCargosDisponiveis([]);
+      setCargosLoading(false);
+      return;
+    }
+
     try {
       setCargosLoading(true);
       const { data, error } = await supabase
         .from("cargos")
         .select("*")
+        .eq("group_id", activeGroupId)
         .order("nome");
 
       if (error) throw error;

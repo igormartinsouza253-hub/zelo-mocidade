@@ -1,58 +1,66 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+
 import { AppLayout } from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-import Dashboard from "@/pages/Dashboard";
-import Membros from "@/pages/Membros";
-import NovoMembro from "@/pages/NovoMembro";
-import DetalhesMembro from "@/pages/DetalhesMembro";
-import Reunioes from "@/pages/Reunioes";
-import NovaReuniao from "@/pages/NovaReuniao";
-import DetalhesReuniao from "@/pages/DetalhesReuniao";
-import VisualizarReuniao from "@/pages/VisualizarReuniao";
-import HistoricoReunioes from "@/pages/HistoricoReunioes";
-import EstatisticasReunioes from "@/pages/EstatisticasReunioes";
-import Configuracoes from "@/pages/Configuracoes";
-import Calendario from "@/pages/Calendario";
-import Auth from "@/pages/Auth";
-import MembrosGrupo from "@/pages/MembrosGrupo";
-import EditorNota from "@/pages/EditorNota";
-import VisualizarMembro from "@/pages/VisualizarMembro";
-import NotFound from "@/pages/NotFound";
-import Cargos from "@/pages/Cargos";
-import Estatisticas from "@/pages/Estatisticas";
-import Notas from "@/pages/Notas";
-import Busca from "@/pages/Busca";
-import Visitas from "@/pages/Visitas";
-import NovaVisita from "@/pages/NovaVisita";
-import VisualizarVisita from "@/pages/VisualizarVisita";
-import GrupoGestor from "@/pages/GrupoGestor";
-import ConfiguracoesGrupoAdmin from "@/pages/ConfiguracoesGrupoAdmin";
-import GrupoConvite from "@/pages/GrupoConvite";
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Membros = lazy(() => import("@/pages/Membros"));
+const NovoMembro = lazy(() => import("@/pages/NovoMembro"));
+const DetalhesMembro = lazy(() => import("@/pages/DetalhesMembro"));
+const Reunioes = lazy(() => import("@/pages/Reunioes"));
+const NovaReuniao = lazy(() => import("@/pages/NovaReuniao"));
+const DetalhesReuniao = lazy(() => import("@/pages/DetalhesReuniao"));
+const VisualizarReuniao = lazy(() => import("@/pages/VisualizarReuniao"));
+const HistoricoReunioes = lazy(() => import("@/pages/HistoricoReunioes"));
+const EstatisticasReunioes = lazy(() => import("@/pages/EstatisticasReunioes"));
+const Configuracoes = lazy(() => import("@/pages/Configuracoes"));
+const Calendario = lazy(() => import("@/pages/Calendario"));
+const Auth = lazy(() => import("@/pages/Auth"));
+const MembrosGrupo = lazy(() => import("@/pages/MembrosGrupo"));
+const EditorNota = lazy(() => import("@/pages/EditorNota"));
+const VisualizarMembro = lazy(() => import("@/pages/VisualizarMembro"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Cargos = lazy(() => import("@/pages/Cargos"));
+const Estatisticas = lazy(() => import("@/pages/Estatisticas"));
+const Notas = lazy(() => import("@/pages/Notas"));
+const Busca = lazy(() => import("@/pages/Busca"));
+const Visitas = lazy(() => import("@/pages/Visitas"));
+const NovaVisita = lazy(() => import("@/pages/NovaVisita"));
+const VisualizarVisita = lazy(() => import("@/pages/VisualizarVisita"));
+const GrupoGestor = lazy(() => import("@/pages/GrupoGestor"));
+const ConfiguracoesGrupoAdmin = lazy(() => import("@/pages/ConfiguracoesGrupoAdmin"));
+const GrupoConvite = lazy(() => import("@/pages/GrupoConvite"));
 
-function ProtectedLayout({ children }: { children: React.ReactNode }) {
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
+function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute>
-      <AppLayout>{children}</AppLayout>
+      <AppLayout>
+        <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+      </AppLayout>
     </ProtectedRoute>
   );
+}
+
+function PublicRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
 }
 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/convite/:token" element={<GrupoConvite />} />
+      <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+      <Route path="/convite/:token" element={<PublicRoute><GrupoConvite /></PublicRoute>} />
 
-      <Route
-        path="/"
-        element={
-          <ProtectedLayout>
-            <Dashboard />
-          </ProtectedLayout>
-        }
-      />
-      {/* rota legada (mobile antigo): mantém compatibilidade */}
+      <Route path="/" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/m" element={<Navigate to="/" replace />} />
 
       <Route path="/membros" element={<ProtectedLayout><Membros /></ProtectedLayout>} />
@@ -73,13 +81,10 @@ export function AppRoutes() {
       <Route path="/visitas/:id" element={<ProtectedLayout><VisualizarVisita /></ProtectedLayout>} />
 
       <Route path="/calendario" element={<ProtectedLayout><Calendario /></ProtectedLayout>} />
-
-      {/* Rota legada: redireciona para a Agenda unificada */}
       <Route path="/aniversariantes" element={<ProtectedLayout><Navigate to="/calendario" replace /></ProtectedLayout>} />
 
       <Route path="/configuracoes" element={<ProtectedLayout><Configuracoes /></ProtectedLayout>} />
       <Route path="/configuracoes/grupo-admin" element={<ProtectedLayout><ConfiguracoesGrupoAdmin /></ProtectedLayout>} />
-
       <Route path="/grupo" element={<ProtectedLayout><GrupoGestor /></ProtectedLayout>} />
 
       <Route path="/notas" element={<ProtectedLayout><Notas /></ProtectedLayout>} />
@@ -90,8 +95,7 @@ export function AppRoutes() {
       <Route path="/estatisticas" element={<ProtectedLayout><Estatisticas /></ProtectedLayout>} />
       <Route path="/busca" element={<ProtectedLayout><Busca /></ProtectedLayout>} />
 
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<PublicRoute><NotFound /></PublicRoute>} />
     </Routes>
   );
 }

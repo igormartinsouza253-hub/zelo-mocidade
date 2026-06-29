@@ -27,8 +27,8 @@ export default defineConfig(({ mode }) => ({
         scope: ".",
         display: "standalone",
         orientation: "portrait",
-        background_color: "#0b0b0c",
-        theme_color: "#0b0b0c",
+        background_color: "#fafafa",
+        theme_color: "#fafafa",
         icons: [
           {
             src: "/pwa-192.png",

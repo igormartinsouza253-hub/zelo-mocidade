@@ -71,7 +71,7 @@ export default function GrupoGestor() {
   const changeMode = searchParams.get("change") === "1";
 
   const { user } = useAuth();
-  const { activeGroupId, activeGroup, isAdmin, refresh, setActiveGroupById } = useActiveGroup();
+  const { activeGroupId, activeGroup, isAdmin, loading: loadingActiveGroup, refresh, setActiveGroupById } = useActiveGroup();
   const { setConfig } = usePageHeader();
 
   const [tab, setTab] = useState<"criar" | "entrar">("criar");
@@ -103,12 +103,24 @@ export default function GrupoGestor() {
 
   // Se já existe grupo ativo, não mostrar esta página (troca de grupo acontece em Configurações)
   useEffect(() => {
+    if (loadingActiveGroup) return;
     if (!activeGroupId) return;
     if (changeMode) return;
     navigate("/", { replace: true });
-  }, [activeGroupId, changeMode, navigate]);
+  }, [activeGroupId, changeMode, loadingActiveGroup, navigate]);
 
   const canContinueToApp = !!activeGroupId;
+
+  if (loadingActiveGroup && !changeMode) {
+    return (
+      <div className="flex h-full min-h-[50vh] items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Carregando grupo...</p>
+        </div>
+      </div>
+    );
+  }
 
   const loadGroups = async () => {
     setLoadingGroups(true);

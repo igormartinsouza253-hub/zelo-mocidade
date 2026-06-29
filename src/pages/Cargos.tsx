@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Award, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
-import { useActiveGroup } from "@/hooks/useActiveGroup";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +14,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { supabase } from "@/integrations/supabase/client";
 
 const cargoSchema = z.object({
   nome: z
@@ -38,7 +39,7 @@ export default function Cargos() {
   const [cargoParaExcluir, setCargoParaExcluir] = useState<Cargo | null>(null);
   const [loading, setLoading] = useState(false);
   const { setConfig } = usePageHeader();
-  const { activeGroupId } = useActiveGroup();
+  const { activeGroupId, loading: loadingActiveGroup } = useActiveGroup();
 
   useEffect(() => {
     setConfig({
@@ -52,14 +53,21 @@ export default function Cargos() {
   }, [setConfig]);
 
   useEffect(() => {
-    loadCargos();
-  }, []);
+    void loadCargos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId]);
 
   const loadCargos = async () => {
+    if (!activeGroupId) {
+      setCargos([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("cargos")
         .select("id, nome")
+        .eq("group_id", activeGroupId)
         .order("nome");
 
       if (error) throw error;
@@ -72,6 +80,11 @@ export default function Cargos() {
 
   const handleAddCargo = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!activeGroupId) {
+      toast.error("Selecione um grupo antes de criar cargos.");
+      return;
+    }
 
     const validation = cargoSchema.safeParse({ nome: novoCargo.trim() });
 
@@ -91,11 +104,11 @@ export default function Cargos() {
 
       toast.success("Cargo adicionado com sucesso!");
       setNovoCargo("");
-      loadCargos();
+      void loadCargos();
     } catch (error: any) {
       console.error("Erro ao adicionar cargo:", error);
       if (error.code === "23505") {
-        toast.error("Este cargo já existe");
+        toast.error("Este cargo já existe neste grupo.");
       } else {
         toast.error("Erro ao adicionar cargo");
       }
@@ -118,7 +131,7 @@ export default function Cargos() {
 
       toast.success("Cargo excluído com sucesso!");
       setCargoParaExcluir(null);
-      loadCargos();
+      void loadCargos();
     } catch (error) {
       console.error("Erro ao excluir cargo:", error);
       toast.error("Erro ao excluir cargo");
@@ -143,9 +156,9 @@ export default function Cargos() {
               placeholder="Novo cargo"
               value={novoCargo}
               onChange={(e) => setNovoCargo(e.target.value)}
-              disabled={loading}
+              disabled={loading || loadingActiveGroup}
             />
-            <Button type="submit" disabled={loading || !novoCargo.trim()}>
+            <Button type="submit" disabled={loading || loadingActiveGroup || !novoCargo.trim()}>
               Adicionar
             </Button>
           </form>
@@ -182,9 +195,7 @@ export default function Cargos() {
             <AlertDialogTitle>Excluir cargo</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir o cargo{" "}
-              <span className="font-semibold">{cargoParaExcluir?.nome}</span>?
-              {" "}
-              Esta ação não poderá ser desfeita.
+              <span className="font-semibold">{cargoParaExcluir?.nome}</span>? Esta ação não poderá ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

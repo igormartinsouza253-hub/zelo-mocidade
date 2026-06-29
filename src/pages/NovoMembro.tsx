@@ -64,14 +64,21 @@ const NovoMembro = () => {
 
   useEffect(() => {
     loadCargos();
-  }, []);
+  }, [activeGroupId]);
 
   const loadCargos = async () => {
+    if (!activeGroupId) {
+      setCargosDisponiveis([]);
+      setCargosLoading(false);
+      return;
+    }
+
     try {
       setCargosLoading(true);
       const { data, error } = await supabase
         .from("cargos")
         .select("*")
+        .eq("group_id", activeGroupId)
         .order("nome");
 
       if (error) throw error;

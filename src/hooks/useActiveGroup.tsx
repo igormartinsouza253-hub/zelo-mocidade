@@ -11,18 +11,61 @@ export type ActiveGroup = {
 
 export type GroupRole = "admin" | "member";
 
+const ACTIVE_GROUP_CACHE_KEY = "zelo_active_group_cache";
+
+type ActiveGroupCache = {
+  userId: string;
+  group: ActiveGroup;
+  role: GroupRole | null;
+  cachedAt: string;
+};
+
+function readActiveGroupCache(userId: string | undefined): ActiveGroupCache | null {
+  if (!userId || typeof localStorage === "undefined") return null;
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACTIVE_GROUP_CACHE_KEY) ?? "null") as ActiveGroupCache | null;
+    return parsed?.userId === userId && parsed.group?.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeActiveGroupCache(userId: string, group: ActiveGroup, role: GroupRole | null) {
+  if (typeof localStorage === "undefined") return;
+
+  localStorage.setItem(
+    ACTIVE_GROUP_CACHE_KEY,
+    JSON.stringify({
+      userId,
+      group,
+      role,
+      cachedAt: new Date().toISOString(),
+    } satisfies ActiveGroupCache),
+  );
+}
+
+function clearActiveGroupCache() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(ACTIVE_GROUP_CACHE_KEY);
+}
+
 export function useActiveGroup() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeGroup, setActiveGroup] = useState<ActiveGroup | null>(null);
-  const [role, setRole] = useState<GroupRole | null>(null);
+  const cached = readActiveGroupCache(user?.id);
+  const [loading, setLoading] = useState(!cached);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(cached?.group.id ?? null);
+  const [activeGroup, setActiveGroup] = useState<ActiveGroup | null>(cached?.group ?? null);
+  const [role, setRole] = useState<GroupRole | null>(cached?.role ?? null);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(cached?.userId ?? null);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setActiveGroupId(null);
       setActiveGroup(null);
       setRole(null);
+      setLoadedUserId(null);
+      clearActiveGroupCache();
       setLoading(false);
       return;
     }
@@ -41,7 +84,10 @@ export function useActiveGroup() {
       setActiveGroup(null);
       setRole(null);
 
-      if (!gid) return;
+      if (!gid) {
+        clearActiveGroupCache();
+        return;
+      }
 
       const [{ data: group, error: groupErr }, { data: member, error: memberErr }] =
         await Promise.all([
@@ -61,14 +107,19 @@ export function useActiveGroup() {
       if (memberErr) throw memberErr;
 
       if (group) {
-        setActiveGroup({
+        const nextGroup = {
           id: group.id,
           name: group.name,
           description: (group.description as string | null) ?? null,
-        });
+        };
+        const nextRole = (member?.role as GroupRole | null) ?? null;
+
+        setActiveGroup(nextGroup);
+        setRole(nextRole);
+        writeActiveGroupCache(user.id, nextGroup, nextRole);
       }
-      setRole((member?.role as GroupRole | null) ?? null);
     } finally {
+      setLoadedUserId(user.id);
       setLoading(false);
     }
   }, [user]);
@@ -93,10 +144,12 @@ export function useActiveGroup() {
     [refresh, user],
   );
 
+  const hasLoadedCurrentUser = !user || loadedUserId === user.id;
+  const effectiveLoading = loading || !hasLoadedCurrentUser;
   const isAdmin = useMemo(() => role === "admin", [role]);
 
   return {
-    loading,
+    loading: effectiveLoading,
     activeGroupId,
     activeGroup,
     role,
