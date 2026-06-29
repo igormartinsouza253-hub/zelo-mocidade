@@ -20,6 +20,11 @@ type ActiveGroupCache = {
   cachedAt: string;
 };
 
+type GroupDetails = {
+  group: ActiveGroup;
+  role: GroupRole | null;
+};
+
 function readActiveGroupCache(userId: string | undefined): ActiveGroupCache | null {
   if (!userId || typeof localStorage === "undefined") return null;
 
@@ -50,6 +55,60 @@ function clearActiveGroupCache() {
   localStorage.removeItem(ACTIVE_GROUP_CACHE_KEY);
 }
 
+async function persistActiveGroup(userId: string, groupId: string) {
+  const { error } = await supabase.from("user_active_group").upsert(
+    {
+      user_id: userId,
+      group_id: groupId,
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) throw error;
+}
+
+async function loadGroupDetails(userId: string, groupId: string): Promise<GroupDetails | null> {
+  const [{ data: group, error: groupErr }, { data: member, error: memberErr }] =
+    await Promise.all([
+      supabase
+        .from("management_groups_public")
+        .select("id, name, description")
+        .eq("id", groupId)
+        .maybeSingle(),
+      supabase
+        .from("group_members")
+        .select("role")
+        .eq("group_id", groupId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+    ]);
+
+  if (groupErr) throw groupErr;
+  if (memberErr) throw memberErr;
+  if (!group?.id || !group?.name) return null;
+
+  return {
+    group: {
+      id: group.id,
+      name: group.name,
+      description: (group.description as string | null) ?? null,
+    },
+    role: (member?.role as GroupRole | null) ?? null,
+  };
+}
+
+async function findFirstMembership(userId: string) {
+  const { data, error } = await supabase
+    .from("group_members")
+    .select("group_id, role, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (error) throw error;
+  return (data as { group_id: string; role: GroupRole | null }[] | null)?.[0] ?? null;
+}
+
 export function useActiveGroup() {
   const { user } = useAuth();
   const cached = readActiveGroupCache(user?.id);
@@ -71,53 +130,53 @@ export function useActiveGroup() {
     }
 
     setLoading(true);
+
     try {
       const { data: active, error: activeErr } = await supabase
         .from("user_active_group")
         .select("group_id")
         .eq("user_id", user.id)
         .maybeSingle();
+
       if (activeErr) throw activeErr;
 
-      const gid = (active?.group_id as string | null) ?? null;
-      setActiveGroupId(gid);
+      let gid = (active?.group_id as string | null) ?? null;
+
       setActiveGroup(null);
       setRole(null);
 
       if (!gid) {
+        const firstMembership = await findFirstMembership(user.id);
+
+        if (!firstMembership?.group_id) {
+          setActiveGroupId(null);
+          clearActiveGroupCache();
+          return;
+        }
+
+        gid = firstMembership.group_id;
+        await persistActiveGroup(user.id, gid);
+      }
+
+      setActiveGroupId(gid);
+
+      const details = await loadGroupDetails(user.id, gid);
+
+      if (!details) {
+        setActiveGroupId(null);
         clearActiveGroupCache();
         return;
       }
 
-      const [{ data: group, error: groupErr }, { data: member, error: memberErr }] =
-        await Promise.all([
-          supabase
-            .from("management_groups_public")
-            .select("id, name, description")
-            .eq("id", gid)
-            .maybeSingle(),
-          supabase
-            .from("group_members")
-            .select("role")
-            .eq("group_id", gid)
-            .eq("user_id", user.id)
-            .maybeSingle(),
-        ]);
-      if (groupErr) throw groupErr;
-      if (memberErr) throw memberErr;
-
-      if (group) {
-        const nextGroup = {
-          id: group.id,
-          name: group.name,
-          description: (group.description as string | null) ?? null,
-        };
-        const nextRole = (member?.role as GroupRole | null) ?? null;
-
-        setActiveGroup(nextGroup);
-        setRole(nextRole);
-        writeActiveGroupCache(user.id, nextGroup, nextRole);
-      }
+      setActiveGroup(details.group);
+      setRole(details.role);
+      writeActiveGroupCache(user.id, details.group, details.role);
+    } catch (error) {
+      console.error("[useActiveGroup] Nao foi possivel carregar o grupo ativo:", error);
+      setActiveGroupId(null);
+      setActiveGroup(null);
+      setRole(null);
+      clearActiveGroupCache();
     } finally {
       setLoadedUserId(user.id);
       setLoading(false);
@@ -130,15 +189,8 @@ export function useActiveGroup() {
 
   const setActiveGroupById = useCallback(
     async (groupId: string) => {
-      if (!user) throw new Error("Usuário não autenticado");
-      const { error } = await supabase.from("user_active_group").upsert(
-        {
-          user_id: user.id,
-          group_id: groupId,
-        },
-        { onConflict: "user_id" },
-      );
-      if (error) throw error;
+      if (!user) throw new Error("Usuario nao autenticado");
+      await persistActiveGroup(user.id, groupId);
       await refresh();
     },
     [refresh, user],

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import { AppLayout } from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Membros = lazy(() => import("@/pages/Membros"));
@@ -42,16 +43,22 @@ function RouteFallback() {
 
 function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
-    <ProtectedRoute>
-      <AppLayout>
-        <Suspense fallback={<RouteFallback />}>{children}</Suspense>
-      </AppLayout>
-    </ProtectedRoute>
+    <RouteErrorBoundary>
+      <ProtectedRoute>
+        <AppLayout>
+          <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+        </AppLayout>
+      </ProtectedRoute>
+    </RouteErrorBoundary>
   );
 }
 
 function PublicRoute({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+  return (
+    <RouteErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+    </RouteErrorBoundary>
+  );
 }
 
 export function AppRoutes() {
