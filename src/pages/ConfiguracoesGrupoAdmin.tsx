@@ -13,7 +13,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Shield, Users, Trash2, Crown, Camera } from "lucide-react";
+import { Shield, Users, Trash2, Crown, Camera, Link2, Copy } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -34,6 +34,15 @@ type PresenceRow = {
   user_id: string;
   last_seen_at: string;
 };
+
+function createInviteToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
 
 export default function ConfiguracoesGrupoAdmin() {
   const navigate = useNavigate();
@@ -64,6 +73,8 @@ export default function ConfiguracoesGrupoAdmin() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<GroupMember | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
 
   // Presença (heartbeat)
   const [presenceByUserId, setPresenceByUserId] = useState<Record<string, PresenceRow>>({});
@@ -363,6 +374,47 @@ export default function ConfiguracoesGrupoAdmin() {
     }
   };
 
+  const handleCreateInvite = async () => {
+    if (!activeGroupId || !isAdmin) return;
+
+    setCreatingInvite(true);
+    try {
+      const token = createInviteToken();
+      const { error } = await supabase.rpc("create_group_invite" as any, {
+        _group_id: activeGroupId,
+        _token: token,
+        _expires_in_hours: 10,
+      });
+
+      if (error) throw error;
+
+      const link = `${window.location.origin}/convite/${encodeURIComponent(token)}`;
+      setInviteLink(link);
+
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success("Link de convite criado e copiado. Ele expira em 10 horas.");
+      } catch {
+        toast.success("Link de convite criado. Copie e envie para o novo membro.");
+      }
+    } catch (error) {
+      console.error("[ConfiguracoesGrupoAdmin] create invite", error);
+      toast.error("Nao foi possivel gerar o link de convite.");
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      toast.success("Link copiado.");
+    } catch {
+      toast.error("Nao foi possivel copiar automaticamente. Selecione o link manualmente.");
+    }
+  };
+
   const handleTransferOwnership = async () => {
     if (!activeGroupId || !newOwnerId) return;
     setTransferring(true);
@@ -510,6 +562,40 @@ export default function ConfiguracoesGrupoAdmin() {
                 <CardDescription>Veja e gerencie os membros do grupo</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <Link2 className="h-4 w-4 text-primary" />
+                        Link temporario de convite
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Permite entrar direto no grupo sem senha por 10 horas.
+                      </p>
+                    </div>
+                    <Button type="button" onClick={handleCreateInvite} disabled={creatingInvite} className="gap-2">
+                      {creatingInvite ? (
+                        "Gerando..."
+                      ) : (
+                        <>
+                          <Link2 className="h-4 w-4" />
+                          Gerar link
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {inviteLink && (
+                    <div className="mt-3 flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-2 md:flex-row md:items-center">
+                      <Input value={inviteLink} readOnly className="h-9 text-xs" />
+                      <Button type="button" variant="outline" size="sm" onClick={handleCopyInvite} className="gap-2">
+                        <Copy className="h-4 w-4" />
+                        Copiar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 {loadingMembers ? (
                   <p className="text-sm text-muted-foreground">Carregando...</p>
                 ) : members.length === 0 ? (

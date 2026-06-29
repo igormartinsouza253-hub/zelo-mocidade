@@ -30,6 +30,41 @@ type JoinRequestRow = {
   created_at: string;
 };
 
+function getGroupErrorMessage(error: any, fallback: string) {
+  const code = String(error?.code ?? "");
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+
+  if (message.includes("not_authenticated") || code === "401") {
+    return "Sua sessão expirou. Faça login novamente.";
+  }
+
+  if (message.includes("invalid_password")) {
+    return "Senha do grupo incorreta.";
+  }
+
+  if (message.includes("already_member")) {
+    return "Você já faz parte deste grupo.";
+  }
+
+  if (message.includes("group_not_found") || code === "PGRST116") {
+    return "Grupo não encontrado. Atualize a lista e tente novamente.";
+  }
+
+  if (message.includes("duplicate") || code === "23505") {
+    return "Já existe uma solicitação para este grupo.";
+  }
+
+  if (code === "42501" || message.includes("row-level security") || message.includes("permission denied")) {
+    return "Sua conta ainda não tem permissão para concluir esta ação. Saia e entre novamente; se continuar, peça ao admin para verificar seu acesso.";
+  }
+
+  if (message.includes("network") || message.includes("failed to fetch")) {
+    return "Falha de conexão. Verifique a internet e tente novamente.";
+  }
+
+  return fallback;
+}
+
 export default function GrupoGestor() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -79,11 +114,11 @@ export default function GrupoGestor() {
     setLoadingGroups(true);
     try {
       const { data, error } = await supabase
-        .from("management_groups")
+        .from("management_groups_public")
         .select("id, name, description")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setGroups((data as any) ?? []);
+      setGroups(((data as any) ?? []).filter((group: GroupRow) => Boolean(group.id && group.name)));
     } finally {
       setLoadingGroups(false);
     }
@@ -217,30 +252,72 @@ export default function GrupoGestor() {
     if (!joinPassword.trim()) return toast.error("Informe a senha do grupo");
     setJoining(true);
     try {
-      const { data: ok, error: passErr } = await supabase.rpc("check_group_password", {
+      const { data: requestStatus, error } = await supabase.rpc("request_group_join" as any, {
         _group_id: selectedGroupId,
         _password: joinPassword.trim(),
       });
-      if (passErr) throw passErr;
-      if (!ok) {
-        toast.error("Senha do grupo incorreta");
+
+      if (error) {
+        // Fallback para bancos que ainda não receberam a função nova.
+        if (String(error.message ?? "").includes("request_group_join")) {
+          const { data: ok, error: passErr } = await supabase.rpc("check_group_password", {
+            _group_id: selectedGroupId,
+            _password: joinPassword.trim(),
+          });
+          if (passErr) throw passErr;
+          if (!ok) {
+            toast.error("Senha do grupo incorreta.");
+            return;
+          }
+
+          const { data: existing, error: existingError } = await supabase
+            .from("group_join_requests")
+            .select("id, status")
+            .eq("group_id", selectedGroupId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (existingError) throw existingError;
+
+          if (existing?.status === "pending") {
+            toast.info("Sua solicitação já está pendente. Aguarde a aprovação do admin.");
+            setJoinPassword("");
+            return;
+          }
+
+          if (existing?.status === "approved") {
+            await setActiveGroupById(selectedGroupId);
+            toast.success("Você já foi aprovado neste grupo.");
+            navigate("/", { replace: true });
+            return;
+          }
+
+          const { error: insertError } = await supabase.from("group_join_requests").insert({
+            group_id: selectedGroupId,
+            user_id: user.id,
+            status: "pending",
+          } as any);
+          if (insertError) throw insertError;
+        } else {
+          throw error;
+        }
+      }
+
+      if (requestStatus === "already_member") {
+        await setActiveGroupById(selectedGroupId);
+        toast.success("Grupo ativado com sucesso.");
+        navigate("/", { replace: true });
         return;
       }
 
-      const { error } = await supabase.from("group_join_requests").upsert(
-        {
-          group_id: selectedGroupId,
-          user_id: user.id,
-          status: "pending",
-        } as any,
-        { onConflict: "group_id,user_id" },
-      );
-      if (error) throw error;
-      toast.success("Solicitação enviada! Aguarde aprovação do admin.");
+      if (requestStatus === "already_pending") {
+        toast.info("Sua solicitação já está pendente. Aguarde a aprovação do admin.");
+      } else {
+        toast.success("Solicitação enviada! Aguarde aprovação do admin.");
+      }
       setJoinPassword("");
     } catch (e) {
       console.error(e);
-      toast.error("Não foi possível solicitar entrada.");
+      toast.error(getGroupErrorMessage(e, "Não foi possível solicitar entrada no grupo."));
     } finally {
       setJoining(false);
     }

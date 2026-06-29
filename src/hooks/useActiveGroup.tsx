@@ -46,7 +46,7 @@ export function useActiveGroup() {
       const [{ data: group, error: groupErr }, { data: member, error: memberErr }] =
         await Promise.all([
           supabase
-            .from("management_groups")
+            .from("management_groups_public")
             .select("id, name, description")
             .eq("id", gid)
             .maybeSingle(),

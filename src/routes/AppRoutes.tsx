@@ -28,6 +28,7 @@ import NovaVisita from "@/pages/NovaVisita";
 import VisualizarVisita from "@/pages/VisualizarVisita";
 import GrupoGestor from "@/pages/GrupoGestor";
 import ConfiguracoesGrupoAdmin from "@/pages/ConfiguracoesGrupoAdmin";
+import GrupoConvite from "@/pages/GrupoConvite";
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -41,6 +42,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
+      <Route path="/convite/:token" element={<GrupoConvite />} />
 
       <Route
         path="/"
