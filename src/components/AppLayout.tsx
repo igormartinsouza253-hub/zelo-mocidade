@@ -47,15 +47,15 @@ interface AppLayoutProps {
 }
 
 const routeTitles: Record<string, { title: string; icon: any }> = {
-  "/": { title: "InÃ­cio - ReuniÃµes de Jovem", icon: Home },
+  "/": { title: "Início - Reuniões de Jovem", icon: Home },
   "/membros": { title: "Membros", icon: Users },
-  "/reunioes": { title: "ReuniÃµes", icon: Handshake },
+  "/reunioes": { title: "Reuniões", icon: Handshake },
   "/calendario": { title: "Agenda", icon: CalendarDays },
   "/cargos": { title: "Cargos", icon: Award },
-  "/estatisticas": { title: "EstatÃ­sticas", icon: BarChart3 },
-  "/estatisticas-reunioes": { title: "EstatÃ­sticas", icon: BarChart3 },
+  "/estatisticas": { title: "Estatísticas", icon: BarChart3 },
+  "/estatisticas-reunioes": { title: "Estatísticas", icon: BarChart3 },
   "/notas": { title: "Notas", icon: Sparkles },
-  "/configuracoes": { title: "ConfiguraÃ§Ãµes", icon: Settings },
+  "/configuracoes": { title: "Configurações", icon: Settings },
   "/busca": { title: "Busca global", icon: Search },
   "/visitas": { title: "Visitas", icon: Handshake },
   "/grupo": { title: "Grupo gestor", icon: Users },
@@ -116,7 +116,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const [isLandscapeMobile, setIsLandscapeMobile] = useState(false);
   const [hideMobileDockOverride, setHideMobileDockOverride] = useState(false);
 
-  // Permite que telas mobile peÃ§am para esconder/mostrar a dock inferior.
+  // Permite que telas mobile peçam para esconder/mostrar a dock inferior.
   useEffect(() => {
     const handler = (event: Event) => {
       const e = event as CustomEvent<{ hidden?: boolean }>;
@@ -134,7 +134,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     const orientation = (screen as any)?.orientation;
     if (orientation?.lock) {
       void orientation.lock("portrait").catch(() => {
-        // Nem todos os navegadores permitem â€” fallback Ã© o overlay de landscape.
+        // Nem todos os navegadores permitem; fallback é o overlay de landscape.
       });
     }
   }, [isMobileMode]);
@@ -207,7 +207,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           return;
         }
       } catch (error) {
-        console.warn("Falha ao exibir notificaÃ§Ã£o via Service Worker:", error);
+        console.warn("Falha ao exibir notificação via Service Worker:", error);
       }
 
       new Notification(incoming.title, notificationOptions);
@@ -246,7 +246,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user?.id, activeGroupId]);
 
-  // Heartbeat (presenÃ§a por grupo): atualiza last_seen_at periodicamente no DB
+  // Heartbeat (presença por grupo): atualiza last_seen_at periodicamente no DB
   useEffect(() => {
     if (!user) return;
     if (!activeGroupId) return;
@@ -270,8 +270,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           );
         if (error) throw error;
       } catch (e) {
-        // NÃ£o bloqueia UI â€” apenas diagnÃ³stico
-        console.warn("Heartbeat: falha ao atualizar presenÃ§a:", e);
+        // Não bloqueia UI; apenas diagnóstico.
+        console.warn("Heartbeat: falha ao atualizar presença:", e);
       }
     };
 
@@ -293,7 +293,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user, activeGroupId]);
 
-  // PresenÃ§a online (mantido exatamente como antes)
+  // Presença online (mantido exatamente como antes)
   useEffect(() => {
     if (!user) return;
 
@@ -314,7 +314,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           username:
             user.user_metadata?.username ||
             user.email?.split("@")[0] ||
-            "UsuÃ¡rio",
+            "Usuário",
           email: user.email,
           online_at: onlineAt,
           last_active_at: new Date().toISOString(),
@@ -328,7 +328,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         username:
           user.user_metadata?.username ||
           user.email?.split("@")[0] ||
-          "UsuÃ¡rio",
+          "Usuário",
         email: user.email,
         online_at: onlineAt,
         last_active_at: new Date().toISOString(),
@@ -356,7 +356,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user]);
 
-  // Aplica automaticamente o tema salvo como padrÃ£o para o usuÃ¡rio ao entrar no app
+  // Aplica automaticamente o tema salvo como padrão para o usuário ao entrar no app
   useEffect(() => {
     if (!user) return;
 
@@ -387,14 +387,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         const { applyThemePreset } = await import("@/lib/theme-presets");
         applyThemePreset(preset, customConfig || undefined);
       } catch (error) {
-        console.error("Erro ao aplicar tema padrÃ£o do usuÃ¡rio:", error);
+        console.error("Erro ao aplicar tema padrão do usuário:", error);
       }
     };
 
     void applyUserTheme();
   }, [user]);
 
-  // DetecÃ§Ã£o de orientaÃ§Ã£o apenas no mobile
+  // Detecção de orientação apenas no mobile
   useEffect(() => {
     if (!isMobileMode) {
       setIsLandscapeMobile(false);
@@ -430,17 +430,17 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     if (pathname.startsWith("/membros/editar/")) return true;
 
     if (pathname === "/reunioes/nova") return true;
-    // ediÃ§Ã£o de reuniÃ£o: /reunioes/:id
+    // edição de reunião: /reunioes/:id
     if (/^\/reunioes\/[^/]+$/.test(pathname)) return true;
-    // visualizar reuniÃ£o: /reunioes/visualizar/:id
+    // visualizar reunião: /reunioes/visualizar/:id
     if (/^\/reunioes\/visualizar\/[^/]+$/.test(pathname)) return true;
 
-    // Visitas: criaÃ§Ã£o/ediÃ§Ã£o e visualizaÃ§Ã£o (mobile)
+    // Visitas: criação/edição e visualização (mobile)
     if (pathname === "/visitas/nova") return true;
-    // visualizaÃ§Ã£o: /visitas/:id
+    // visualização: /visitas/:id
     if (/^\/visitas\/[^/]+$/.test(pathname) && pathname !== "/visitas/nova") return true;
 
-    // Notas (mobile): o rodapÃ© vira toolbar do editor
+    // Notas (mobile): o rodapé vira toolbar do editor
     if (pathname === "/notas/nova") return true;
     if (/^\/notas\/editar\/[^/]+$/.test(pathname)) return true;
 
@@ -468,11 +468,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
          <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {/* Mobile Top Header */}
             {isMobileMode &&
-              // VisualizaÃ§Ã£o de visita tem header prÃ³prio (action bar)
+              // Visualização de visita tem header próprio (action bar)
               !(/^\/visitas\/[^/]+$/.test(location.pathname) && location.pathname !== "/visitas/nova") && (
                 <div className="md:hidden sticky top-0 z-30 h-14 flex items-center px-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border">
                   <div className="relative flex items-center w-full gap-2">
-                    {/* Voltar + tÃ­tulo Ã  esquerda */}
+                    {/* Voltar + título à esquerda */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       {showMobileBackButton ? (
                         <button
@@ -494,7 +494,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                       {effectiveTitle}
                     </h1>
 
-                    {/* AÃ§Ãµes + Perfil Ã  direita */}
+                    {/* Ações + Perfil à direita */}
                     <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
                       {config?.secondaryActions}
 
@@ -592,7 +592,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                 <span className="text-[11px] font-medium text-muted-foreground">Grupo</span>
                 <span className="text-[11px] font-semibold text-foreground/90 truncate">
                   {loadingGroup
-                    ? "Carregandoâ€¦"
+                    ? "Carregando..."
                     : activeGroup?.name
                       ? activeGroup.name
                       : "Nenhum"}
@@ -618,7 +618,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               Gire o aparelho para o modo retrato
             </p>
             <p className="text-xs text-muted-foreground">
-              Este app foi otimizado para uso apenas na orientaÃ§Ã£o vertical.
+              Este app foi otimizado para uso apenas na orientação vertical.
             </p>
           </div>
         </div>
@@ -695,7 +695,7 @@ function DesktopHeader({
               </span>
             )}
 
-            {/* TÃ­tulo Ãºnico (substitui breadcrumbs) */}
+            {/* Título único (substitui breadcrumbs) */}
             <h1 className="text-sm md:text-base font-semibold text-foreground truncate">
               {effectiveTitle}
             </h1>
@@ -806,7 +806,7 @@ function AccountMenu({ user, navigate, onSignOut, profile }: AccountMenuProps) {
           className="cursor-pointer"
         >
           <Settings className="mr-2 h-4 w-4" />
-          <span>ConfiguraÃ§Ãµes</span>
+          <span>Configurações</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem
