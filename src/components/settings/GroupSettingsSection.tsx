@@ -233,30 +233,12 @@ export function GroupSettingsSection() {
 
     setJoinActionId(requestId);
     try {
-      if (action === "approve") {
-        const { error: memberError } = await supabase
-          .from("group_members")
-          .insert({
-            group_id: activeGroupId,
-            user_id: requestUserId,
-            role: "member",
-          } as any);
+      const { error } = await supabase.rpc("decide_group_join_request" as any, {
+        _request_id: requestId,
+        _action: action,
+      });
 
-        if (memberError && (memberError as any).code !== "23505") {
-          throw memberError;
-        }
-      }
-
-      const { error: requestError } = await supabase
-        .from("group_join_requests")
-        .update({
-          status: action === "approve" ? "approved" : "rejected",
-          decided_by: user?.id,
-          decided_at: new Date().toISOString(),
-        } as any)
-        .eq("id", requestId);
-
-      if (requestError) throw requestError;
+      if (error) throw error;
 
       toast.success(action === "approve" ? "Solicitação aprovada." : "Solicitação rejeitada.");
       await Promise.all([loadJoinRequests(), refreshMembers()]);

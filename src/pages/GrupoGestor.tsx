@@ -90,6 +90,7 @@ export default function GrupoGestor() {
   const [pendingRequests, setPendingRequests] = useState<JoinRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [activatingApprovedGroup, setActivatingApprovedGroup] = useState(false);
+  const [groupLoadingTimedOut, setGroupLoadingTimedOut] = useState(false);
   const activatingApprovedGroupRef = useRef(false);
 
   useEffect(() => {
@@ -110,6 +111,19 @@ export default function GrupoGestor() {
     if (changeMode) return;
     navigate("/", { replace: true });
   }, [activeGroupId, changeMode, loadingActiveGroup, navigate]);
+
+  useEffect(() => {
+    if (changeMode || (!loadingActiveGroup && !activatingApprovedGroup)) {
+      setGroupLoadingTimedOut(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setGroupLoadingTimedOut(true);
+    }, 14000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activatingApprovedGroup, changeMode, loadingActiveGroup]);
 
   const canContinueToApp = !!activeGroupId;
 
@@ -178,10 +192,14 @@ export default function GrupoGestor() {
         if (cancelled) return;
         activatingApprovedGroupRef.current = true;
         setActivatingApprovedGroup(true);
-        await setActiveGroupById(approved.group_id);
+        const activated = await refresh();
+        if (!activated) {
+          await setActiveGroupById(approved.group_id);
+        }
         if (cancelled) return;
         toast.success("Entrada aprovada! Redirecionando...");
-        navigate("/", { replace: true });
+        await supabase.auth.refreshSession().catch(() => null);
+        window.location.replace("/");
       } catch (e) {
         activatingApprovedGroupRef.current = false;
         if (!cancelled) setActivatingApprovedGroup(false);
@@ -197,7 +215,7 @@ export default function GrupoGestor() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [activeGroupId, navigate, setActiveGroupById, user]);
+  }, [activeGroupId, refresh, setActiveGroupById, user]);
 
   useEffect(() => {
     void loadPendingRequests().catch((e) => {
@@ -335,24 +353,12 @@ export default function GrupoGestor() {
   const decideRequest = async (requestId: string, userId: string, action: "approve" | "reject") => {
     if (!activeGroupId || !isAdmin) return;
     try {
-      if (action === "approve") {
-        const { error: insErr } = await supabase.from("group_members").insert({
-          group_id: activeGroupId,
-          user_id: userId,
-          role: "member",
-        } as any);
-        if (insErr) throw insErr;
-      }
+      const { error } = await supabase.rpc("decide_group_join_request" as any, {
+        _request_id: requestId,
+        _action: action,
+      });
 
-      const { error: updErr } = await supabase
-        .from("group_join_requests")
-        .update({
-          status: action === "approve" ? "approved" : "rejected",
-          decided_at: new Date().toISOString(),
-          decided_by: user?.id,
-        } as any)
-        .eq("id", requestId);
-      if (updErr) throw updErr;
+      if (error) throw error;
 
       toast.success(action === "approve" ? "Usuário aprovado." : "Solicitação rejeitada.");
       await loadPendingRequests();
@@ -362,7 +368,7 @@ export default function GrupoGestor() {
     }
   };
 
-  if ((loadingActiveGroup || activatingApprovedGroup) && !changeMode) {
+  if ((loadingActiveGroup || activatingApprovedGroup) && !groupLoadingTimedOut && !changeMode) {
     return (
       <div className="flex h-full min-h-[50vh] items-center justify-center bg-background">
         <div className="text-center">
@@ -378,6 +384,32 @@ export default function GrupoGestor() {
   return (
     <div className="min-h-screen w-full bg-background">
       <div className="mx-auto w-full max-w-4xl px-3 py-4 md:px-6 md:py-8 lg:px-8 space-y-4">
+        {groupLoadingTimedOut && !changeMode && !canContinueToApp ? (
+          <Card className="border-amber-200 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <CardHeader>
+              <CardTitle>Não foi possível confirmar o grupo automaticamente</CardTitle>
+              <CardDescription>
+                Sua conta está logada, mas o app não recebeu a confirmação do grupo a tempo. Atualize a confirmação ou
+                recarregue o app.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                onClick={() => {
+                  setGroupLoadingTimedOut(false);
+                  void refresh();
+                }}
+              >
+                Atualizar confirmação
+              </Button>
+              <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+                Recarregar app
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {canContinueToApp ? (
           <Card>
             <CardHeader>

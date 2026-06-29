@@ -27,6 +27,27 @@ type ActiveGroupRpcRow = {
   role: GroupRole | null;
 };
 
+const GROUP_RPC_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(operation: PromiseLike<T>, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(message));
+    }, GROUP_RPC_TIMEOUT_MS);
+
+    operation.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
 function readActiveGroupCache(userId: string | undefined): ActiveGroupCache | null {
   if (!userId || typeof localStorage === "undefined") return null;
 
@@ -79,6 +100,23 @@ export function useActiveGroup() {
   const [activeGroup, setActiveGroup] = useState<ActiveGroup | null>(cached?.group ?? null);
   const [role, setRole] = useState<GroupRole | null>(cached?.role ?? null);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(cached?.userId ?? null);
+  const activeGroupRef = useRef<{
+    userId: string | null;
+    group: ActiveGroup | null;
+    role: GroupRole | null;
+  }>({
+    userId: cached?.userId ?? null,
+    group: cached?.group ?? null,
+    role: cached?.role ?? null,
+  });
+
+  useEffect(() => {
+    activeGroupRef.current = {
+      userId: user?.id ?? null,
+      group: activeGroup,
+      role,
+    };
+  }, [activeGroup, role, user?.id]);
 
   const applyResolvedGroup = useCallback(
     (row: ActiveGroupRpcRow | null) => {
@@ -118,7 +156,10 @@ export function useActiveGroup() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.rpc("ensure_active_group_for_current_user" as any);
+      const { data, error } = await withTimeout(
+        supabase.rpc("ensure_active_group_for_current_user" as any),
+        "Tempo limite ao carregar o grupo ativo.",
+      );
 
       if (error) throw error;
       if (requestSeq !== requestSeqRef.current) return false;
@@ -128,6 +169,12 @@ export function useActiveGroup() {
       if (requestSeq !== requestSeqRef.current) return false;
 
       console.error("[useActiveGroup] Nao foi possivel carregar o grupo ativo:", error);
+      const lastKnown = activeGroupRef.current;
+      if (lastKnown.userId === user.id && lastKnown.group?.id) {
+        writeActiveGroupCache(user.id, lastKnown.group, lastKnown.role);
+        return true;
+      }
+
       setActiveGroupId(null);
       setActiveGroup(null);
       setRole(null);
@@ -152,9 +199,12 @@ export function useActiveGroup() {
       const requestSeq = ++requestSeqRef.current;
       setLoading(true);
       try {
-        const { data, error } = await supabase.rpc("set_active_group_for_current_user" as any, {
-          _group_id: groupId,
-        });
+        const { data, error } = await withTimeout(
+          supabase.rpc("set_active_group_for_current_user" as any, {
+            _group_id: groupId,
+          }),
+          "Tempo limite ao ativar o grupo.",
+        );
 
         if (error) throw error;
         if (requestSeq !== requestSeqRef.current) return;
