@@ -151,46 +151,13 @@ async function getPostAuthDestination(userId: string) {
   const pendingInvite = getPendingInviteDestination();
   if (pendingInvite) return pendingInvite;
 
-  const { data: active, error: activeError } = await supabase
-    .from("user_active_group")
-    .select("group_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (activeError) {
-    console.warn("[Auth] Nao foi possivel checar grupo ativo:", activeError);
-  }
-
-  if (active?.group_id) return "/";
-
-  const { data: memberships, error: membershipError } = await supabase
-    .from("group_members")
-    .select("group_id, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .limit(1);
-
-  if (membershipError) {
-    console.warn("[Auth] Nao foi possivel checar grupos do usuario:", membershipError);
+  const { data, error } = await supabase.rpc("get_my_group_context" as any);
+  if (error) {
+    console.warn("[Auth] Nao foi possivel checar grupos do usuario:", error);
     return "/grupo";
   }
 
-  const groupId = memberships?.[0]?.group_id;
-  if (!groupId) return "/grupo";
-
-  const { error: upsertError } = await supabase.from("user_active_group").upsert(
-    {
-      user_id: userId,
-      group_id: groupId,
-    },
-    { onConflict: "user_id" },
-  );
-
-  if (upsertError) {
-    console.warn("[Auth] Nao foi possivel ativar grupo automaticamente:", upsertError);
-  }
-
-  return "/";
+  return Array.isArray(data) && data.some((group: any) => group?.group_id) ? "/" : "/grupo";
 }
 
 async function isUsernameAvailable(username: string) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -89,9 +89,6 @@ export default function GrupoGestor() {
 
   const [pendingRequests, setPendingRequests] = useState<JoinRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
-  const [activatingApprovedGroup, setActivatingApprovedGroup] = useState(false);
-  const [groupLoadingTimedOut, setGroupLoadingTimedOut] = useState(false);
-  const activatingApprovedGroupRef = useRef(false);
 
   useEffect(() => {
     setConfig({
@@ -111,19 +108,6 @@ export default function GrupoGestor() {
     if (changeMode) return;
     navigate("/", { replace: true });
   }, [activeGroupId, changeMode, loadingActiveGroup, navigate]);
-
-  useEffect(() => {
-    if (changeMode || (!loadingActiveGroup && !activatingApprovedGroup)) {
-      setGroupLoadingTimedOut(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setGroupLoadingTimedOut(true);
-    }, 14000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [activatingApprovedGroup, changeMode, loadingActiveGroup]);
 
   const canContinueToApp = !!activeGroupId;
 
@@ -168,55 +152,32 @@ export default function GrupoGestor() {
     });
   }, []);
 
-  // Se o usuário solicitou entrada e foi aprovado, ativar o grupo automaticamente e ir para o app.
+  // Enquanto o usuario esta sem grupo, reconsulta somente a fonte real: group_members.
   useEffect(() => {
     if (!user) return;
     if (activeGroupId) return;
+    if (changeMode) return;
 
     let cancelled = false;
 
-    const checkApproval = async () => {
+    const checkMembership = async () => {
       try {
-        const { data, error } = await supabase
-          .from("group_join_requests")
-          .select("id, group_id, status")
-          .eq("user_id", user.id)
-          .eq("status", "approved")
-          .order("decided_at", { ascending: false })
-          .limit(1);
-        if (error) throw error;
-        const approved = (data as any)?.[0] as { group_id: string } | undefined;
-        if (!approved?.group_id) return;
-        if (activatingApprovedGroupRef.current) return;
-
-        if (cancelled) return;
-        activatingApprovedGroupRef.current = true;
-        setActivatingApprovedGroup(true);
-        const activated = await refresh();
-        if (!activated) {
-          await setActiveGroupById(approved.group_id);
+        const hasGroup = await refresh();
+        if (!cancelled && hasGroup) {
+          toast.success("Grupo confirmado! Entrando no app...");
+          navigate("/", { replace: true });
         }
-        if (cancelled) return;
-        toast.success("Entrada aprovada! Redirecionando...");
-        await supabase.auth.refreshSession().catch(() => null);
-        window.location.replace("/");
-      } catch (e) {
-        activatingApprovedGroupRef.current = false;
-        if (!cancelled) setActivatingApprovedGroup(false);
-        // silencioso: o polling não pode ficar spammando toasts
-        console.error("[GrupoGestor] Erro ao checar aprovação", e);
+      } catch (error) {
+        console.error("[GrupoGestor] Erro ao atualizar grupos do usuario", error);
       }
     };
 
-    // roda uma vez e depois faz polling leve
-    void checkApproval();
-    const id = window.setInterval(checkApproval, 5000);
+    const id = window.setInterval(checkMembership, 5000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [activeGroupId, refresh, setActiveGroupById, user]);
-
+  }, [activeGroupId, changeMode, navigate, refresh, user]);
   useEffect(() => {
     void loadPendingRequests().catch((e) => {
       console.error(e);
@@ -368,60 +329,21 @@ export default function GrupoGestor() {
     }
   };
 
-  if ((loadingActiveGroup || activatingApprovedGroup) && !groupLoadingTimedOut && !changeMode) {
-    return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">
-            {activatingApprovedGroup ? "Ativando grupo..." : "Carregando grupo..."}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen w-full bg-background">
       <div className="mx-auto w-full max-w-4xl px-3 py-4 md:px-6 md:py-8 lg:px-8 space-y-4">
-        {groupLoadingTimedOut && !changeMode && !canContinueToApp ? (
-          <Card className="border-amber-200 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10">
-            <CardHeader>
-              <CardTitle>Não foi possível confirmar o grupo automaticamente</CardTitle>
-              <CardDescription>
-                Sua conta está logada, mas o app não recebeu a confirmação do grupo a tempo. Atualize a confirmação ou
-                recarregue o app.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                onClick={() => {
-                  setGroupLoadingTimedOut(false);
-                  void refresh();
-                }}
-              >
-                Atualizar confirmação
-              </Button>
-              <Button type="button" variant="outline" onClick={() => window.location.reload()}>
-                Recarregar app
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-
         {canContinueToApp ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Grupo ativo: {activeGroup?.name ?? "—"}
+                Grupo ativo: {activeGroup?.name ?? "-"}
               </CardTitle>
               <CardDescription>
                 Você já está em um grupo.
                 {changeMode
                   ? " Você está no modo de troca de grupo: solicite entrada em outro grupo e aguarde aprovação."
-                  : " Para trocar de grupo, vá em Configurações → Grupo."}
+                  : " Para trocar de grupo, vá em Configurações -> Grupo."}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -521,7 +443,7 @@ export default function GrupoGestor() {
                   </select>
                   {!loadingGroups && groups.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      Nenhum grupo disponível no momento. Clique em “Atualizar lista” ou peça ao admin para criar um
+                      Nenhum grupo disponível no momento. Clique em Atualizar lista ou peça ao admin para criar um
                       grupo.
                     </p>
                   )}

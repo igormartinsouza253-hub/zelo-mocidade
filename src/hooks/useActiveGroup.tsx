@@ -25,6 +25,7 @@ type ActiveGroupRpcRow = {
   name: string;
   description: string | null;
   role: GroupRole | null;
+  is_active?: boolean | null;
 };
 
 const GROUP_RPC_TIMEOUT_MS = 12000;
@@ -83,6 +84,11 @@ function firstRpcRow(data: unknown): ActiveGroupRpcRow | null {
   return (data as ActiveGroupRpcRow | null) ?? null;
 }
 
+function rpcRows(data: unknown): ActiveGroupRpcRow[] {
+  if (!Array.isArray(data)) return data ? [data as ActiveGroupRpcRow] : [];
+  return data.filter((row): row is ActiveGroupRpcRow => Boolean(row?.group_id));
+}
+
 function toActiveGroup(row: ActiveGroupRpcRow): ActiveGroup {
   return {
     id: row.group_id,
@@ -98,6 +104,7 @@ export function useActiveGroup() {
   const [loading, setLoading] = useState(!cached);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(cached?.group.id ?? null);
   const [activeGroup, setActiveGroup] = useState<ActiveGroup | null>(cached?.group ?? null);
+  const [groups, setGroups] = useState<ActiveGroup[]>(cached?.group ? [cached.group] : []);
   const [role, setRole] = useState<GroupRole | null>(cached?.role ?? null);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(cached?.userId ?? null);
   const activeGroupRef = useRef<{
@@ -123,6 +130,7 @@ export function useActiveGroup() {
       if (!user || !row?.group_id) {
         setActiveGroupId(null);
         setActiveGroup(null);
+        setGroups([]);
         setRole(null);
         clearActiveGroupCache();
         return false;
@@ -133,6 +141,35 @@ export function useActiveGroup() {
 
       setActiveGroupId(nextGroup.id);
       setActiveGroup(nextGroup);
+      setGroups((currentGroups) => {
+        if (currentGroups.some((group) => group.id === nextGroup.id)) return currentGroups;
+        return [nextGroup, ...currentGroups];
+      });
+      setRole(nextRole);
+      writeActiveGroupCache(user.id, nextGroup, nextRole);
+      return true;
+    },
+    [user],
+  );
+
+  const applyGroupContext = useCallback(
+    (rows: ActiveGroupRpcRow[]) => {
+      if (!user || rows.length === 0) {
+        setActiveGroupId(null);
+        setActiveGroup(null);
+        setGroups([]);
+        setRole(null);
+        clearActiveGroupCache();
+        return false;
+      }
+
+      const activeRow = rows.find((row) => row.is_active) ?? rows[0];
+      const nextGroup = toActiveGroup(activeRow);
+      const nextRole = activeRow.role ?? null;
+
+      setActiveGroupId(nextGroup.id);
+      setActiveGroup(nextGroup);
+      setGroups(rows.map(toActiveGroup));
       setRole(nextRole);
       writeActiveGroupCache(user.id, nextGroup, nextRole);
       return true;
@@ -146,6 +183,7 @@ export function useActiveGroup() {
     if (!user) {
       setActiveGroupId(null);
       setActiveGroup(null);
+      setGroups([]);
       setRole(null);
       setLoadedUserId(null);
       clearActiveGroupCache();
@@ -157,14 +195,14 @@ export function useActiveGroup() {
 
     try {
       const { data, error } = await withTimeout(
-        supabase.rpc("ensure_active_group_for_current_user" as any),
-        "Tempo limite ao carregar o grupo ativo.",
+        supabase.rpc("get_my_group_context" as any),
+        "Tempo limite ao carregar os grupos da conta.",
       );
 
       if (error) throw error;
       if (requestSeq !== requestSeqRef.current) return false;
 
-      return applyResolvedGroup(firstRpcRow(data));
+      return applyGroupContext(rpcRows(data));
     } catch (error) {
       if (requestSeq !== requestSeqRef.current) return false;
 
@@ -177,6 +215,7 @@ export function useActiveGroup() {
 
       setActiveGroupId(null);
       setActiveGroup(null);
+      setGroups([]);
       setRole(null);
       clearActiveGroupCache();
       return false;
@@ -186,7 +225,7 @@ export function useActiveGroup() {
         setLoading(false);
       }
     }
-  }, [applyResolvedGroup, user]);
+  }, [applyGroupContext, user]);
 
   useEffect(() => {
     void refresh();
@@ -211,6 +250,12 @@ export function useActiveGroup() {
 
         const resolved = firstRpcRow(data);
         if (!applyResolvedGroup(resolved)) throw new Error("Grupo nao encontrado para este usuario");
+        setGroups((currentGroups) => {
+          const nextGroup = resolved ? toActiveGroup(resolved) : null;
+          if (!nextGroup) return currentGroups;
+          if (currentGroups.some((group) => group.id === nextGroup.id)) return currentGroups;
+          return [nextGroup, ...currentGroups];
+        });
       } finally {
         if (requestSeq === requestSeqRef.current) {
           setLoadedUserId(user.id);
@@ -229,6 +274,7 @@ export function useActiveGroup() {
     loading: effectiveLoading,
     activeGroupId,
     activeGroup,
+    groups,
     role,
     isAdmin,
     refresh,
