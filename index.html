@@ -129,6 +129,86 @@
       </div>
     </div>
     <div id="root"></div>
+    <script>
+      (function () {
+        var recoveryFlag = "zelo_recovered_from_stale_app";
+
+        function isAppAssetError(event) {
+          var target = event && event.target;
+          var tag = target && target.tagName;
+          var src = target && (target.src || target.href);
+          var message = String((event && (event.message || event.reason)) || "");
+
+          return (
+            (src && (tag === "SCRIPT" || tag === "LINK")) ||
+            /failed to fetch dynamically imported module|importing a module script failed|loading chunk|chunkloaderror|dynamically imported module/i.test(
+              message,
+            )
+          );
+        }
+
+        function clearCachesAndReload() {
+          if (sessionStorage.getItem(recoveryFlag) === "1") return;
+          sessionStorage.setItem(recoveryFlag, "1");
+
+          var clearServiceWorkers =
+            "serviceWorker" in navigator
+              ? navigator.serviceWorker
+                  .getRegistrations()
+                  .then(function (regs) {
+                    return Promise.all(
+                      regs.map(function (registration) {
+                        return registration.unregister();
+                      }),
+                    );
+                  })
+              : Promise.resolve();
+
+          var clearCaches =
+            "caches" in window
+              ? caches.keys().then(function (names) {
+                  return Promise.all(
+                    names.map(function (name) {
+                      return caches.delete(name);
+                    }),
+                  );
+                })
+              : Promise.resolve();
+
+          Promise.all([clearServiceWorkers, clearCaches]).finally(function () {
+            window.location.reload();
+          });
+        }
+
+        window.addEventListener(
+          "error",
+          function (event) {
+            if (isAppAssetError(event)) clearCachesAndReload();
+          },
+          true,
+        );
+
+        window.addEventListener("unhandledrejection", function (event) {
+          if (isAppAssetError(event)) clearCachesAndReload();
+        });
+
+        window.setTimeout(function () {
+          var loader = document.getElementById("app-loading-screen");
+          var root = document.getElementById("root");
+          if (!loader || (root && root.children.length > 0)) return;
+
+          loader.innerHTML =
+            '<div class="app-loading-card">' +
+            '<div class="app-loading-logo"><img src="/logo-zelo-transparent.png" alt="Zelo" /></div>' +
+            '<p style="margin:0;font:600 14px system-ui;color:hsl(var(--foreground, 222 47% 11%));">Atualizando o app...</p>' +
+            '<button type="button" style="border:0;border-radius:999px;padding:10px 16px;background:hsl(var(--primary, 158 64% 52%));color:white;font:700 12px system-ui;letter-spacing:.04em;text-transform:uppercase;">Recarregar</button>' +
+            "</div>";
+
+          var button = loader.querySelector("button");
+          if (button) button.addEventListener("click", clearCachesAndReload);
+        }, 12000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
