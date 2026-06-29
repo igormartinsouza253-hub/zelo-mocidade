@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { PageHeaderProvider } from "@/components/layout/PageHeaderContext";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Membros = lazy(() => import("@/pages/Membros"));
@@ -61,6 +62,18 @@ function PublicRoute({ children }: { children: ReactNode }) {
   );
 }
 
+function ProtectedStandalone({ children }: { children: ReactNode }) {
+  return (
+    <RouteErrorBoundary>
+      <ProtectedRoute>
+        <PageHeaderProvider>
+          <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+        </PageHeaderProvider>
+      </ProtectedRoute>
+    </RouteErrorBoundary>
+  );
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -92,7 +105,7 @@ export function AppRoutes() {
 
       <Route path="/configuracoes" element={<ProtectedLayout><Configuracoes /></ProtectedLayout>} />
       <Route path="/configuracoes/grupo-admin" element={<ProtectedLayout><ConfiguracoesGrupoAdmin /></ProtectedLayout>} />
-      <Route path="/grupo" element={<ProtectedLayout><GrupoGestor /></ProtectedLayout>} />
+      <Route path="/grupo" element={<ProtectedStandalone><GrupoGestor /></ProtectedStandalone>} />
 
       <Route path="/notas" element={<ProtectedLayout><Notas /></ProtectedLayout>} />
       <Route path="/notas/nova" element={<ProtectedLayout><EditorNota /></ProtectedLayout>} />
