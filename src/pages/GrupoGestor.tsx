@@ -101,14 +101,6 @@ export default function GrupoGestor() {
     return () => setConfig(null);
   }, [setConfig]);
 
-  // Se já existe grupo ativo, não mostrar esta página (troca de grupo acontece em Configurações)
-  useEffect(() => {
-    if (loadingActiveGroup) return;
-    if (!activeGroupId) return;
-    if (changeMode) return;
-    navigate("/", { replace: true });
-  }, [activeGroupId, changeMode, loadingActiveGroup, navigate]);
-
   const canContinueToApp = !!activeGroupId;
 
   const loadGroups = async () => {
@@ -164,8 +156,7 @@ export default function GrupoGestor() {
       try {
         const hasGroup = await refresh();
         if (!cancelled && hasGroup) {
-          toast.success("Grupo confirmado! Entrando no app...");
-          navigate("/", { replace: true });
+          toast.success("Grupo confirmado! Toque em Ir para o app.");
         }
       } catch (error) {
         console.error("[GrupoGestor] Erro ao atualizar grupos do usuario", error);
@@ -177,7 +168,7 @@ export default function GrupoGestor() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [activeGroupId, changeMode, navigate, refresh, user]);
+  }, [activeGroupId, changeMode, refresh, user]);
   useEffect(() => {
     void loadPendingRequests().catch((e) => {
       console.error(e);
