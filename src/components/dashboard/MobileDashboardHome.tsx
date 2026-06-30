@@ -98,7 +98,7 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/membros/novo")}
-              className="h-[74px] rounded-2xl border-border/50 bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)] transition-all flex flex-col items-center justify-center gap-1.5"
+              className="flex h-[74px] flex-col items-center justify-center gap-1.5 rounded-3xl border-border/55 bg-card/90 px-2 shadow-[var(--shadow-card)] transition-all hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)]"
             >
               <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
                 <UserPlus className="h-4 w-4" />
@@ -110,7 +110,7 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/reunioes/nova")}
-              className="h-[74px] rounded-2xl border-border/50 bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)] transition-all flex flex-col items-center justify-center gap-1.5"
+              className="flex h-[74px] flex-col items-center justify-center gap-1.5 rounded-3xl border-border/55 bg-card/90 px-2 shadow-[var(--shadow-card)] transition-all hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)]"
             >
               <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
                 <CalendarPlus className="h-4 w-4" />
@@ -122,7 +122,7 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/calendario?new=1")}
-              className="h-[74px] rounded-2xl border-border/50 bg-card px-2 shadow-[var(--shadow-card)] hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)] transition-all flex flex-col items-center justify-center gap-1.5"
+              className="flex h-[74px] flex-col items-center justify-center gap-1.5 rounded-3xl border-border/55 bg-card/90 px-2 shadow-[var(--shadow-card)] transition-all hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)]"
             >
               <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
                 <CalendarDays className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function MobileDashboardHome({
         </section>
 
         <section aria-label="Gráficos" className="w-full">
-          <Card className="bg-card text-card-foreground border-border/50 shadow-[var(--shadow-card)] md:rounded-[2.5rem] overflow-hidden">
+          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
             <div className="p-3">
               <Carousel
                 setApi={(nextApi) => setApi(nextApi)}

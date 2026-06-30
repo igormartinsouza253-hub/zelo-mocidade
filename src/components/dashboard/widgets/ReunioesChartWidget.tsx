@@ -327,16 +327,18 @@ export const ReunioesChartWidget = ({
                       domain={[0, chartMaxTotal]}
                     />
 
-                    <Tooltip
-                      cursor={{ fill: "hsl(var(--muted) / 0.28)" }}
-                      labelFormatter={(label) => formatMeetingLabel(String(label))}
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--popover))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "var(--radius)",
-                        boxShadow: "var(--shadow-soft)",
-                      }}
-                    />
+                    {!compactMobile && (
+                      <Tooltip
+                        cursor={{ fill: "hsl(var(--muted) / 0.28)" }}
+                        labelFormatter={(label) => formatMeetingLabel(String(label))}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--popover))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "var(--radius)",
+                          boxShadow: "var(--shadow-soft)",
+                        }}
+                      />
+                    )}
 
                     <Bar dataKey="Crianças" stackId="a" fill={SERIES_COLORS["Crianças"]} barSize={barSize} radius={[0, 0, 10, 10]}>
                       {visibleMeetings.map((meeting: any, index) => (

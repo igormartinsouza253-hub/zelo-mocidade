@@ -252,23 +252,22 @@ export default function MobileVisitas() {
       breadcrumbs: [{ label: "Início", href: "/" }, { label: "Visitas" }],
       showBackButton: true,
       backTo: "/",
-      primaryActions: (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => setSuggestionsOpen(true)}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Sugestões
-          </Button>
-          <Button size="sm" className="gap-1.5 text-xs" onClick={() => navigate("/visitas/nova")}>
-            <Plus className="h-3.5 w-3.5" />
-            Nova
-          </Button>
-        </>
+      mobileActions: (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={() => setSuggestionsOpen(true)}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+          Sugestoes
+        </Button>
       ),
+      mobilePrimaryAction: {
+        label: "Nova visita",
+        icon: Plus,
+        onClick: () => navigate("/visitas/nova"),
+      },
     });
 
     return () => setConfig(null);
@@ -510,11 +509,6 @@ export default function MobileVisitas() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          <Button size="sm" onClick={() => navigate("/visitas/nova")} className="gap-1.5 text-xs">
-            <Plus className="h-3.5 w-3.5" />
-            Nova visita
-          </Button>
         </div>
 
         {loading ? (

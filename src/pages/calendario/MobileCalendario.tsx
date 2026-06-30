@@ -133,7 +133,7 @@ export default function MobileCalendario() {
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
-      <div className="h-full w-full px-3 py-3 pb-24 overflow-y-auto scrollbar-none space-y-3">
+      <div className="h-full w-full px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+11rem)] overflow-y-auto scrollbar-none space-y-3">
         <p className="text-xs text-muted-foreground">Lista rápida de próximos itens.</p>
 
         {loading ? (

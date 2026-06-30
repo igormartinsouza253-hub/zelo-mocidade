@@ -70,7 +70,6 @@ type MobileMeetingCardProps = {
   onEnterSelection: (id: string) => void;
   onToggleSelected: (id: string) => void;
   onOpen: (id: string) => void;
-  recitativosColor: string;
   formatDateMobile: (date: string) => string;
 };
 
@@ -81,7 +80,6 @@ function MobileMeetingCard({
   onEnterSelection,
   onToggleSelected,
   onOpen,
-  recitativosColor,
   formatDateMobile,
 }: MobileMeetingCardProps) {
   const longPress = useLongPress({
@@ -91,23 +89,26 @@ function MobileMeetingCard({
   return (
     <Card
       className={
-        "shadow-[var(--shadow-soft)] border-border/50 hover:shadow-[var(--shadow-elevated)] transition-all cursor-pointer " +
-        (selectionMode && isSelected ? "border-primary bg-primary/5" : "")
+        "w-full cursor-pointer rounded-3xl border border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm transition-all hover:border-primary/35 active:bg-accent/25 " +
+        (selectionMode && isSelected ? "border-primary bg-primary/10" : "")
       }
       onClick={() => (selectionMode ? onToggleSelected(reuniao.id) : onOpen(reuniao.id))}
       {...longPress}
     >
-      <CardContent className="flex items-center gap-3 p-3">
-        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+      <CardContent className="flex min-h-[76px] items-center gap-3 p-3">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
           <Calendar className="h-5 w-5 text-primary" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">{formatDateMobile(reuniao.data)}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{reuniao.totalParticipantes} participantes</p>
-          <p className="text-[10px] font-semibold" style={{ color: recitativosColor }}>
-            Rec: {reuniao.totalRecitativos}
-          </p>
+          <h3 className="truncate text-sm font-bold text-foreground">{formatDateMobile(reuniao.data)}</h3>
+          <p className="mt-0.5 text-xs font-medium text-muted-foreground">{reuniao.totalParticipantes} participantes</p>
+          <div className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+            <span>Rec:</span>
+            <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-primary">
+              {reuniao.totalRecitativos}
+            </span>
+          </div>
         </div>
 
         {selectionMode ? (
@@ -238,18 +239,22 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
             type="button"
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-xl border border-border bg-card hover:bg-accent/60"
-            aria-label="Filtros e ordenação"
+            className="h-8 w-8 rounded-xl border border-border/70 bg-background/70 text-foreground hover:bg-accent/35"
+            aria-label="Filtros e ordena\u00e7\u00e3o"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuContent
+          align="end"
+          sideOffset={18}
+          className="w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
+        >
           <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-            <div className="text-xs font-semibold text-foreground">Filtros e ordenação</div>
+            <div className="text-xs font-semibold text-foreground">{"Filtros e ordena\u00e7\u00e3o"}</div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Período</Label>
+              <Label className="text-xs">{"Per\u00edodo"}</Label>
               <Select
                 value={quickFilter}
                 onValueChange={(value: "all" | "this-month" | "last-3-months") => {
@@ -378,7 +383,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           type="button"
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-xl border border-border bg-card hover:bg-accent/60"
+          className="h-8 w-8 rounded-xl border border-border/70 bg-background/70 text-foreground hover:bg-accent/35"
           onClick={clearSelection}
           aria-label="Cancelar seleção"
         >
@@ -388,7 +393,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           type="button"
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-xl border border-border bg-card hover:bg-accent/60"
+          className="h-8 w-8 rounded-xl border border-border/70 bg-background/70 text-foreground hover:bg-accent/35"
           onClick={handleDeleteSelected}
           aria-label="Excluir selecionadas"
         >
@@ -398,7 +403,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           type="button"
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-xl border border-border bg-card hover:bg-accent/60"
+          className="h-8 w-8 rounded-xl border border-border/70 bg-background/70 text-foreground hover:bg-accent/35"
           onClick={handleEditSelected}
           disabled={selectedIds.length !== 1}
           aria-label="Editar selecionada"
@@ -415,6 +420,21 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
       breadcrumbs: [{ label: "Início", href: "/" }, { label: "Reuniões" }],
       showBackButton: true,
       backTo: "/",
+      mobileSearch: isMobile
+        ? {
+            value: searchTerm,
+            onChange: setSearchTerm,
+            placeholder: "Buscar...",
+            menu: selectionMode ? selectionActions : mobileFiltersMenu,
+          }
+        : undefined,
+      mobilePrimaryAction: isMobile && !selectionMode
+        ? {
+            label: "Nova reuni\u00e3o",
+            icon: Plus,
+            onClick: () => navigate("/reunioes/nova"),
+          }
+        : undefined,
       primaryActions: !isMobile ? (
         <Button
           size="sm"
@@ -425,7 +445,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           Nova reunião
         </Button>
       ) : null,
-      secondaryActions: isMobile ? (selectionMode ? selectionActions : mobileFiltersMenu) : (
+      secondaryActions: !isMobile ? (
         <Select
           value={quickFilter}
           onValueChange={(value: "all" | "this-month" | "last-3-months") => {
@@ -451,7 +471,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
             <SelectItem value="last-3-months">Últimos 3 meses</SelectItem>
           </SelectContent>
         </Select>
-      ),
+      ) : null,
     });
 
     return () => setConfig(null);
@@ -463,6 +483,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     selectedMonth,
     selectedYear,
     sortOrder,
+    searchTerm,
     selectionMode,
     selectedIds,
     selectedReuniao,
@@ -533,13 +554,31 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
       });
     }
 
-    const term = searchTerm.toLowerCase().trim();
+    const normalizeSearch = (value: string) =>
+      value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+
+    const term = normalizeSearch(searchTerm);
     if (term) {
       filtered = filtered.filter((r) => {
-        const tema = (r.tema || "").toLowerCase();
-        const dataBr = formatDateLocal(r.data).toLowerCase();
+        const tema = normalizeSearch(r.tema || "");
+        const dataBr = normalizeSearch(formatDateLocal(r.data));
         const dataIso = r.data.toLowerCase();
-        return tema.includes(term) || dataBr.includes(term) || dataIso.includes(term);
+        const day = Number(r.data.substring(8, 10));
+        const month = Number(r.data.substring(5, 7));
+        const typedNumber = /^\d{1,2}$/.test(term) ? Number(term) : null;
+        const monthName = normalizeSearch(monthNames[month - 1] || "");
+
+        return (
+          tema.includes(term) ||
+          dataBr.includes(term) ||
+          dataIso.includes(term) ||
+          (typedNumber !== null && typedNumber >= 1 && typedNumber <= 31 && day === typedNumber) ||
+          (!!monthName && monthName.includes(term))
+        );
       });
     }
 
@@ -700,28 +739,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <Card>
-            <CardContent className="py-3">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por tema ou data..."
-                    className="pl-8 h-9 text-sm"
-                  />
-                </div>
-                {filteredReunioes.length > 0 && !loading && (
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {filteredReunioes.length}
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        ) : null}
 
         <div className="flex-1 min-h-0 mt-2 md:mt-3">
           {isSplitView ? (
@@ -898,7 +916,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                     <div className="text-center py-12">
                       <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">
-                        Nenhuma reunião encontrada com os filtros selecionados
+                        {"Nenhuma reuni\u00e3o encontrada com os filtros selecionados"}
                       </p>
                     </div>
                   )}
@@ -1048,14 +1066,14 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                     </Card>
                   ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                      Selecione uma reunião na lista ao lado para ver os detalhes
+                      {"Selecione uma reuni\u00e3o na lista ao lado para ver os detalhes"}
                     </div>
                   )}
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
           ) : (
-            <div className="space-y-3 h-full overflow-y-auto pb-16 md:pb-4 scrollbar-none pr-1 md:pr-2">
+            <div className="mx-auto h-full w-full max-w-[22rem] space-y-3 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+11rem)] pr-0 scrollbar-none md:max-w-none md:pb-4 md:pr-2">
               {loading && (
                 <>
                   {[1, 2, 3].map((i) => (
@@ -1098,7 +1116,6 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                     reuniao={reuniao}
                     isSelected={selectedIds.includes(reuniao.id)}
                     selectionMode={selectionMode}
-                    recitativosColor={AGE_GROUP_COLORS.Recitativos}
                     formatDateMobile={formatDateMobile}
                     onEnterSelection={(id) => {
                       if (!isMobile) return;
@@ -1122,27 +1139,16 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
               {!loading && filteredReunioes.length === 0 && (
                 <div className="text-center py-12">
                   <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Nenhuma reunião encontrada com os filtros selecionados</p>
+                  <p className="text-muted-foreground">{"Nenhuma reuni\u00e3o encontrada com os filtros selecionados"}</p>
                 </div>
               )}
             </div>
           )}
         </div>
-
-        {/* Botão flutuante de adicionar (Mobile) */}
-        {isMobile && (
-          <button
-            type="button"
-            onClick={() => navigate("/reunioes/nova")}
-            className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] flex items-center justify-center"
-            aria-label="Adicionar reunião"
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-        )}
       </div>
     </div>
   );
 };
 
 export default Reunioes;
+

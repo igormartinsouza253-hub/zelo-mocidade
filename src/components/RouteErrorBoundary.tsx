@@ -2,7 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import logoSource from "@/assets/logo-zelo-transparent.png";
+import { ZeloLogo } from "@/components/ZeloLogo";
 
 type RouteErrorBoundaryProps = {
   children: ReactNode;
@@ -29,9 +29,7 @@ export class RouteErrorBoundary extends Component<RouteErrorBoundaryProps, Route
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
         <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 text-center shadow-[var(--shadow-card)]">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary p-3">
-            <img src={logoSource} alt="Zelo" className="h-full w-full object-contain" />
-          </div>
+          <ZeloLogo className="h-20 w-20 p-3" />
           <div className="space-y-1">
             <h1 className="text-lg font-bold">O app precisou recarregar</h1>
             <p className="text-sm text-muted-foreground">

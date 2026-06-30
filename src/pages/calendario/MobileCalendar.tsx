@@ -15,7 +15,7 @@ import {
   subMonths,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -337,6 +337,7 @@ export default function MobileCalendar() {
   const [showTipoAjuntamento, setShowTipoAjuntamento] = useState(true);
   const [showTipoSaida, setShowTipoSaida] = useState(true);
   const [showTipoVisitaAgenda, setShowTipoVisitaAgenda] = useState(true);
+  const [calendarSearch, setCalendarSearch] = useState("");
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const longPressTimer = useRef<number | null>(null);
@@ -345,13 +346,76 @@ export default function MobileCalendar() {
     setConfig({
       title: "Agenda",
       icon: CalendarDays,
-      breadcrumbs: [{ label: "Início", href: "/" }, { label: "Agenda" }],
+      breadcrumbs: [{ label: "Inicio", href: "/" }, { label: "Agenda" }],
       showBackButton: true,
       backTo: "/",
+      mobileSearch: {
+        value: calendarSearch,
+        onChange: setCalendarSearch,
+        placeholder: "Buscar...",
+        menu: (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="inline-flex items-center justify-center border border-border/70 bg-background/70 text-foreground transition-colors hover:bg-accent/35" aria-label="Filtros">
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={18}
+              className="w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
+            >
+              <DropdownMenuLabel>Exibir</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={showEventos} onCheckedChange={(v) => setShowEventos(!!v)}>
+                Eventos
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={showReunioes} onCheckedChange={(v) => setShowReunioes(!!v)}>
+                Reunioes
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={showVisitasRegistradas} onCheckedChange={(v) => setShowVisitasRegistradas(!!v)}>
+                Visitas
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={showAniversarios} onCheckedChange={(v) => setShowAniversarios(!!v)}>
+                Aniversarios
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Tipos de evento</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={showTipoAjuntamento} onCheckedChange={(v) => setShowTipoAjuntamento(!!v)} disabled={!showEventos}>
+                Ajuntamento
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={showTipoSaida} onCheckedChange={(v) => setShowTipoSaida(!!v)} disabled={!showEventos}>
+                Saida
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={showTipoVisitaAgenda} onCheckedChange={(v) => setShowTipoVisitaAgenda(!!v)} disabled={!showEventos}>
+                Visita (agenda)
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+      mobilePrimaryAction: {
+        label: "Novo evento",
+        icon: Plus,
+        onClick: () => {
+          setEditingEvent(null);
+          setUpsertDefaultISO(selectedDay.toISOString());
+          setUpsertOpen(true);
+        },
+      },
     });
     return () => setConfig(null);
-  }, [setConfig]);
-
+  }, [
+    calendarSearch,
+    selectedDay,
+    setConfig,
+    showAniversarios,
+    showEventos,
+    showReunioes,
+    showTipoAjuntamento,
+    showTipoSaida,
+    showTipoVisitaAgenda,
+    showVisitasRegistradas,
+  ]);
   useEffect(() => {
     localStorage.setItem("mobileCalendarMonthV1", monthCursor.toISOString());
   }, [monthCursor]);
@@ -603,8 +667,29 @@ export default function MobileCalendar() {
     return showAniversarios;
   };
 
-  const filteredAllItems = useMemo(() => allItems.filter(isItemVisible), [
+  const matchesCalendarSearch = (it: MobileCalendarItem) => {
+    const term = calendarSearch.trim().toLowerCase();
+    if (!term) return true;
+
+    const haystack = [
+      it.title,
+      it.kind === "evento" ? it.descricao : undefined,
+      it.kind === "evento" ? it.local : undefined,
+      it.kind === "reuniao" ? it.theme : undefined,
+      it.kind === "visita_registrada" ? it.motivo : undefined,
+      it.kind === "visita_registrada" ? it.observacoes : undefined,
+      format(it.start, "dd/MM/yyyy", { locale: ptBR }),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(term);
+  };
+
+  const filteredAllItems = useMemo(() => allItems.filter((item) => isItemVisible(item) && matchesCalendarSearch(item)), [
     allItems,
+    calendarSearch,
     showAniversarios,
     showEventos,
     showReunioes,
@@ -803,7 +888,7 @@ export default function MobileCalendar() {
         onDeleted={() => setMonthCursor((d) => new Date(d))}
       />
 
-      <div className="h-full w-full pb-24 overflow-y-auto scrollbar-none">
+      <div className="h-full w-full pb-[calc(env(safe-area-inset-bottom)+11rem)] overflow-y-auto scrollbar-none">
         {/* Header fixo */}
         <div className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
           <div className="px-3 py-3 flex items-center justify-between gap-2">
@@ -898,55 +983,6 @@ export default function MobileCalendar() {
             </div>
 
             <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="icon" className="h-9 w-9" aria-label="Filtros">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
-                  <DropdownMenuLabel>Exibir</DropdownMenuLabel>
-                  <DropdownMenuCheckboxItem checked={showEventos} onCheckedChange={(v) => setShowEventos(!!v)}>
-                    Eventos
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem checked={showReunioes} onCheckedChange={(v) => setShowReunioes(!!v)}>
-                    Reuniões
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={showVisitasRegistradas}
-                    onCheckedChange={(v) => setShowVisitasRegistradas(!!v)}
-                  >
-                    Visitas
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem checked={showAniversarios} onCheckedChange={(v) => setShowAniversarios(!!v)}>
-                    Aniversários
-                  </DropdownMenuCheckboxItem>
-
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Tipos de evento</DropdownMenuLabel>
-                  <DropdownMenuCheckboxItem
-                    checked={showTipoAjuntamento}
-                    onCheckedChange={(v) => setShowTipoAjuntamento(!!v)}
-                    disabled={!showEventos}
-                  >
-                    Ajuntamento
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={showTipoSaida}
-                    onCheckedChange={(v) => setShowTipoSaida(!!v)}
-                    disabled={!showEventos}
-                  >
-                    Saída
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={showTipoVisitaAgenda}
-                    onCheckedChange={(v) => setShowTipoVisitaAgenda(!!v)}
-                    disabled={!showEventos}
-                  >
-                    Visita (agenda)
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
 
               <Button
                 type="button"
@@ -1157,3 +1193,4 @@ export default function MobileCalendar() {
     </div>
   );
 }
+

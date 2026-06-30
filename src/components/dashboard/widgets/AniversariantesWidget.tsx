@@ -56,7 +56,7 @@ export const AniversariantesWidget = ({
   if (size === "sm") {
     return (
       <Card
-        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex items-center justify-center cursor-pointer md:rounded-xl"
+        className="flex h-full cursor-pointer items-center justify-center rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]"
         onClick={() => navigate("/calendario")}
       >
         <CardContent className="flex flex-col items-center justify-center gap-1.5 px-3 pb-3 pt-2">
@@ -76,7 +76,7 @@ export const AniversariantesWidget = ({
 
     return (
       <Card
-        className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl overflow-hidden"
+        className="flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]"
         onClick={() => navigate("/calendario")}
       >
         <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex flex-row items-center justify-between gap-2"}>
@@ -135,12 +135,12 @@ export const AniversariantesWidget = ({
                     {aniversariantesHoje.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/5 px-3 py-2 text-sm md:rounded-lg"
+                        className="flex items-center justify-between rounded-2xl border border-primary/25 bg-primary/10 px-3 py-2 text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={item.foto_url || undefined} alt={item.nome} />
-                            <AvatarFallback>{item.nome.charAt(0)}</AvatarFallback>
+                          <Avatar className="h-8 w-8 rounded-xl border border-border/50">
+                            <AvatarImage className="rounded-xl object-cover" src={item.foto_url || undefined} alt={item.nome} />
+                            <AvatarFallback className="rounded-xl">{item.nome.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col min-w-0">
                             <span className="truncate font-semibold text-foreground">
@@ -164,12 +164,12 @@ export const AniversariantesWidget = ({
                     {proximos.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/40"
+                        className="flex items-center justify-between rounded-2xl border border-border/55 bg-card/70 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={item.foto_url || undefined} alt={item.nome} />
-                            <AvatarFallback>{item.nome.charAt(0)}</AvatarFallback>
+                          <Avatar className="h-8 w-8 rounded-xl border border-border/50">
+                            <AvatarImage className="rounded-xl object-cover" src={item.foto_url || undefined} alt={item.nome} />
+                            <AvatarFallback className="rounded-xl">{item.nome.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col min-w-0">
                             <span className="truncate font-medium text-foreground">
@@ -205,7 +205,7 @@ export const AniversariantesWidget = ({
 
   return (
     <Card
-      className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col cursor-pointer md:rounded-xl overflow-hidden"
+      className="flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]"
       onClick={() => navigate("/calendario")}
     >
       <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex flex-row items-center justify-between px-3"}>
@@ -263,9 +263,9 @@ export const AniversariantesWidget = ({
                       className="flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Avatar className="h-7 w-7">
-                          <AvatarImage src={item.foto_url || undefined} alt={item.nome} />
-                          <AvatarFallback>{item.nome.charAt(0)}</AvatarFallback>
+                        <Avatar className="h-8 w-8 rounded-xl border border-border/50">
+                          <AvatarImage className="rounded-xl object-cover" src={item.foto_url || undefined} alt={item.nome} />
+                          <AvatarFallback className="rounded-xl">{item.nome.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col min-w-0">
                           <span className="truncate font-semibold text-foreground">
@@ -289,12 +289,12 @@ export const AniversariantesWidget = ({
                   {proximos.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-3 py-2 text-sm transition-colors hover:bg-accent/40"
+                      className="flex items-center justify-between rounded-2xl border border-border/55 bg-card/70 px-3 py-2 text-sm transition-colors hover:bg-accent/40"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Avatar className="h-7 w-7">
-                          <AvatarImage src={item.foto_url || undefined} alt={item.nome} />
-                          <AvatarFallback>{item.nome.charAt(0)}</AvatarFallback>
+                        <Avatar className="h-8 w-8 rounded-xl border border-border/50">
+                          <AvatarImage className="rounded-xl object-cover" src={item.foto_url || undefined} alt={item.nome} />
+                          <AvatarFallback className="rounded-xl">{item.nome.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col min-w-0">
                           <span className="truncate font-medium text-foreground">

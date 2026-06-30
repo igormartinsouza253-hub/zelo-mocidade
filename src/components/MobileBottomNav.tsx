@@ -1,7 +1,5 @@
 import React from "react";
-import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Award,
   BarChart3,
@@ -16,6 +14,9 @@ import {
   Users,
 } from "lucide-react";
 
+import { NavLink } from "@/components/NavLink";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 type DockItem = {
   id: string;
   label: string;
@@ -24,25 +25,21 @@ type DockItem = {
 };
 
 const FIXED_DOCK: DockItem[] = [
-  { id: "home", label: "Início", url: "/", icon: Home },
+  { id: "home", label: "Inicio", url: "/", icon: Home },
   { id: "membros", label: "Membros", url: "/membros", icon: Users },
-  { id: "reunioes", label: "Reuniões", url: "/reunioes", icon: Handshake },
+  { id: "reunioes", label: "Reuni\u00f5es", url: "/reunioes", icon: Handshake },
   { id: "calendario", label: "Agenda", url: "/calendario", icon: CalendarDays },
 ];
 
-// Páginas que vão para o menu (as que não estão na dock fixa)
 const MENU_PAGES: DockItem[] = [
-  // Mantém aqui as rotas principais que existem hoje e não estão na dock fixa.
-  // Ordem por uso/importance (ajustável conforme feedback)
   { id: "notas", label: "Notas", url: "/notas", icon: StickyNote },
   { id: "visitas", label: "Visitas", url: "/visitas", icon: MapPin },
-
-  { id: "estatisticas", label: "Estatísticas", url: "/estatisticas", icon: BarChart3 },
+  { id: "estatisticas", label: "Estat\u00edsticas", url: "/estatisticas", icon: BarChart3 },
   { id: "busca", label: "Busca", url: "/busca", icon: Search },
-
   { id: "cargos", label: "Cargos", url: "/cargos", icon: Award },
-  { id: "config", label: "Configurações", url: "/configuracoes", icon: Settings },
+  { id: "config", label: "Config.", url: "/configuracoes", icon: Settings },
 ];
+
 export function MobileBottomNav() {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -53,30 +50,30 @@ export function MobileBottomNav() {
   };
 
   return (
-    <nav className="md:hidden fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-50 flex justify-center pointer-events-none">
-      <div className="pointer-events-auto flex items-end gap-2">
-        {/* Dock retangular arredondada (menos curva que a atual) */}
-        <div className="inline-flex rounded-2xl bg-background/82 border border-border/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 shadow-[var(--shadow-card)]">
-          <div className="flex h-[52px] items-center gap-1 px-2 py-1.5">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.625rem)] z-50 flex justify-center px-4 md:hidden">
+      <div className="pointer-events-auto flex w-full max-w-[22rem] items-end gap-2">
+        <div className="min-w-0 flex-1 rounded-3xl border border-border/65 bg-background/95 shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+          <div className="flex h-16 items-center gap-1.5 px-2 py-2">
             {FIXED_DOCK.map((item) => {
               const active = isActive(item.url);
               const Icon = item.icon;
+
               return (
                 <NavLink
                   key={item.id}
                   to={item.url}
-                    end={item.url === "/"}
-                    className="h-full flex items-center justify-center"
+                  end={item.url === "/"}
+                  className="h-full min-w-0 flex-1"
                 >
                   <div
-                    className={`flex h-10 w-[52px] flex-col items-center justify-center rounded-xl transition-colors ${
+                    className={`flex h-full w-full flex-col items-center justify-center rounded-2xl transition-colors ${
                       active
                         ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground"
+                        : "text-muted-foreground hover:bg-accent/40"
                     }`}
                   >
-                    <Icon className="h-[18px] w-[18px]" />
-                    <span className="text-[9px] leading-none mt-1 font-medium">
+                    <Icon className="h-5 w-5" />
+                    <span className="mt-1 text-[10px] font-semibold leading-none">
                       {item.label}
                     </span>
                   </div>
@@ -86,22 +83,24 @@ export function MobileBottomNav() {
           </div>
         </div>
 
-        {/* Botão de Menu quadrado arredondado */}
         <Popover>
           <PopoverTrigger asChild>
             {(() => {
-              const fixedActive = FIXED_DOCK.some((d) => isActive(d.url));
-              const activeMenu = MENU_PAGES.find((p) => isActive(p.url));
+              const fixedActive = FIXED_DOCK.some((item) => isActive(item.url));
+              const activeMenu = MENU_PAGES.find((item) => isActive(item.url));
               const MenuIcon = !fixedActive && activeMenu ? activeMenu.icon : LayoutGrid;
               const label = !fixedActive && activeMenu ? activeMenu.label : "Menu";
 
               return (
                 <button
                   type="button"
-                  className="h-[52px] w-[52px] rounded-2xl bg-background/82 border border-border/50 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70 shadow-[var(--shadow-card)] flex items-center justify-center text-foreground"
+                  className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-3xl border border-border/65 bg-background/95 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl transition-colors hover:bg-accent/40 supports-[backdrop-filter]:bg-background/90"
                   aria-label={fixedActive ? "Abrir menu" : `Abrir menu (${label})`}
                 >
                   <MenuIcon className="h-5 w-5" />
+                  <span className="mt-1 text-[10px] font-semibold leading-none">
+                    Menu
+                  </span>
                 </button>
               );
             })()}
@@ -109,24 +108,24 @@ export function MobileBottomNav() {
           <PopoverContent
             side="top"
             align="end"
-            sideOffset={10}
-            className="w-[88vw] max-w-sm rounded-2xl border border-border/50 bg-popover/95 backdrop-blur-xl supports-[backdrop-filter]:bg-popover/80 shadow-[var(--shadow-card)] p-3"
+            sideOffset={12}
+            className="w-[calc(100vw-2rem)] max-w-[22rem] rounded-3xl border border-border/55 bg-background/98 p-3 shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
           >
-            <div className="grid grid-cols-3 gap-2">
-              {MENU_PAGES.map((p) => {
-                const Icon = p.icon;
+            <div className="grid grid-cols-3 gap-2.5">
+              {MENU_PAGES.map((item) => {
+                const Icon = item.icon;
+
                 return (
                   <NavLink
-                    key={p.id}
-                    to={p.url}
-                    className="rounded-xl border border-border bg-card hover:bg-accent/30 transition-colors p-3 min-h-[92px] flex flex-col items-center justify-center gap-2"
+                    key={item.id}
+                    to={item.url}
+                    className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card/72 p-2.5 transition-colors hover:bg-accent/40"
                   >
-                    {/* Ícone sempre com alto contraste (preto no claro / branco no escuro) */}
-                    <span className="h-11 w-11 rounded-xl bg-primary text-foreground flex items-center justify-center shadow-[var(--shadow-card)]">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-card)]">
                       <Icon className="h-5 w-5" />
                     </span>
-                    <span className="w-full text-center text-[11px] font-medium text-muted-foreground leading-tight truncate">
-                      {p.label}
+                    <span className="w-full truncate text-center text-[11px] font-semibold leading-tight text-muted-foreground">
+                      {item.label}
                     </span>
                   </NavLink>
                 );

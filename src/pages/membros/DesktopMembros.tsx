@@ -162,6 +162,24 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   }, [isMobile, selectionMode]);
 
   useEffect(() => {
+    if (!isMobile) return;
+
+    window.dispatchEvent(
+      new CustomEvent("mobileDockVisibility", {
+        detail: { hidden: selectionMode },
+      }),
+    );
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("mobileDockVisibility", {
+          detail: { hidden: false },
+        }),
+      );
+    };
+  }, [isMobile, selectionMode]);
+
+  useEffect(() => {
     setConfig({
       title: "Membros",
       icon: Users,
@@ -171,6 +189,100 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
       ],
       showBackButton: true,
       backTo: "/",
+      mobileSearch: isMobile
+        ? {
+            value: search,
+            onChange: setSearch,
+            placeholder: "Buscar...",
+            menu: (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center border border-border/70 bg-background/70 text-foreground transition-colors hover:bg-accent/35"
+                    aria-label="Opcoes"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={18}
+                  className="w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
+                >
+                  <div className="px-2 py-2 space-y-2">
+                    <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+                      <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                        <SelectTrigger className="h-9 w-full text-xs rounded-2xl">
+                          <ArrowUpDown className="h-3.5 w-3.5 mr-2" />
+                          <SelectValue placeholder="Ordenar por" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nome">Nome</SelectItem>
+                          <SelectItem value="idade">Idade</SelectItem>
+                          <SelectItem value="frequencia">Frequencia</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <button
+                        type="button"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border bg-background text-foreground"
+                        onClick={toggleSortDirection}
+                        title={sortDirection === "asc" ? "Ordem crescente" : "Ordem decrescente"}
+                      >
+                        {sortDirection === "asc" ? (
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                    className="w-full inline-flex items-center justify-between gap-2 rounded-2xl border border-border bg-background px-3 h-9 text-xs text-foreground transition-colors hover:bg-accent/35"
+                      onClick={() => {
+                        const next = selectedCargos.length || selectedFaixas.length || showInactive;
+                        if (next) {
+                          clearFilters();
+                          setShowInactive(false);
+                        }
+                      }}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Filter className="h-3.5 w-3.5" />
+                        {selectedCargos.length || selectedFaixas.length || showInactive ? "Limpar filtros" : "Sem filtros ativos"}
+                      </span>
+                      {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
+                        <span className="px-1.5 py-0.5 text-[10px] bg-primary text-primary-foreground rounded-full">
+                          {selectedCargos.length + selectedFaixas.length + (showInactive ? 1 : 0)}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSelectionMode((prev) => !prev);
+                      setSelectedIds([]);
+                    }}
+                  >
+                    {selectionMode ? "Sair do modo selecao" : "Selecionar para excluir"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ),
+          }
+        : undefined,
+      mobilePrimaryAction: isMobile
+        ? {
+            label: "Novo membro",
+            icon: Plus,
+            onClick: () => navigate("/membros/novo"),
+          }
+        : undefined,
       // No desktop, os controles ficam todos na barra superior (uma linha).
       // No mobile, mantemos os controles dentro da página para não lotar o header.
       primaryActions: !isMobile ? (
@@ -203,7 +315,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
             <SelectContent>
               <SelectItem value="nome">Nome</SelectItem>
               <SelectItem value="idade">Idade</SelectItem>
-              <SelectItem value="frequencia">Frequência</SelectItem>
+              <SelectItem value="frequencia">Frequencia</SelectItem>
             </SelectContent>
           </Select>
 
@@ -322,7 +434,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                 variant="outline"
                 size="icon"
                 className="h-9 w-9"
-                aria-label="Mais opções"
+                aria-label="Opcoes"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -334,7 +446,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                   setSelectedIds([]);
                 }}
               >
-                {selectionMode ? "Sair do modo seleção" : "Selecionar para excluir"}
+                {selectionMode ? "Sair do modo selecao" : "Selecionar para excluir"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -625,195 +737,6 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   return (
     <div className="h-full w-full bg-background overflow-hidden">
       <div className="flex flex-col h-full px-3 py-3 md:px-4 md:py-4 gap-0">
-        {/* Controles (Mobile): busca no topo + menu 3 pontos (compacto) */}
-        {isMobile && (
-          <div className="mb-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar membro..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-10 pl-9 rounded-2xl"
-                />
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background text-foreground"
-                    aria-label="Opções"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72">
-                  <div className="px-2 py-2 space-y-2">
-                    <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
-                      <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                        <SelectTrigger className="h-9 w-full text-xs rounded-2xl">
-                          <ArrowUpDown className="h-3.5 w-3.5 mr-2" />
-                          <SelectValue placeholder="Ordenar por" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="nome">Nome</SelectItem>
-                          <SelectItem value="idade">Idade</SelectItem>
-                          <SelectItem value="frequencia">Frequência</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <button
-                        type="button"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border bg-background text-foreground"
-                        onClick={toggleSortDirection}
-                        title={sortDirection === "asc" ? "Ordem crescente" : "Ordem decrescente"}
-                      >
-                        {sortDirection === "asc" ? (
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="w-full inline-flex items-center justify-between gap-2 rounded-2xl border border-border bg-background px-3 h-9 text-xs"
-                        >
-                          <span className="inline-flex items-center gap-2">
-                            <Filter className="h-3.5 w-3.5" />
-                            Filtros
-                          </span>
-                          {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
-                            <span className="px-1.5 py-0.5 text-[10px] bg-primary text-primary-foreground rounded-full">
-                              {selectedCargos.length + selectedFaixas.length + (showInactive ? 1 : 0)}
-                            </span>
-                          )}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80" align="end">
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-semibold text-sm">Filtros</h4>
-                            {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
-                              <button
-                                className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
-                                onClick={() => {
-                                  clearFilters();
-                                  setShowInactive(false);
-                                }}
-                              >
-                                Limpar
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Cargos</Label>
-                            <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                              {cargosDisponiveis.map((cargo) => (
-                                <div key={cargo.id} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`filter-cargo-${cargo.id}`}
-                                    checked={selectedCargos.includes(cargo.nome)}
-                                    onCheckedChange={() => toggleCargo(cargo.nome)}
-                                  />
-                                  <label
-                                    htmlFor={`filter-cargo-${cargo.id}`}
-                                    className="text-sm leading-none cursor-pointer"
-                                  >
-                                    {cargo.nome}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Faixa Etária</Label>
-                            <div className="space-y-2">
-                              {faixasEtarias.map((faixa) => (
-                                <div key={faixa} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`filter-faixa-${faixa}`}
-                                    checked={selectedFaixas.includes(faixa)}
-                                    onCheckedChange={() => toggleFaixa(faixa)}
-                                  />
-                                  <label
-                                    htmlFor={`filter-faixa-${faixa}`}
-                                    className="text-sm leading-none cursor-pointer"
-                                  >
-                                    {faixa}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Exibição</Label>
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="filter-show-inactive-mobile"
-                                checked={showInactive}
-                                onCheckedChange={(checked) => setShowInactive(Boolean(checked))}
-                              />
-                              <label
-                                htmlFor="filter-show-inactive-mobile"
-                                className="text-sm leading-none cursor-pointer"
-                              >
-                                Mostrar inativos
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSelectionMode((prev) => !prev);
-                      setSelectedIds([]);
-                    }}
-                  >
-                    {selectionMode ? "Sair do modo seleção" : "Selecionar para excluir"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
-              <div className="flex flex-wrap gap-2">
-                {selectedCargos.map((cargo) => (
-                  <Badge key={cargo} variant="secondary" className="gap-1">
-                    {cargo}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => removeCargo(cargo)} />
-                  </Badge>
-                ))}
-                {selectedFaixas.map((faixa) => (
-                  <Badge key={faixa} variant="secondary" className="gap-1">
-                    {faixa}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => removeFaixa(faixa)} />
-                  </Badge>
-                ))}
-                {showInactive && (
-                  <Badge variant="secondary" className="gap-1">
-                    Inativos
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setShowInactive(false)} />
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Chips de filtros (Desktop): mantém visível sem duplicar botões */}
         {!isMobile && (selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
           <div className="mb-3 flex flex-wrap gap-2">
@@ -908,9 +831,11 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                       <div
                         key={membro.id}
                         className={cn(
-                          "shadow-[var(--shadow-soft)] border border-border/50 hover:shadow-[var(--shadow-elevated)] transition-all cursor-pointer bg-card",
-                          isMobile ? "rounded-2xl" : "rounded-3xl",
-                          selectedMembro?.id === membro.id && "border-primary bg-primary/5",
+                          "cursor-pointer border transition-all",
+                          isMobile
+                            ? "rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm hover:border-primary/35 active:bg-accent/25"
+                            : "rounded-3xl border-border/50 bg-card shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elevated)]",
+                          selectedMembro?.id === membro.id && "border-primary bg-primary/10",
                         )}
                         onClick={() => {
                           setSelectedMembro(membro);
@@ -918,7 +843,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                       >
                         <div
                           className={cn(
-                            "flex items-center gap-3 md:gap-4 p-2 md:p-3",
+                            "flex items-center gap-3 md:gap-4 p-3 md:p-3",
                             listMode === "comfortable" && "md:p-3.5",
                           )}
                         >
@@ -934,9 +859,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               />
                             </div>
                           )}
-                          <Avatar className="h-10 w-10 md:h-11 md:w-11 flex-shrink-0">
-                            <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-sm md:text-base">
+                          <Avatar className="h-11 w-11 flex-shrink-0 rounded-2xl border border-border/55 bg-primary/10 md:h-11 md:w-11">
+                            <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
+                            <AvatarFallback className="rounded-2xl bg-primary/10 text-sm font-semibold text-primary md:text-base">
                               {membro.nome.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
@@ -957,20 +882,20 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                                   {calcularIdade(membro.data_nascimento) && (
                                     <>
                                       <span>{calcularIdade(membro.data_nascimento)} anos</span>
-                                      <span>•</span>
+                                      <span>/</span>
                                     </>
                                   )}
                                   {membro.cargos && membro.cargos.length > 0 && (
                                     <>
                                       <span className="truncate">{membro.cargos[0]}</span>
-                                      <span>•</span>
+                                      <span>/</span>
                                     </>
                                   )}
                                   <span className="capitalize">{membro.faixa_etaria}</span>
                                 </div>
                                 <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <span>Presenças:</span>
-                                  <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                                  <span>{"Presen\u00e7as:"}</span>
+                                  <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                     {membro.presencas ?? 0}
                                   </span>
                                 </div>
@@ -981,8 +906,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                                   {membro.faixa_etaria}
                                 </p>
                                 <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <span>Presenças:</span>
-                                  <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                                  <span>{"Presen\u00e7as:"}</span>
+                                  <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                     {membro.presencas ?? 0}
                                   </span>
                                 </div>
@@ -997,7 +922,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               <DropdownMenuTrigger asChild>
                                 <button
                                   className="inline-flex items-center justify-center rounded-full h-8 w-8 md:h-9 md:w-9 hover:bg-muted"
-                                  aria-label="Ações do membro"
+                                  aria-label="Opcoes"
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </button>
@@ -1069,19 +994,22 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
             <div className="md:pt-1 h-full overflow-hidden">
               <div
                 className={cn(
-                  "space-y-2 md:space-y-3 h-full overflow-y-auto pr-1 md:pr-2 pb-16 md:pb-4 animate-fade-in",
-                  isMobile
-                    ? "scrollbar-none"
-                    : "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30",
+                    "h-full space-y-2 overflow-y-auto animate-fade-in md:space-y-3 md:pb-4 md:pr-2",
+                    isMobile && "mx-auto w-full max-w-[22rem]",
+                    isMobile
+                      ? "scrollbar-none mx-auto w-full max-w-[22rem] pb-[calc(env(safe-area-inset-bottom)+11rem)] pr-0"
+                      : "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30 pb-16",
                 )}
               >
                 {filteredMembros.map((membro) => (
                   <div
                     key={membro.id}
                     className={cn(
-                      "shadow-[var(--shadow-soft)] border border-border/50 hover:shadow-[var(--shadow-elevated)] transition-all cursor-pointer bg-card",
-                      isMobile ? "rounded-2xl" : "rounded-3xl",
-                      selectedMembro?.id === membro.id && "border-primary bg-primary/5",
+                      "w-full cursor-pointer border transition-all",
+                      isMobile
+                        ? "rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm hover:border-primary/35 active:bg-accent/25"
+                        : "rounded-3xl border-border/50 bg-card shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elevated)]",
+                      selectedMembro?.id === membro.id && "border-primary bg-primary/10",
                     )}
                     onPointerDown={() => {
                       if (!isMobile) return;
@@ -1118,7 +1046,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                   >
                     <div
                       className={cn(
-                        "flex items-center gap-3 md:gap-4 p-2 md:p-3",
+                        "flex items-center gap-3 md:gap-4 p-3 md:p-3",
                         listMode === "comfortable" && "md:p-3.5",
                       )}
                     >
@@ -1134,9 +1062,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                           />
                         </div>
                       )}
-                      <Avatar className="h-10 w-10 md:h-11 md:w-11 flex-shrink-0">
-                        <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm md:text-base">
+                      <Avatar className="h-11 w-11 flex-shrink-0 rounded-2xl border border-border/55 bg-primary/10 md:h-11 md:w-11">
+                        <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
+                        <AvatarFallback className="rounded-2xl bg-primary/10 text-sm font-semibold text-primary md:text-base">
                           {membro.nome.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -1157,20 +1085,20 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               {calcularIdade(membro.data_nascimento) && (
                                 <>
                                   <span>{calcularIdade(membro.data_nascimento)} anos</span>
-                                  <span>•</span>
+                                  <span>/</span>
                                 </>
                               )}
                               {membro.cargos && membro.cargos.length > 0 && (
                                 <>
                                   <span className="truncate">{membro.cargos[0]}</span>
-                                  <span>•</span>
+                                  <span>/</span>
                                 </>
                               )}
                               <span className="capitalize">{membro.faixa_etaria}</span>
                             </div>
                             <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                              <span>Presenças:</span>
-                              <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                              <span>{"Presen\u00e7as:"}</span>
+                              <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                 {membro.presencas ?? 0}
                               </span>
                             </div>
@@ -1181,8 +1109,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               {membro.faixa_etaria}
                             </p>
                             <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                              <span>Presenças:</span>
-                              <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                              <span>{"Presen\u00e7as:"}</span>
+                              <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                 {membro.presencas ?? 0}
                               </span>
                             </div>
@@ -1198,7 +1126,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             <DropdownMenuTrigger asChild>
                               <button
                                 className="inline-flex items-center justify-center rounded-full h-8 w-8 md:h-9 md:w-9 hover:bg-muted"
-                                aria-label="Ações do membro"
+                                aria-label="Opcoes"
                               >
                                 <MoreVertical className="h-4 w-4" />
                               </button>
@@ -1254,7 +1182,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                           </div>
 
                           <div>
-                            <p className="text-xs text-muted-foreground">Presenças</p>
+                            <p className="text-xs text-muted-foreground">{"Presen\u00e7as"}</p>
                             <p className="font-medium">{membro.presencas ?? 0}</p>
                           </div>
                         </div>
@@ -1352,17 +1280,6 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
         </div>
 
         {/* Botão flutuante de adicionar (Mobile) */}
-        {isMobile && (
-          <button
-            type="button"
-            onClick={() => navigate("/membros/novo")}
-            className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] flex items-center justify-center"
-            aria-label="Adicionar membro"
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-        )}
-
         <AlertDialog open={inactivateDialogOpen} onOpenChange={setInactivateDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -1401,3 +1318,4 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 };
 
 export default Membros;
+

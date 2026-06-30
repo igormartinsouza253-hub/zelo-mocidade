@@ -15,6 +15,18 @@ export interface PageHeaderConfig {
   backTo?: string;
   primaryActions?: React.ReactNode;
   secondaryActions?: React.ReactNode;
+  mobileSearch?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    menu?: React.ReactNode;
+  };
+  mobilePrimaryAction?: {
+    label: string;
+    icon?: LucideIcon;
+    onClick: () => void;
+  };
+  mobileActions?: React.ReactNode;
 }
 
 interface PageHeaderContextValue {

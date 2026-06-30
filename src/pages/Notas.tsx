@@ -273,6 +273,13 @@ export default function Notas() {
       ],
       showBackButton: true,
       backTo: "/",
+      mobilePrimaryAction: isMobile
+        ? {
+            label: "Nova nota",
+            icon: Plus,
+            onClick: () => navigate("/notas/nova"),
+          }
+        : undefined,
       primaryActions: !isMobile ? (
         <Button
           size="sm"
@@ -434,18 +441,6 @@ export default function Notas() {
             </Sheet>
 
             {/* Único botão de nova nota (mobile) */}
-            <div className="md:hidden fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.25rem)] z-30">
-              <div className="mx-auto w-full max-w-4xl px-3">
-                <Button
-                  className="w-full h-12 rounded-2xl gap-2"
-                  onClick={() => navigate("/notas/nova")}
-                  type="button"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nova nota
-                </Button>
-              </div>
-            </div>
           </div>
         ) : isSplitView ? (
           <Card>

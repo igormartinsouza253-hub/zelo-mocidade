@@ -15,6 +15,8 @@ import {
   LogOut,
   ArrowLeft,
   Bell,
+  MoreVertical,
+  Plus,
 } from "lucide-react";
 import {
   SidebarPreferencesProvider,
@@ -26,7 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import logoSource from "@/assets/logo-zelo-transparent.png";
+import { ZeloLogo } from "@/components/ZeloLogo";
 import { ThemePresetId } from "@/lib/theme-presets";
 import {
   DropdownMenu,
@@ -451,6 +453,22 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     return false;
   };
 
+  const showMobileDock =
+    isMobileMode &&
+    !shouldHideMobileDock(location.pathname) &&
+    !hideMobileDockOverride;
+
+  const showMobileActionDock =
+    showMobileDock &&
+    location.pathname !== "/" &&
+    !!(
+      config?.mobileSearch ||
+      config?.mobilePrimaryAction ||
+      config?.mobileActions ||
+      config?.primaryActions ||
+      config?.secondaryActions
+    );
+
   const showMobileBackButton =
     location.pathname !== "/" && (config?.showBackButton ?? true);
 
@@ -488,9 +506,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                           <ArrowLeft className="h-4 w-4" />
                         </button>
                       ) : (
-                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary p-1 shadow-[var(--shadow-card)]">
-                          <img src={logoSource} alt="Zelo" className="h-full w-full object-contain" />
-                        </div>
+                        <ZeloLogo className="h-10 w-10 rounded-xl p-1" />
                       )}
                     </div>
 
@@ -500,8 +516,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
                     {/* Ações + Perfil à direita */}
                     <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
-                      {config?.secondaryActions}
-
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
@@ -568,7 +582,9 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                   ? location.pathname === "/visitas/nova"
                     ? "pb-[calc(env(safe-area-inset-bottom)+6.5rem)]"
                     : "pb-6"
-                  : "pb-16"
+                  : showMobileActionDock
+                    ? "pb-3"
+                    : "pb-3"
             } md:px-6 md:pb-6 ${
               isMobileMode
                 ? location.pathname === "/visitas/nova"
@@ -582,9 +598,17 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         </div>
 
         {/* Mobile Bottom Navigation */}
-        {isMobileMode &&
-          !shouldHideMobileDock(location.pathname) &&
-          !hideMobileDockOverride && <MobileBottomNav />}
+        {showMobileActionDock && (
+          <MobilePageActionDock
+            mobileSearch={config?.mobileSearch}
+            mobilePrimaryAction={config?.mobilePrimaryAction}
+            mobileActions={config?.mobileActions}
+            primaryActions={config?.primaryActions}
+            secondaryActions={config?.secondaryActions}
+          />
+        )}
+
+        {showMobileDock && <MobileBottomNav />}
       </div>
 
       {/* Legenda global do grupo ativo (somente desktop/tablet) */}
@@ -631,6 +655,76 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   );
 }
 
+function MobilePageActionDock({
+  mobileSearch,
+  mobilePrimaryAction,
+  mobileActions,
+  primaryActions,
+  secondaryActions,
+}: {
+  mobileSearch?: NonNullable<ReturnType<typeof usePageHeader>["config"]>["mobileSearch"];
+  mobilePrimaryAction?: NonNullable<ReturnType<typeof usePageHeader>["config"]>["mobilePrimaryAction"];
+  mobileActions?: React.ReactNode;
+  primaryActions?: React.ReactNode;
+  secondaryActions?: React.ReactNode;
+}) {
+  const fallbackActions = mobileActions ?? (
+    <>
+      {secondaryActions}
+      {primaryActions}
+    </>
+  );
+  const PrimaryIcon = mobilePrimaryAction?.icon ?? Plus;
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.125rem)] z-40 flex justify-center px-4 md:hidden">
+      <div className="pointer-events-auto flex min-h-14 w-full max-w-[22rem] items-center gap-2 rounded-3xl border border-border/65 bg-background/95 px-2.5 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+        {mobileSearch ? (
+          <div className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-2xl border border-border/60 bg-card/70 py-1 pl-3 pr-1">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={mobileSearch.value}
+              onChange={(event) => mobileSearch.onChange(event.target.value)}
+              placeholder={mobileSearch.placeholder ?? "Buscar..."}
+              className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
+              aria-label={mobileSearch.placeholder ?? "Buscar"}
+            />
+            {mobileSearch.menu ? (
+              <div className="shrink-0 [&_button]:h-8 [&_button]:w-8 [&_button]:rounded-xl">
+                {mobileSearch.menu}
+              </div>
+            ) : (
+              <MoreVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
+          </div>
+        ) : null}
+
+        {mobileActions ? (
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 overflow-x-auto scrollbar-none [&_button]:h-11 [&_button]:rounded-2xl [&_button]:text-xs [&_button]:font-semibold">
+            {mobileActions}
+          </div>
+        ) : !mobileSearch ? (
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 overflow-x-auto scrollbar-none [&_button]:h-11 [&_button]:rounded-2xl [&_button]:text-xs [&_button]:font-semibold">
+            {fallbackActions}
+          </div>
+        ) : null}
+
+        {mobilePrimaryAction ? (
+          <button
+            type="button"
+            onClick={mobilePrimaryAction.onClick}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] transition-colors hover:bg-primary/90"
+            aria-label={mobilePrimaryAction.label}
+            title={mobilePrimaryAction.label}
+          >
+            <PrimaryIcon className="h-5 w-5" />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 interface AccountMenuProps {
   user: any;
   navigate: NavigateFunction;
@@ -666,13 +760,10 @@ function DesktopHeader({
   return (
     <div className="hidden md:flex shrink-0 bg-background -ml-20 w-[calc(100%+5rem)] px-4 pt-2 pb-2">
       <div className="flex w-full items-stretch gap-5">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary p-1.5 shadow-[var(--shadow-card)]">
-          <img
-            src={logoSource}
-            alt="Logo do app"
-            className="h-full w-full scale-110 object-contain"
-          />
-        </div>
+        <ZeloLogo
+          alt="Logo do app"
+          className="h-16 w-16 rounded-xl p-1.5"
+        />
 
         <div className="flex min-h-16 flex-1 items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
         {showBackButton && (

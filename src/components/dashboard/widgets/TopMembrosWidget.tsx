@@ -54,7 +54,7 @@ export const TopMembrosWidget = ({
   }, []);
 
   if (size === "sm") {
-    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
+    return <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
         <CardHeader className={WIDGET_HEADER_PADDING["sm"] + " flex flex-row items-center justify-between"}>
           <CardTitle className={widgetTitleClass("sm")}>
             {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
@@ -71,15 +71,15 @@ export const TopMembrosWidget = ({
               <button
                 key={membro.id}
                 type="button"
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent/60 text-[11px]"
+                className="flex w-full items-center justify-between rounded-2xl px-2 py-1.5 text-[11px] transition-colors hover:bg-accent/45"
                 onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                 onDoubleClick={cancelScheduledNavigate}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className="relative">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
-                      <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                    <Avatar className="h-5 w-5 rounded-lg border border-border/50">
+                      <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
+                      <AvatarFallback className="rounded-xl">{membro.nome.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-primary text-[8px] font-bold text-primary-foreground flex items-center justify-center">
                       {index + 1}
@@ -99,7 +99,7 @@ export const TopMembrosWidget = ({
       </Card>;
   }
   if (size === "md") {
-    return <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
+    return <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
         <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex flex-row items-center justify-between"}>
           <CardTitle className={widgetTitleClass("md")}>
             {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
@@ -110,12 +110,12 @@ export const TopMembrosWidget = ({
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-0 scrollbar-none">
           <div className="h-full min-h-0 space-y-1.5 w-full overflow-y-auto pr-1 scrollbar-none">
-            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : displayedMembros.map((membro, index) => <div key={membro.id} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors text-sm w-full" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
+            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : displayedMembros.map((membro, index) => <div key={membro.id} className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-2.5 py-1.5 text-sm transition-colors hover:bg-accent/45" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="relative">
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
-                        <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                      <Avatar className="h-7 w-7 rounded-xl border border-border/50">
+                        <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
+                        <AvatarFallback className="rounded-xl">{membro.nome.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
                         {index + 1}
@@ -132,7 +132,7 @@ export const TopMembrosWidget = ({
       </Card>;
   }
   return (
-    <Card className="h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col md:rounded-xl overflow-hidden">
+    <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
       <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-3"}>
         <div className="flex min-w-0 flex-col">
           <CardTitle className={widgetTitleClass("lg")}>
@@ -168,15 +168,15 @@ export const TopMembrosWidget = ({
             displayedMembros.map((membro, index) => (
               <div
                 key={membro.id}
-                className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors w-full"
+                className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-2.5 py-2 transition-colors hover:bg-accent/45"
                 onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                 onDoubleClick={cancelScheduledNavigate}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
-                      <AvatarFallback>{membro.nome.charAt(0)}</AvatarFallback>
+                    <Avatar className="h-8 w-8 rounded-xl border border-border/50">
+                      <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
+                      <AvatarFallback className="rounded-xl">{membro.nome.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
                       {index + 1}
