@@ -710,6 +710,8 @@ const NovoMembro = () => {
               </form>
             </CardContent>
           </Card>
+
+          <div aria-hidden="true" className="h-[calc(env(safe-area-inset-bottom)+12rem)] md:hidden" />
         </div>
 
         <ImageCropDialog
