@@ -65,6 +65,16 @@ const DetalhesMembro = () => {
     status_telefone: "",
   });
 
+  const formatBrazilPhone = (value: string) => {
+    let digits = value.replace(/\D/g, "");
+    if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
+    digits = digits.slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
 
   useEffect(() => {
@@ -366,8 +376,8 @@ const DetalhesMembro = () => {
 
   return (
     <>
-      <div className="w-full h-full flex justify-center pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:pb-32">
-        <div className="w-full max-w-2xl px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="flex h-full w-full justify-center overflow-y-auto bg-background pb-[calc(env(safe-area-inset-bottom)+12rem)] scrollbar-none md:pb-32 md:scrollbar-thin">
+        <div className="w-full max-w-2xl px-3 py-3 md:px-4 md:py-6 space-y-4 md:space-y-6">
           <div className="hidden md:flex items-center gap-2 md:gap-4 mb-2 md:mb-4">
             <Button
               variant="outline"
@@ -388,67 +398,54 @@ const DetalhesMembro = () => {
             </Button>
           </div>
 
-          <Card className="shadow-[var(--shadow-soft)] border-border/50">
-            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4 md:pb-6">
-              <div className="flex flex-col items-center text-center gap-3 md:gap-4">
-                <div className="relative">
-                  <Avatar className="h-16 w-16 md:h-24 md:w-24">
-                    <AvatarImage src={formData.foto_url} alt={formData.nome} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-xl md:text-2xl">
+          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+            <CardContent className="px-4 pb-5 pt-4 md:px-6 md:pb-6 md:pt-6">
+              <div className="rounded-3xl border border-border/55 bg-background/55 p-3">
+                <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto do perfil</Label>
+                <div className="mt-3 flex items-stretch gap-3">
+                  <Avatar className="h-[5.875rem] w-[5.875rem] rounded-2xl border border-border/60 bg-primary/10">
+                    <AvatarImage className="rounded-2xl object-cover" src={formData.foto_url} alt={formData.nome} />
+                    <AvatarFallback className="rounded-2xl bg-primary/10 text-xl text-primary md:text-2xl">
                       {formData.nome.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <label
-                    htmlFor="photo-upload"
-                    className="absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 h-8 w-8 md:h-10 md:w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors shadow-lg"
-                  >
-                    {uploadingPhoto ? (
-                      <div className="h-3.5 w-3.5 md:h-4 md:w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Camera className="h-4 w-4 md:h-5 md:w-5" />
-                    )}
-                  </label>
-                  <input
-                    id="photo-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
-                    disabled={uploadingPhoto}
-                  />
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2">
+                    <label className="cursor-pointer">
+                      <div className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+                        {uploadingPhoto ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                        Trocar foto
+                      </div>
+                      <input
+                        id="photo-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                        disabled={uploadingPhoto}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-2xl"
+                      onClick={() => {
+                        if (formData.foto_url) {
+                          setTempImageSrc(formData.foto_url);
+                          setShowCropDialog(true);
+                        }
+                      }}
+                      disabled={uploadingPhoto || !formData.foto_url}
+                    >
+                      Editar recorte
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="flex w-full items-center justify-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (formData.foto_url) {
-                        setTempImageSrc(formData.foto_url);
-                        setShowCropDialog(true);
-                      }
-                    }}
-                    disabled={uploadingPhoto || !formData.foto_url}
-                    className="min-w-0 flex-1"
-                  >
-                    Editar foto
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    disabled={!formData.foto_url}
-                    className="min-w-0 flex-1"
-                  >
-                    <a href={formData.foto_url || "#"} download>
-                      Salvar foto
-                    </a>
-                  </Button>
-                </div>
-
-                <div>
+                <div className="mt-3">
                   <h2 className="text-lg md:text-2xl font-semibold text-foreground truncate">
                     {formData.nome || "Novo Membro"}
                   </h2>
@@ -460,11 +457,11 @@ const DetalhesMembro = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-[var(--shadow-soft)] border-border/50">
-            <CardHeader>
+          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+            <CardHeader className="px-4 pb-2 pt-4 md:px-6 md:pb-4 md:pt-6">
               <CardTitle>Informações do Membro</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-5 md:px-6">
               <form id="member-upsert-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome Completo</Label>
@@ -475,6 +472,7 @@ const DetalhesMembro = () => {
                     value={formData.nome}
                     onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                     placeholder="Digite o nome completo"
+                    className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
                   />
                 </div>
 
@@ -487,6 +485,7 @@ const DetalhesMembro = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, data_nascimento: e.target.value })
                     }
+                    className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
                   />
                 </div>
 
@@ -501,6 +500,7 @@ const DetalhesMembro = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, data_aniversario: e.target.value })
                     }
+                    className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
                   />
                 </div>
 
@@ -511,7 +511,10 @@ const DetalhesMembro = () => {
                     type="tel"
                     placeholder="(00) 00000-0000"
                     value={formData.telefone}
-                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, telefone: formatBrazilPhone(e.target.value) })}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
                   />
                 </div>
 
@@ -524,7 +527,7 @@ const DetalhesMembro = () => {
                         setFormData({ ...formData, status_telefone: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-12 rounded-2xl border-border/60 bg-background/70">
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
@@ -538,7 +541,7 @@ const DetalhesMembro = () => {
 
                 <div className="space-y-2">
                   <Label>Cargos (selecione um ou mais)</Label>
-                  <div className="space-y-2 border rounded-md p-4">
+                  <div className="space-y-2 rounded-3xl border border-border/55 bg-background/55 p-3">
                     {cargosLoading ? (
                       <>
                         <div className="flex items-center space-x-2">
@@ -558,7 +561,7 @@ const DetalhesMembro = () => {
                       </>
                     ) : (
                       cargosDisponiveis.map((cargo) => (
-                        <div key={cargo.id} className="flex items-center space-x-2">
+                        <div key={cargo.id} className="flex items-center space-x-2 rounded-2xl px-2 py-1.5 transition-colors hover:bg-accent/25">
                           <Checkbox
                             id={cargo.id}
                             checked={formData.cargos.includes(cargo.nome)}
@@ -585,7 +588,7 @@ const DetalhesMembro = () => {
                       setFormData({ ...formData, faixa_etaria: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-12 rounded-2xl border-border/60 bg-background/70">
                       <SelectValue placeholder="Selecione a faixa etária" />
                     </SelectTrigger>
                     <SelectContent>
@@ -608,6 +611,7 @@ const DetalhesMembro = () => {
                     }
                     placeholder="Observações sobre o membro"
                     rows={3}
+                    className="rounded-2xl border-border/60 bg-background/70 text-base"
                   />
                 </div>
 
@@ -628,6 +632,8 @@ const DetalhesMembro = () => {
               </form>
             </CardContent>
           </Card>
+
+          <div aria-hidden="true" className="h-[calc(env(safe-area-inset-bottom)+12rem)] md:hidden" />
         </div>
 
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -668,12 +674,13 @@ const DetalhesMembro = () => {
           onOpenChange={setShowCropDialog}
           imageSrc={tempImageSrc}
           onCropComplete={handleCropComplete}
+          cropShape="rect"
         />
       </div>
 
       {/* Footer fixo (mobile) */}
-      <MobileActionBar className="md:hidden">
-        <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+      <MobileActionBar className="md:hidden" floating>
+        <Button type="button" variant="outline" className="bg-background/70" onClick={() => navigate(-1)}>
           Cancelar
         </Button>
         <Button type="submit" form="member-upsert-form" disabled={loading}>

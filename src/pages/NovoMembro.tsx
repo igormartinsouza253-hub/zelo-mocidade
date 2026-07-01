@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, CalendarDays, Camera, RotateCcw, Sparkles, UserRound, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, RotateCcw, Sparkles, UserRound, Users, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -157,6 +157,9 @@ const NovoMembro = () => {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("user");
   const [cameraReady, setCameraReady] = useState(false);
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [flashSupported, setFlashSupported] = useState(false);
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [formData, setFormData] = useState({
@@ -216,6 +219,9 @@ const NovoMembro = () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       setCameraReady(false);
+      setFlashEnabled(false);
+      setFlashSupported(false);
+      setFocusPoint(null);
       return;
     }
 
@@ -239,6 +245,11 @@ const NovoMembro = () => {
         }
 
         streamRef.current = stream;
+        const videoTrack = stream.getVideoTracks()[0];
+        const capabilities = videoTrack?.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
+        const supportsTorch = Boolean(capabilities?.torch) && cameraFacingMode === "environment";
+        setFlashSupported(supportsTorch);
+        setFlashEnabled(false);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
@@ -322,6 +333,62 @@ const NovoMembro = () => {
     setFormData((prev) => ({ ...prev, telefone: formatBrazilPhone(value) }));
   };
 
+  const toggleFlash = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+
+    const capabilities = track.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
+    if (!capabilities?.torch || cameraFacingMode !== "environment") {
+      toast.info("Flash não disponível nesta câmera");
+      return;
+    }
+
+    const nextEnabled = !flashEnabled;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: nextEnabled } as MediaTrackConstraintSet] });
+      setFlashEnabled(nextEnabled);
+    } catch (error) {
+      console.error("Erro ao alternar flash:", error);
+      toast.error("Não foi possível alterar o flash");
+    }
+  };
+
+  const handleCameraFocus = async (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!cameraReady) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    setFocusPoint({ x, y });
+    window.setTimeout(() => setFocusPoint(null), 850);
+
+    const track = streamRef.current?.getVideoTracks()[0];
+    const capabilities = track?.getCapabilities?.() as MediaTrackCapabilities & {
+      focusMode?: string[];
+      pointsOfInterest?: boolean;
+    };
+    if (!track || !capabilities) return;
+
+    const advanced: MediaTrackConstraintSet & {
+      focusMode?: string;
+      pointsOfInterest?: Array<{ x: number; y: number }>;
+    } = {};
+
+    if (capabilities.focusMode?.includes("continuous")) {
+      advanced.focusMode = "continuous";
+    }
+    if (capabilities.pointsOfInterest) {
+      advanced.pointsOfInterest = [{ x: x / rect.width, y: y / rect.height }];
+    }
+    if (!Object.keys(advanced).length) return;
+
+    try {
+      await track.applyConstraints({ advanced: [advanced] });
+    } catch (error) {
+      console.debug("Foco manual não suportado nesta câmera", error);
+    }
+  };
+
   const captureCameraPhoto = () => {
     const video = videoRef.current;
     if (!video || !cameraReady) return;
@@ -335,6 +402,10 @@ const NovoMembro = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    if (cameraFacingMode === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, sx, sy, side, side, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     setTempImageSrc(dataUrl);
@@ -798,9 +869,20 @@ const NovoMembro = () => {
 
         <Dialog open={cameraOpen} onOpenChange={setCameraOpen}>
           <DialogContent className="max-w-sm overflow-hidden rounded-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]">
-            <div className="relative aspect-square bg-black">
-              <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
+            <div className="relative aspect-square touch-none bg-black" onPointerDown={handleCameraFocus}>
+              <video
+                ref={videoRef}
+                className={`h-full w-full object-cover ${cameraFacingMode === "user" ? "-scale-x-100" : ""}`}
+                playsInline
+                muted
+              />
               <div className="pointer-events-none absolute inset-4 rounded-[2rem] border-2 border-white/85 shadow-[0_0_0_999px_rgba(0,0,0,0.28)]" />
+              {focusPoint && (
+                <span
+                  className="pointer-events-none absolute h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90 shadow-[0_0_18px_rgba(255,255,255,0.55)]"
+                  style={{ left: focusPoint.x, top: focusPoint.y }}
+                />
+              )}
               {!cameraReady && (
                 <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-white">
                   Abrindo câmera...
@@ -813,16 +895,30 @@ const NovoMembro = () => {
                   <p className="text-sm font-semibold text-foreground">Foto do perfil</p>
                   <p className="text-xs text-muted-foreground">Enquadre o rosto dentro do quadrado.</p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-2xl"
-                  onClick={() => setCameraFacingMode((mode) => (mode === "user" ? "environment" : "user"))}
-                  aria-label="Alternar câmera"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={flashEnabled ? "default" : "outline"}
+                    size="icon"
+                    className="h-10 w-10 rounded-2xl"
+                    onClick={toggleFlash}
+                    disabled={!cameraReady || !flashSupported}
+                    title={flashSupported ? "Flash" : "Flash não disponível nesta câmera"}
+                    aria-label="Alternar flash"
+                  >
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-2xl"
+                    onClick={() => setCameraFacingMode((mode) => (mode === "user" ? "environment" : "user"))}
+                    aria-label="Alternar câmera"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button type="button" variant="outline" className="rounded-2xl" onClick={() => setCameraOpen(false)}>
