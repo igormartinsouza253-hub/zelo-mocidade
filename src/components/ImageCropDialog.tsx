@@ -9,6 +9,7 @@ interface ImageCropDialogProps {
   onOpenChange: (open: boolean) => void;
   imageSrc: string;
   onCropComplete: (croppedImageBlob: Blob) => void;
+  cropShape?: "round" | "rect";
 }
 
 interface CroppedArea {
@@ -18,7 +19,7 @@ interface CroppedArea {
   height: number;
 }
 
-export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete }: ImageCropDialogProps) {
+export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, cropShape = "round" }: ImageCropDialogProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CroppedArea | null>(null);
@@ -87,17 +88,17 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl rounded-3xl">
         <DialogHeader>
           <DialogTitle>Cortar Imagem</DialogTitle>
         </DialogHeader>
-        <div className="relative h-96 bg-muted">
+        <div className="relative h-96 overflow-hidden rounded-2xl bg-muted">
           <Cropper
             image={imageSrc}
             crop={crop}
             zoom={zoom}
             aspect={1}
-            cropShape="round"
+            cropShape={cropShape}
             showGrid={false}
             onCropChange={setCrop}
             onCropComplete={onCropCompleteCallback}
