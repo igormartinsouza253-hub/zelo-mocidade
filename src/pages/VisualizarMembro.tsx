@@ -4,16 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Edit, AlertTriangle, Users, MoreVertical, Trash2 } from "lucide-react";
+import { Edit, AlertTriangle, Users, MoreVertical, Trash2, ArrowLeft, CalendarDays, Phone, Briefcase, MessageSquare, BarChart3, Percent, CheckCircle2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
-import { MemberProfileTopCard } from "@/components/membros/profile/MemberProfileTopCard";
-import { MemberProfileInfoCard } from "@/components/membros/profile/MemberProfileInfoCard";
-import { MemberProfileFrequencyCard } from "@/components/membros/profile/MemberProfileFrequencyCard";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Membro {
   id: string;
@@ -58,6 +57,56 @@ interface Estatisticas {
   alertaAusencias: boolean;
 }
 
+const getFirstName = (nome: string) => nome.trim().split(/\s+/)[0] || "Membro";
+
+const getNameSizeClass = (nome: string) => {
+  if (nome.length > 34) return "text-lg";
+  if (nome.length > 24) return "text-xl";
+  return "text-2xl";
+};
+
+const formatPhoneBR = (telefone: string | null) => {
+  if (!telefone) return "Não informado";
+  let digits = telefone.replace(/\D/g, "");
+  if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
+  if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return telefone;
+};
+
+const normalizePhoneOwner = (status: string | null) => {
+  if (!status) return null;
+  const value = status.toLocaleLowerCase("pt-BR");
+  if (value.includes("pr")) return "Próprio";
+  if (value.includes("m")) return "Mãe";
+  if (value.includes("p")) return "Pai";
+  return status;
+};
+
+const getFrequencyStatus = (alertaAusencias: boolean, taxaMensalPorcentagem: number) => {
+  if (alertaAusencias) {
+    return {
+      label: "Alerta",
+      badgeClassName: "",
+      variant: "destructive" as const,
+    };
+  }
+
+  if (taxaMensalPorcentagem >= 100) {
+    return {
+      label: "Frequente",
+      badgeClassName: "border-primary/30 bg-primary/10 text-primary hover:bg-primary/10",
+      variant: "outline" as const,
+    };
+  }
+
+  return {
+    label: "Regular",
+    badgeClassName: "border-border/60 bg-background/70 text-foreground",
+    variant: "outline" as const,
+  };
+};
+
 const VisualizarMembro = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -75,6 +124,7 @@ const VisualizarMembro = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
+  const [profilePhotoOpen, setProfilePhotoOpen] = useState(false);
 
   useEffect(() => {
     loadMembro();
@@ -154,14 +204,15 @@ const VisualizarMembro = () => {
 
   useEffect(() => {
     if (!membro) return;
+    const firstName = getFirstName(membro.nome);
 
     setConfig({
-      title: membro.nome,
+      title: firstName,
       icon: Users,
       breadcrumbs: [
         { label: "Início", href: "/" },
         { label: "Membros", href: "/membros" },
-        { label: membro.nome },
+        { label: firstName },
       ],
       showBackButton: true,
       backTo: "/membros",
@@ -263,7 +314,7 @@ const VisualizarMembro = () => {
         .from("reunioes")
         .select("id, data")
         .order("data", { ascending: false })
-        .limit(3);
+        .limit(4);
 
       let ausenciasConsecutivas = 0;
       if (ultimasReunioes) {
@@ -288,7 +339,7 @@ const VisualizarMembro = () => {
         taxaGeralPorcentagem: Math.round(taxaGeral),
         taxaMensalPorcentagem: Math.round(taxaMensal),
         ultimasPresencas,
-        alertaAusencias: ausenciasConsecutivas >= 3,
+        alertaAusencias: ausenciasConsecutivas > 3,
       });
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
@@ -312,11 +363,20 @@ const VisualizarMembro = () => {
     const raw = valor.trim();
     if (!raw) return null;
 
-    if (raw.includes("-")) {
+    if (/^\d{2}-\d{2}$/.test(raw)) {
+      const [mesStr, diaStr] = raw.split("-");
+      const dia = Number(diaStr);
+      const mes = Number(mesStr) - 1;
+      if (!Number.isNaN(dia) && !Number.isNaN(mes) && dia > 0 && mes >= 0 && mes <= 11) {
+        return new Date(2000, mes, dia);
+      }
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       try {
         return parseISO(raw);
       } catch {
-        // segue para outros formatos
+        return null;
       }
     }
 
@@ -370,6 +430,11 @@ const VisualizarMembro = () => {
 
   const dataAniversarioTexto = getDataAniversarioTexto(membro);
   const creatorLabel = createdByName ?? "usuário não identificado";
+  const idade = calcularIdade(membro.data_nascimento);
+  const phoneOwner = normalizePhoneOwner(membro.status_telefone);
+  const cargos = membro.cargos?.filter(Boolean) ?? [];
+  const frequenciaCritica = estatisticas.alertaAusencias;
+  const frequenciaStatus = getFrequencyStatus(frequenciaCritica, estatisticas.taxaMensalPorcentagem);
 
   const formatarDataInativacao = (valor?: string | null) => {
     if (!valor) return "—";
@@ -391,7 +456,10 @@ const VisualizarMembro = () => {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3 md:gap-4">
                 <div className="rounded-full p-1.5 bg-accent/60 border border-border/80">
-                  <Avatar className="h-16 w-16 md:h-20 md:w-20">
+                  <Avatar
+                    className={`h-16 w-16 rounded-2xl md:h-20 md:w-20 ${membro.foto_url ? "cursor-zoom-in" : ""}`}
+                    onClick={() => membro.foto_url && setProfilePhotoOpen(true)}
+                  >
                     <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
                     <AvatarFallback className="bg-primary/10 text-primary text-xl md:text-2xl">
                       {membro.nome.charAt(0).toUpperCase()}
@@ -462,57 +530,176 @@ const VisualizarMembro = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 max-w-2xl md:pb-8">
+      <div className="flex h-full w-full justify-center overflow-y-auto bg-background pb-[calc(env(safe-area-inset-bottom)+12rem)] scrollbar-none md:pb-32 md:scrollbar-thin">
+        <div className="w-full max-w-2xl space-y-4 px-3 py-3 md:px-4 md:py-8">
           {/* Cabeçalho principal agora é controlado pelo layout */}
 
           {/* Topo: Nome (esq) + Foto (dir) */}
-          <div className="mb-4 md:mb-6">
-            <MemberProfileTopCard
-              nome={membro.nome}
-              fotoUrl={membro.foto_url}
-              cargos={membro.cargos}
-              faixaEtaria={membro.faixa_etaria}
-              idade={calcularIdade(membro.data_nascimento)}
-            />
-          </div>
+          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Avatar
+                  className={`h-[5.875rem] w-[5.875rem] shrink-0 rounded-2xl border border-border/60 bg-primary/10 ${membro.foto_url ? "cursor-zoom-in" : ""}`}
+                  onClick={() => membro.foto_url && setProfilePhotoOpen(true)}
+                >
+                  <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
+                  <AvatarFallback className="rounded-2xl bg-primary/10 text-2xl font-semibold text-primary">
+                    {membro.nome.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
 
-          {/* Alerta de Ausências */}
-          {estatisticas.alertaAusencias && (
-            <Card className="shadow-[var(--shadow-soft)] border-destructive/50 bg-destructive/5 mb-4 md:mb-6">
-              <CardContent className="pt-4 flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-                <p className="text-sm text-destructive font-medium">
-                  Atenção: Faltou 3 ou mais reuniões consecutivas
-                </p>
-              </CardContent>
-            </Card>
-          )}
+                <div className="min-w-0 flex-1">
+                  <h1 className={`${getNameSizeClass(membro.nome)} break-words font-bold leading-tight text-foreground`}>
+                    {membro.nome}
+                  </h1>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge className="rounded-full bg-primary/15 px-2.5 py-1 text-primary hover:bg-primary/15">
+                      {membro.faixa_etaria}
+                    </Badge>
+                    <Badge variant="outline" className="rounded-full border-border/60 px-2.5 py-1">
+                      {idade !== null ? `${idade} anos` : "Idade não informada"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Bloco abaixo: informações do membro */}
-          <div className="mb-4 md:mb-6">
-            <MemberProfileInfoCard
-              telefone={membro.telefone}
-              statusTelefone={membro.status_telefone}
-              dataAniversarioTexto={dataAniversarioTexto}
-              observacoes={membro.observacoes}
-            />
-          </div>
+          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+            <CardHeader className="px-4 pb-2 pt-4">
+              <CardTitle className="text-base">Informações</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 px-4 pb-4">
+              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                <div className="flex items-start gap-3">
+                  <Phone className="mt-0.5 h-4 w-4 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Telefone</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{formatPhoneBR(membro.telefone)}</p>
+                    {phoneOwner && <p className="text-xs text-muted-foreground">Telefone de {phoneOwner}</p>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                <div className="flex items-start gap-3">
+                  <Briefcase className="mt-0.5 h-4 w-4 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Cargo</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {cargos.length ? (
+                        cargos.map((cargo) => (
+                          <Badge key={cargo} variant="outline" className="rounded-full border-border/60 bg-background/70">
+                            {cargo}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Nenhum cargo informado</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                <div className="flex items-start gap-3">
+                  <CalendarDays className="mt-0.5 h-4 w-4 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Aniversário</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{dataAniversarioTexto || "Não informado"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="mt-0.5 h-4 w-4 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Observações</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-foreground">
+                      {membro.observacoes?.trim() || "Sem observações"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Logo abaixo: estatísticas de frequência */}
-          <MemberProfileFrequencyCard
-            presencas={estatisticas.presencas}
-            totalReunioes={estatisticas.totalReunioes}
-            taxaGeralPorcentagem={estatisticas.taxaGeralPorcentagem}
-            taxaMensalPorcentagem={estatisticas.taxaMensalPorcentagem}
-            ultimasPresencas={estatisticas.ultimasPresencas}
-            alertaAusencias={estatisticas.alertaAusencias}
-            formatarData={formatarData}
-          />
+          <Card
+            className={`overflow-hidden rounded-3xl shadow-[var(--shadow-card)] ${
+              frequenciaCritica
+                ? "border-destructive/55 bg-destructive/10"
+                : "border-border/55 bg-card/90"
+            }`}
+          >
+            <CardHeader className="px-4 pb-2 pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-base">Frequência</CardTitle>
+                <Badge
+                  variant={frequenciaStatus.variant}
+                  className={`rounded-full ${frequenciaStatus.badgeClassName}`}
+                >
+                  {frequenciaStatus.label}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 px-4 pb-4">
+              {frequenciaCritica && (
+                <div className="flex gap-3 rounded-2xl border border-destructive/45 bg-destructive/10 p-3 text-destructive">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <p className="text-sm font-semibold">
+                    Atenção: este jovem faltou a mais de 3 reuniões seguidas. Vale fazer um acompanhamento próximo.
+                  </p>
+                </div>
+              )}
 
-          <p className="mt-3 text-xs text-muted-foreground">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                  <CheckCircle2 className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.presencas}</p>
+                  <p className="text-xs text-muted-foreground">Presenças</p>
+                </div>
+                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                  <BarChart3 className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.totalReunioes}</p>
+                  <p className="text-xs text-muted-foreground">Reuniões</p>
+                </div>
+                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                  <Percent className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.taxaGeralPorcentagem}%</p>
+                  <p className="text-xs text-muted-foreground">Geral</p>
+                </div>
+                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                  <Percent className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.taxaMensalPorcentagem}%</p>
+                  <p className="text-xs text-muted-foreground">30 dias</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Últimas presenças</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {estatisticas.ultimasPresencas.length ? (
+                    estatisticas.ultimasPresencas.map((data) => (
+                      <Badge key={data} variant="outline" className="rounded-full border-border/60 bg-background/70">
+                        {formatarData(data)}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Nenhuma presença registrada</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <p className="px-1 text-xs text-muted-foreground">
             Criado por <span className="font-medium text-foreground">{creatorLabel}</span>
           </p>
+
+          <div aria-hidden="true" className="h-[calc(env(safe-area-inset-bottom)+12rem)] md:hidden" />
         </div>
       </div>
 
@@ -543,6 +730,34 @@ const VisualizarMembro = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={profilePhotoOpen} onOpenChange={setProfilePhotoOpen}>
+        <DialogContent className="max-w-sm overflow-hidden rounded-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{membro.nome}</DialogTitle>
+          </DialogHeader>
+          {membro.foto_url && (
+            <div className="bg-card p-3">
+              <img
+                src={membro.foto_url}
+                alt={membro.nome}
+                className="aspect-square w-full rounded-3xl object-cover"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <MobileActionBar className="md:hidden" floating>
+        <Button type="button" variant="outline" className="bg-background/70" onClick={() => navigate("/membros")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Cancelar
+        </Button>
+        <Button type="button" onClick={() => navigate(`/membros/editar/${membro.id}`)}>
+          <Edit className="mr-2 h-4 w-4" />
+          Editar
+        </Button>
+      </MobileActionBar>
     </>
   );
 };

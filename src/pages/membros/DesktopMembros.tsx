@@ -48,6 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { MemberDetailPanel } from "@/components/membros/MemberDetailPanel";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ interface Membro {
   id: string;
   nome: string;
   data_nascimento: string | null;
+  data_aniversario?: string | null;
   cargos: string[] | null;
   faixa_etaria: string;
   foto_url: string | null;
@@ -75,6 +77,8 @@ interface Membro {
   telefone?: string | null;
   status_telefone?: string | null;
   presencas?: number;
+  taxaMensalPorcentagem?: number;
+  alertaAusencias?: boolean;
 }
 
 interface Cargo {
@@ -116,13 +120,14 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const [selectedMembro, setSelectedMembro] = useState<Membro | null>(null);
   const [loadingMembros, setLoadingMembros] = useState(true);
   const [expandedMembroId, setExpandedMembroId] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<{ src: string; alt: string } | null>(null);
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
   const navigate = useNavigate();
   const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
   const { setConfig } = usePageHeader();
-  const { activeGroupId, activeGroup, isAdmin } = useActiveGroup();
+  const { activeGroupId, isAdmin } = useActiveGroup();
 
   const hasSelected = selectedIds.length > 0;
 
@@ -512,17 +517,63 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
         .eq("group_id", activeGroupId);
       if (membrosError) throw membrosError;
 
+      const umMesAtras = new Date();
+      umMesAtras.setDate(umMesAtras.getDate() - 30);
+      const desde = umMesAtras.toISOString().split("T")[0];
+
+      const [{ count: reunioesMes }, { data: ultimasReunioes }] = await Promise.all([
+        supabase
+          .from("reunioes")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", activeGroupId)
+          .gte("data", desde),
+        supabase
+          .from("reunioes")
+          .select("id, data")
+          .eq("group_id", activeGroupId)
+          .order("data", { ascending: false })
+          .limit(4),
+      ]);
+
       const membrosComPresencas = await Promise.all(
         (membrosData || []).map(async (membro) => {
-          const { count } = await supabase
-            .from("presencas")
-            .select("*", { count: "exact", head: true })
-            .eq("group_id", activeGroupId)
-            .eq("membro_id", membro.id);
+          const [{ count }, { count: presencasMes }] = await Promise.all([
+            supabase
+              .from("presencas")
+              .select("*", { count: "exact", head: true })
+              .eq("group_id", activeGroupId)
+              .eq("membro_id", membro.id),
+            supabase
+              .from("presencas")
+              .select("reuniao_id, reunioes!inner(data)", { count: "exact", head: true })
+              .eq("group_id", activeGroupId)
+              .eq("membro_id", membro.id)
+              .gte("reunioes.data", desde),
+          ]);
+
+          let ausenciasConsecutivas = 0;
+          if (ultimasReunioes) {
+            for (const reuniao of ultimasReunioes) {
+              const { count: presencaNaReuniao } = await supabase
+                .from("presencas")
+                .select("*", { count: "exact", head: true })
+                .eq("group_id", activeGroupId)
+                .eq("membro_id", membro.id)
+                .eq("reuniao_id", reuniao.id);
+
+              if ((presencaNaReuniao || 0) === 0) {
+                ausenciasConsecutivas++;
+              } else {
+                break;
+              }
+            }
+          }
 
           return {
             ...membro,
             presencas: count || 0,
+            taxaMensalPorcentagem: reunioesMes ? Math.round(((presencasMes || 0) / reunioesMes) * 100) : 0,
+            alertaAusencias: ausenciasConsecutivas > 3,
           };
         }),
       );
@@ -545,6 +596,53 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
       idade--;
     }
     return idade;
+  };
+
+  const formatPhoneBR = (telefone?: string | null) => {
+    if (!telefone) return "Não informado";
+    let digits = telefone.replace(/\D/g, "");
+    if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
+    if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return telefone;
+  };
+
+  const formatBirthday = (membro: Membro) => {
+    const raw = membro.data_aniversario || membro.data_nascimento;
+    if (!raw) return "Não informado";
+
+    if (/^\d{2}-\d{2}$/.test(raw)) {
+      const [month, day] = raw.split("-");
+      return `${day}/${month}`;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [, month, day] = raw.split("-");
+      return `${day}/${month}`;
+    }
+
+    return raw;
+  };
+
+  const getFrequencyStatus = (membro: Membro) => {
+    if (membro.alertaAusencias) {
+      return {
+        label: "Alerta",
+        className: "border-destructive/40 bg-destructive/10 text-destructive",
+      };
+    }
+
+    if ((membro.taxaMensalPorcentagem ?? 0) >= 100) {
+      return {
+        label: "Frequente",
+        className: "border-primary/30 bg-primary/10 text-primary",
+      };
+    }
+
+    return {
+      label: "Regular",
+      className: "border-border/60 bg-background/70 text-foreground",
+    };
   };
 
   const toggleCargo = (cargoNome: string) => {
@@ -840,6 +938,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                         onClick={() => {
                           setSelectedMembro(membro);
                         }}
+                        onDoubleClick={() => navigate(`/membros/visualizar/${membro.id}`)}
                       >
                         <div
                           className={cn(
@@ -1043,6 +1142,10 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                       }
                       setSelectedMembro(membro);
                     }}
+                    onDoubleClick={() => {
+                      if (selectionMode) return;
+                      navigate(`/membros/visualizar/${membro.id}`);
+                    }}
                   >
                     <div
                       className={cn(
@@ -1062,7 +1165,17 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                           />
                         </div>
                       )}
-                      <Avatar className="h-11 w-11 flex-shrink-0 rounded-2xl border border-border/55 bg-primary/10 md:h-11 md:w-11">
+                      <Avatar
+                        className={cn(
+                          "h-11 w-11 flex-shrink-0 rounded-2xl border border-border/55 bg-primary/10 md:h-11 md:w-11",
+                          membro.foto_url && "cursor-zoom-in",
+                        )}
+                        onClick={(e) => {
+                          if (!membro.foto_url) return;
+                          e.stopPropagation();
+                          setProfilePhoto({ src: membro.foto_url, alt: membro.nome });
+                        }}
+                      >
                         <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
                         <AvatarFallback className="rounded-2xl bg-primary/10 text-sm font-semibold text-primary md:text-base">
                           {membro.nome.charAt(0).toUpperCase()}
@@ -1073,13 +1186,21 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                           <h3 className="font-semibold text-foreground truncate text-sm md:text-base">
                             {membro.nome}
                           </h3>
+                          {isMobile && expandedMembroId === membro.id && (
+                            <Badge
+                              variant="outline"
+                              className={cn("h-5 shrink-0 rounded-full px-2 text-[10px]", getFrequencyStatus(membro).className)}
+                            >
+                              {getFrequencyStatus(membro).label}
+                            </Badge>
+                          )}
                           {membro.ativo === false && (
                             <Badge variant="destructive" className="h-5 px-2 text-[10px] rounded-full">
                               Inativo
                             </Badge>
                           )}
                         </div>
-                        {listMode === "comfortable" ? (
+                        {isMobile && expandedMembroId === membro.id ? null : listMode === "comfortable" ? (
                           <>
                             <div className="flex gap-1.5 md:gap-2 text-[11px] md:text-xs text-muted-foreground flex-wrap">
                               {calcularIdade(membro.data_nascimento) && (
@@ -1156,43 +1277,48 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
                     {isMobile && expandedMembroId === membro.id && !selectionMode && (
                       <div
-                        className="px-3 pb-3 pt-1 border-t border-border/40"
+                        className="border-t border-border/40 px-3 pb-3 pt-3"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Idade</p>
-                            <p className="font-medium">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Idade</p>
+                            <p className="mt-1 font-semibold text-foreground">
                               {calcularIdade(membro.data_nascimento)
                                 ? `${calcularIdade(membro.data_nascimento)} anos`
                                 : "—"}
                             </p>
                           </div>
 
-                          <div>
-                            <p className="text-xs text-muted-foreground">Cargo</p>
-                            <p className="font-medium truncate">
+                          <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Cargo</p>
+                            <p className="mt-1 truncate font-semibold text-foreground">
                               {(membro.cargos ?? []).length ? (membro.cargos ?? []).join(", ") : "—"}
                             </p>
                           </div>
 
-                          <div>
-                            <p className="text-xs text-muted-foreground">Grupo</p>
-                            <p className="font-medium truncate">{activeGroup?.name ?? "—"}</p>
+                          <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Aniversário</p>
+                            <p className="mt-1 truncate font-semibold text-foreground">{formatBirthday(membro)}</p>
                           </div>
 
-                          <div>
-                            <p className="text-xs text-muted-foreground">{"Presen\u00e7as"}</p>
-                            <p className="font-medium">{membro.presencas ?? 0}</p>
+                          <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{"Presen\u00e7as"}</p>
+                            <p className="mt-1 font-semibold tabular-nums text-primary">{membro.presencas ?? 0}</p>
                           </div>
                         </div>
 
-                        <div className="mt-3 flex items-center justify-end gap-2">
+                        <div className="mt-2 rounded-2xl border border-border/55 bg-background/55 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Telefone</p>
+                          <p className="mt-1 truncate text-sm font-semibold text-foreground">{formatPhoneBR(membro.telefone)}</p>
+                        </div>
+
+                        <div className="mt-2 flex items-center justify-between rounded-2xl border border-border/65 bg-background/90 p-1.5 shadow-[var(--shadow-soft)]">
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 rounded-xl"
+                            className="h-10 w-10 rounded-2xl text-foreground hover:bg-accent/35"
                             aria-label="Editar membro"
                             onClick={() => navigate(`/membros/editar/${membro.id}`)}
                           >
@@ -1202,7 +1328,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 rounded-xl"
+                            className="h-10 w-10 rounded-2xl text-destructive hover:bg-destructive/10 hover:text-destructive"
                             aria-label="Excluir membro"
                             onClick={() => openInactivateDialog([membro.id])}
                           >
@@ -1212,7 +1338,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 rounded-xl"
+                            className="h-10 w-10 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                             aria-label="Ver informações completas"
                             onClick={() => navigate(`/membros/visualizar/${membro.id}`)}
                           >
@@ -1280,6 +1406,23 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
         </div>
 
         {/* Botão flutuante de adicionar (Mobile) */}
+        <Dialog open={Boolean(profilePhoto)} onOpenChange={(open) => !open && setProfilePhoto(null)}>
+          <DialogContent className="max-w-sm overflow-hidden rounded-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{profilePhoto?.alt || "Foto do membro"}</DialogTitle>
+            </DialogHeader>
+            {profilePhoto && (
+              <div className="bg-card p-3">
+                <img
+                  src={profilePhoto.src}
+                  alt={profilePhoto.alt}
+                  className="aspect-square w-full rounded-3xl object-cover"
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog open={inactivateDialogOpen} onOpenChange={setInactivateDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>

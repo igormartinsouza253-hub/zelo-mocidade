@@ -15,6 +15,9 @@ import {
   X,
   Pencil,
   CheckCircle2,
+  Mic2,
+  UsersRound,
+  UserPlus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDateLocal } from "@/lib/date-utils";
@@ -55,6 +58,8 @@ interface Reuniao {
   totalParticipantes?: number;
   totalRecitativos?: number;
   recitativos_individuais?: number;
+  numero_visitas?: number;
+  ageGroupCounts?: Record<string, number>;
 }
 
 interface ChartData {
@@ -66,54 +71,176 @@ interface ChartData {
 type MobileMeetingCardProps = {
   reuniao: Reuniao;
   isSelected: boolean;
+  isExpanded: boolean;
   selectionMode: boolean;
   onEnterSelection: (id: string) => void;
   onToggleSelected: (id: string) => void;
   onOpen: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onViewDetails: (id: string) => void;
   formatDateMobile: (date: string) => string;
+  ageGroupLabels: string[];
+  ageGroupColors: Record<string, string>;
 };
 
 function MobileMeetingCard({
   reuniao,
   isSelected,
+  isExpanded,
   selectionMode,
   onEnterSelection,
   onToggleSelected,
   onOpen,
+  onEdit,
+  onDelete,
+  onViewDetails,
   formatDateMobile,
+  ageGroupLabels,
+  ageGroupColors,
 }: MobileMeetingCardProps) {
   const longPress = useLongPress({
     onLongPress: () => onEnterSelection(reuniao.id),
   });
 
+  const groupCounts = reuniao.ageGroupCounts || {};
+  const activeGroups = ageGroupLabels
+    .map((label) => ({ label, value: groupCounts[label] || 0 }))
+    .filter((group) => group.value > 0);
+  const totalParticipantes = reuniao.totalParticipantes || 0;
+  const totalRecitativos = reuniao.totalRecitativos || 0;
+  const visitas = reuniao.numero_visitas || 0;
+  const recitativosIndividuais = reuniao.recitativos_individuais || 0;
+
   return (
     <Card
       className={
         "w-full cursor-pointer rounded-3xl border border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm transition-all hover:border-primary/35 active:bg-accent/25 " +
-        (selectionMode && isSelected ? "border-primary bg-primary/10" : "")
+        (selectionMode && isSelected ? "border-primary bg-primary/10" : isExpanded ? "border-primary/45 bg-primary/[0.03]" : "")
       }
+      data-testid={`meeting-card-${reuniao.id}`}
+      aria-expanded={isExpanded}
+      role="button"
+      tabIndex={0}
       onClick={() => (selectionMode ? onToggleSelected(reuniao.id) : onOpen(reuniao.id))}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectionMode ? onToggleSelected(reuniao.id) : onOpen(reuniao.id);
+        }
+      }}
       {...longPress}
     >
-      <CardContent className="flex min-h-[76px] items-center gap-3 p-3">
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-          <Calendar className="h-5 w-5 text-primary" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h3 className="truncate text-sm font-bold text-foreground">{formatDateMobile(reuniao.data)}</h3>
-          <p className="mt-0.5 text-xs font-medium text-muted-foreground">{reuniao.totalParticipantes} participantes</p>
-          <div className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-            <span>Rec:</span>
-            <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-primary">
-              {reuniao.totalRecitativos}
-            </span>
+      <CardContent className="p-3">
+        <div className="flex min-h-[76px] items-center gap-3">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+            <Calendar className="h-5 w-5 text-primary" />
           </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="truncate text-sm font-bold text-foreground">{formatDateMobile(reuniao.data)}</h3>
+            <p className="mt-0.5 text-xs font-medium text-muted-foreground">{totalParticipantes} participantes</p>
+            <div className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+              <span>Rec:</span>
+              <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-primary">
+                {totalRecitativos}
+              </span>
+            </div>
+          </div>
+
+          {selectionMode ? (
+            <div className="h-8 w-8 flex items-center justify-center" aria-hidden>
+              {isSelected ? <CheckCircle2 className="h-5 w-5 text-primary" /> : null}
+            </div>
+          ) : null}
         </div>
 
-        {selectionMode ? (
-          <div className="h-8 w-8 flex items-center justify-center" aria-hidden>
-            {isSelected ? <CheckCircle2 className="h-5 w-5 text-primary" /> : null}
+        {isExpanded && !selectionMode ? (
+          <div className="mt-3 space-y-3 rounded-2xl border border-border/55 bg-background/60 p-3" data-testid="meeting-summary">
+            <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Total de recitativos</p>
+                <p className="text-[11px] text-muted-foreground">Participantes + recitativos individuais</p>
+              </div>
+              <div className="flex h-14 min-w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
+                <span className="text-2xl font-black tabular-nums">{totalRecitativos}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl bg-muted/45 p-2">
+                <UsersRound className="mb-1 h-3.5 w-3.5 text-primary" />
+                <p className="text-base font-bold tabular-nums text-foreground">{totalParticipantes}</p>
+                <p className="text-[10px] font-medium leading-tight text-muted-foreground">participantes</p>
+              </div>
+              <div className="rounded-2xl bg-muted/45 p-2">
+                <UserPlus className="mb-1 h-3.5 w-3.5 text-primary" />
+                <p className="text-base font-bold tabular-nums text-foreground">{visitas}</p>
+                <p className="text-[10px] font-medium leading-tight text-muted-foreground">visitas</p>
+              </div>
+              <div className="rounded-2xl bg-muted/45 p-2">
+                <Mic2 className="mb-1 h-3.5 w-3.5 text-primary" />
+                <p className="text-base font-bold tabular-nums text-foreground">{recitativosIndividuais}</p>
+                <p className="text-[10px] font-medium leading-tight text-muted-foreground">individuais</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              {activeGroups.length > 0 ? (
+                activeGroups.map((group) => (
+                  <div key={group.label} className="flex items-center justify-between gap-3 rounded-xl bg-muted/35 px-2.5 py-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                        style={{ backgroundColor: ageGroupColors[group.label] || "hsl(var(--primary))" }}
+                      />
+                      <span className="truncate text-xs font-medium text-muted-foreground">{group.label}</span>
+                    </div>
+                    <span className="text-xs font-bold tabular-nums text-foreground">{group.value}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl bg-muted/35 px-2.5 py-2 text-xs text-muted-foreground">
+                  Nenhum jovem presente registrado por faixa etária.
+                </div>
+              )}
+            </div>
+
+            <div
+              className="flex items-center justify-between rounded-2xl border border-border/65 bg-background/90 p-1.5 shadow-[var(--shadow-soft)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-2xl text-foreground hover:bg-accent/35"
+                aria-label="Editar reunião"
+                onClick={() => onEdit(reuniao.id)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-2xl text-destructive hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Excluir reunião"
+                onClick={() => onDelete(reuniao.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                aria-label="Ver informações completas"
+                onClick={() => onViewDetails(reuniao.id)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         ) : null}
       </CardContent>
@@ -150,6 +277,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
   const [quickFilter, setQuickFilter] = useState<"all" | "this-month" | "last-3-months">(
     "all",
   );
+  const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
 
   // seleção por pressão (mobile)
   const [selectionMode, setSelectionMode] = useState(false);
@@ -170,6 +298,10 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
   useEffect(() => {
     applyFiltersAndSort();
   }, [reunioes, selectedMonth, selectedYear, sortOrder, searchTerm]);
+
+  useEffect(() => {
+    setExpandedMeetingId(null);
+  }, [selectedMonth, selectedYear, sortOrder, searchTerm]);
 
   useEffect(() => {
     const loadDemographics = async () => {
@@ -512,18 +644,33 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
         (data || []).map(async (reuniao) => {
           const { data: presencas } = await supabase
             .from("presencas")
-            .select("id")
+            .select("id, membro_faixa_etaria")
             .eq("group_id", activeGroupId)
             .eq("reuniao_id", reuniao.id);
 
           const totalMembros = presencas?.length || 0;
           const totalVisitas = reuniao.numero_visitas || 0;
           const totalRecitativos = reuniao.recitativos_individuais || 0;
+          const counts: Record<string, number> = {
+            Crianças: 0,
+            Meninos: 0,
+            Meninas: 0,
+            Moços: 0,
+            Moças: 0,
+          };
+
+          (presencas || []).forEach((presenca) => {
+            const faixa = presenca.membro_faixa_etaria;
+            if (faixa && counts[faixa] !== undefined) {
+              counts[faixa] += 1;
+            }
+          });
 
           return {
             ...reuniao,
             totalParticipantes: totalMembros + totalVisitas,
             totalRecitativos: totalMembros + totalVisitas + totalRecitativos,
+            ageGroupCounts: counts,
           } as Reuniao & { totalParticipantes: number; totalRecitativos: number };
         }),
       );
@@ -1115,12 +1262,19 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                     key={reuniao.id}
                     reuniao={reuniao}
                     isSelected={selectedIds.includes(reuniao.id)}
+                    isExpanded={expandedMeetingId === reuniao.id}
                     selectionMode={selectionMode}
                     formatDateMobile={formatDateMobile}
+                    ageGroupLabels={AGE_GROUP_LABELS}
+                    ageGroupColors={AGE_GROUP_COLORS}
+                    onEdit={(id) => navigate(`/reunioes/${id}`)}
+                    onDelete={handleDeleteReuniao}
+                    onViewDetails={(id) => navigate(`/reunioes/visualizar/${id}`)}
                     onEnterSelection={(id) => {
                       if (!isMobile) return;
                       setSelectionMode(true);
                       setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+                      setExpandedMeetingId(null);
                     }}
                     onToggleSelected={(id) => {
                       setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -1131,7 +1285,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                         if (found) setSelectedReuniao(found);
                         return;
                       }
-                      navigate(`/reunioes/visualizar/${id}`);
+                      setExpandedMeetingId((prev) => (prev === id ? null : id));
                     }}
                   />
                 ))}

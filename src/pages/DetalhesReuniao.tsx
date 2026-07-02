@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
+import { MeetingDateInput } from "@/components/reunioes/MeetingDateInput";
 import { PrayerMemberPicker } from "@/components/reunioes/PrayerMemberPicker";
 
 // Lista de livros da Bíblia com seus capítulos
@@ -61,6 +62,9 @@ interface Cargo {
 }
 
 const DetalhesReuniao = () => {
+  const inputClass = "h-12 rounded-2xl border-border/60 bg-background/70 text-base";
+  const textareaClass = "rounded-2xl border-border/60 bg-background/70 text-base";
+  const cardClass = "h-full rounded-3xl border-border/50 bg-card/95 shadow-[var(--shadow-soft)]";
   const navigate = useNavigate();
   const { id } = useParams();
   const isMobile = useIsMobile();
@@ -381,24 +385,17 @@ const DetalhesReuniao = () => {
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
             <div className="md:flex-1 md:min-h-0">
-              <Card className="h-full shadow-[var(--shadow-soft)] border-border/50">
+              <Card className={cardClass}>
                 <CardHeader>
                   <CardTitle>Informações da Reunião</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="data">Data</Label>
-                      <Input
-                        id="data"
-                        type="date"
-                        required
-                        value={formData.data}
-                        onChange={(e) =>
-                          setFormData({ ...formData, data: e.target.value })
-                        }
-                      />
-                    </div>
+                    <MeetingDateInput
+                      value={formData.data}
+                      required
+                      onChange={(data) => setFormData({ ...formData, data })}
+                    />
 
                     <div className="space-y-2">
                       <Label htmlFor="tema">Tema (opcional)</Label>
@@ -409,6 +406,7 @@ const DetalhesReuniao = () => {
                           setFormData({ ...formData, tema: e.target.value })
                         }
                         placeholder="Tema da reunião"
+                        className={inputClass}
                       />
                     </div>
                   </div>
@@ -426,13 +424,14 @@ const DetalhesReuniao = () => {
                       }
                       placeholder="Observações sobre a reunião"
                       rows={3}
+                      className={textareaClass}
                     />
                   </div>
 
                   {!isMobile && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="numero_visitas">Número de Visitas</Label>
+                        <Label htmlFor="numero_visitas">Número de visitas</Label>
                         <Input
                           id="numero_visitas"
                           type="number"
@@ -445,12 +444,13 @@ const DetalhesReuniao = () => {
                             })
                           }
                           placeholder="Número de visitantes presentes"
+                          className={inputClass}
                         />
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="recitativos_individuais">
-                          Recitativos Individuais (Opcional)
+                          Recitativos individuais (opcional)
                         </Label>
                         <Input
                           id="recitativos_individuais"
@@ -464,6 +464,7 @@ const DetalhesReuniao = () => {
                             })
                           }
                           placeholder="Número de recitativos individuais"
+                          className={inputClass}
                         />
                       </div>
                     </div>
@@ -471,7 +472,7 @@ const DetalhesReuniao = () => {
 
 
                   <div className="space-y-2">
-                    <Label htmlFor="quem_atendeu">Quem Atendeu (Opcional)</Label>
+                    <Label htmlFor="quem_atendeu">Quem atendeu (opcional)</Label>
                     <Input
                       id="quem_atendeu"
                       value={formData.quem_atendeu}
@@ -480,11 +481,12 @@ const DetalhesReuniao = () => {
                       }
                       placeholder="Nome de quem atendeu"
                       maxLength={200}
+                      className={inputClass}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="palavra_referencia">Palavra (Opcional)</Label>
+                    <Label htmlFor="palavra_referencia">Palavra (opcional)</Label>
                     <Input
                       id="palavra_referencia"
                       value={formData.palavra_referencia}
@@ -493,6 +495,7 @@ const DetalhesReuniao = () => {
                       }
                       placeholder="Ex: Salmos 23:1"
                       list="livros-biblia"
+                      className={inputClass}
                     />
                     <datalist id="livros-biblia">
                       {Object.keys(bibliaLivros).map((livro) => (
@@ -510,7 +513,7 @@ const DetalhesReuniao = () => {
             </div>
 
             <div className="md:flex-[1.1] md:min-h-0">
-              <Card className="h-full shadow-[var(--shadow-soft)] border-border/50">
+              <Card className={cardClass}>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className={isMobile ? "text-base" : ""}>Presenças</CardTitle>
@@ -532,7 +535,7 @@ const DetalhesReuniao = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {isMobile && (
-                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border/40 bg-card p-3">
+                    <div className="grid grid-cols-1 gap-3 rounded-3xl border border-border/55 bg-background/55 p-3">
                       <div className="space-y-2">
                         <Label htmlFor="numero_visitas">Número de visitas</Label>
                         <Input
@@ -547,6 +550,7 @@ const DetalhesReuniao = () => {
                             })
                           }
                           placeholder="Visitantes"
+                          className={inputClass}
                         />
                       </div>
 
@@ -564,6 +568,7 @@ const DetalhesReuniao = () => {
                             })
                           }
                           placeholder="Recitativos"
+                          className={inputClass}
                         />
                       </div>
                     </div>
@@ -578,7 +583,7 @@ const DetalhesReuniao = () => {
                           placeholder="Buscar membro..."
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
-                          className="pl-9"
+                          className={cn(inputClass, "pl-9")}
                         />
                       </div>
 
@@ -587,7 +592,7 @@ const DetalhesReuniao = () => {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="relative flex-shrink-0"
+                            className="relative h-12 w-12 flex-shrink-0 rounded-2xl border-border/60 bg-background/70"
                             aria-label="Filtros"
                           >
                             <Filter className="h-4 w-4" />
@@ -598,7 +603,11 @@ const DetalhesReuniao = () => {
                             )}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80" align="end">
+                        <PopoverContent
+                          className="max-h-[min(42vh,24rem)] w-[calc(100vw-2rem)] max-w-80 overflow-y-auto rounded-3xl border-border/60 bg-background/98 p-3 shadow-[var(--shadow-card)] backdrop-blur-xl scrollbar-none supports-[backdrop-filter]:bg-background/94"
+                          align="end"
+                          sideOffset={10}
+                        >
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <h4 className="font-semibold text-sm">Filtros</h4>
@@ -607,7 +616,7 @@ const DetalhesReuniao = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={clearFilters}
-                                  className="h-auto p-1 text-xs"
+                                  className="h-8 rounded-xl px-2 text-xs"
                                 >
                                   Limpar
                                 </Button>
@@ -616,9 +625,9 @@ const DetalhesReuniao = () => {
 
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Cargos</Label>
-                              <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-none">
+                              <div className="space-y-1.5 max-h-[200px] overflow-y-auto scrollbar-none rounded-2xl border border-border/45 bg-card/60 p-2">
                                 {cargosDisponiveis.map((cargo) => (
-                                  <div key={cargo.id} className="flex items-center space-x-2">
+                                  <div key={cargo.id} className="flex items-center space-x-2 rounded-xl px-2 py-1.5 hover:bg-accent/25">
                                     <Checkbox
                                       id={`filter-cargo-${cargo.id}`}
                                       checked={selectedCargos.includes(cargo.nome)}
@@ -636,10 +645,10 @@ const DetalhesReuniao = () => {
                             </div>
 
                             <div className="space-y-2">
-                              <Label className="text-sm font-medium">Faixa Etária</Label>
-                              <div className="space-y-2">
+                              <Label className="text-sm font-medium">Faixa etária</Label>
+                              <div className="space-y-1.5 rounded-2xl border border-border/45 bg-card/60 p-2">
                                 {faixasEtarias.map((faixa) => (
-                                  <div key={faixa} className="flex items-center space-x-2">
+                                  <div key={faixa} className="flex items-center space-x-2 rounded-xl px-2 py-1.5 hover:bg-accent/25">
                                     <Checkbox
                                       id={`filter-faixa-${faixa}`}
                                       checked={selectedFaixas.includes(faixa)}
@@ -664,13 +673,13 @@ const DetalhesReuniao = () => {
                     {(selectedCargos.length > 0 || selectedFaixas.length > 0) && (
                       <div className="flex flex-wrap gap-2">
                         {selectedCargos.map((cargo) => (
-                          <Badge key={cargo} variant="secondary" className="gap-1">
+                          <Badge key={cargo} variant="secondary" className="gap-1 rounded-full">
                             {cargo}
                             <X className="h-3 w-3 cursor-pointer" onClick={() => removeCargo(cargo)} />
                           </Badge>
                         ))}
                         {selectedFaixas.map((faixa) => (
-                          <Badge key={faixa} variant="secondary" className="gap-1">
+                          <Badge key={faixa} variant="secondary" className="gap-1 rounded-full">
                             {faixa}
                             <X className="h-3 w-3 cursor-pointer" onClick={() => removeFaixa(faixa)} />
                           </Badge>
@@ -688,14 +697,14 @@ const DetalhesReuniao = () => {
                         <div
                           key={membro.id}
                           className={cn(
-                            "flex items-center gap-3 p-3 rounded-2xl border border-border/40 bg-card cursor-pointer transition hover:bg-accent/40",
+                            "flex items-center gap-3 rounded-2xl border border-border/55 bg-background/60 p-3 cursor-pointer transition hover:bg-accent/35",
                             isSelected && "border-primary bg-primary/5",
                           )}
                           onClick={() => toggleMembro(membro.id)}
                         >
-                          <Avatar className="h-9 w-9 flex-shrink-0">
-                            <AvatarImage src={membro.foto_url || undefined} alt={membro.nome} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          <Avatar className="h-10 w-10 flex-shrink-0 rounded-2xl">
+                            <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
+                            <AvatarFallback className="rounded-2xl bg-primary/10 text-primary text-xs">
                               {membro.nome.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
@@ -734,12 +743,12 @@ const DetalhesReuniao = () => {
             </div>
           </div>
           {/* Espaçador para não esconder o fim do formulário atrás da barra fixa */}
-          <div className="h-24 md:hidden" aria-hidden="true" />
+          <div className="h-[calc(env(safe-area-inset-bottom)+12rem)] md:hidden" aria-hidden="true" />
 
           {/* Ações movidas para a barra inferior no mobile */}
         </form>
       </div>
-      <MobileActionBar>
+      <MobileActionBar floating>
         <Button type="button" variant="outline" onClick={() => navigate("/reunioes")} disabled={loading}>
           Cancelar
         </Button>

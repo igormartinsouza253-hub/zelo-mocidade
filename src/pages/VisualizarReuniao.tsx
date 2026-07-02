@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Filter, SortAsc, Edit, Trash2 } from "lucide-react";
+import { Edit, Filter, Mic2, SortAsc, Trash2, Users, UserPlus } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatDateLocal } from "@/lib/date-utils";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Label as PieLabel } from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +23,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
+import { cn } from "@/lib/utils";
 interface Membro {
   id: string;
   nome: string;
   faixa_etaria: string;
+  foto_url?: string | null;
   ativo?: boolean;
+  orou?: boolean;
 }
 
 interface Oracao {
@@ -73,6 +78,8 @@ const VisualizarReuniao = () => {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [barChartData, setBarChartData] = useState<any[]>([]);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+  const [selectedSlide, setSelectedSlide] = useState(0);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -85,6 +92,17 @@ const VisualizarReuniao = () => {
       loadReuniao();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    const update = () => setSelectedSlide(carouselApi.selectedScrollSnap());
+    update();
+    carouselApi.on("select", update);
+    carouselApi.on("reInit", update);
+    return () => {
+      carouselApi.off("select", update);
+    };
+  }, [carouselApi]);
 
   const loadReuniao = async () => {
     try {
@@ -126,7 +144,7 @@ const VisualizarReuniao = () => {
 
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
-        .select("membro_id, membro_nome, membro_faixa_etaria")
+        .select("membro_id, membro_nome, membro_faixa_etaria, orou")
         .eq("reuniao_id", id);
 
       if (presencasError) throw presencasError;
@@ -140,6 +158,7 @@ const VisualizarReuniao = () => {
           id: p.membro_id,
           nome: p.membro_nome || "(sem nome)",
           faixa_etaria: p.membro_faixa_etaria || "",
+          orou: Boolean(p.orou),
         }));
 
       const needsFallback = membrosList.some((m) => !m.faixa_etaria || m.nome === "(sem nome)");
@@ -147,7 +166,7 @@ const VisualizarReuniao = () => {
       if (membroIds.length > 0) {
         const { data: membrosStatus, error: membrosStatusError } = await supabase
           .from("membros")
-          .select("id, nome, faixa_etaria, ativo")
+          .select("id, nome, faixa_etaria, foto_url, ativo")
           .in("id", membroIds);
 
         if (membrosStatusError) throw membrosStatusError;
@@ -158,7 +177,7 @@ const VisualizarReuniao = () => {
           const current = byId.get(m.id);
           const nome = m.nome && m.nome !== "(sem nome)" ? m.nome : (current?.nome ?? m.nome);
           const faixa = m.faixa_etaria ? m.faixa_etaria : (current?.faixa_etaria ?? m.faixa_etaria);
-          return { id: m.id, nome, faixa_etaria: faixa, ativo: current?.ativo ?? undefined };
+          return { id: m.id, nome, faixa_etaria: faixa, foto_url: current?.foto_url ?? null, ativo: current?.ativo ?? undefined, orou: m.orou };
         });
 
         if (needsFallback && membrosList.length === 0) {
@@ -166,6 +185,7 @@ const VisualizarReuniao = () => {
             id: m.id,
             nome: m.nome,
             faixa_etaria: m.faixa_etaria,
+            foto_url: m.foto_url ?? null,
             ativo: m.ativo,
           }));
         }
@@ -297,27 +317,38 @@ const VisualizarReuniao = () => {
 
   const filteredMembros = getFilteredAndSortedMembros();
   const groupedMembros = getMembrosGroupedByFaixa();
+  const prayingMembers = membrosPresentes.filter((membro) => membro.orou);
+  const ageSummary = FAIXAS_ETARIAS.map((faixa) => ({
+    faixa,
+    total: membrosPresentes.filter((membro) => membro.faixa_etaria === faixa).length,
+  }));
+  const resumoItems = [
+    { label: "Participantes", value: getTotalParticipantes(), icon: Users },
+    { label: "Visitas", value: reuniao.numero_visitas || 0, icon: UserPlus },
+    { label: "Individuais", value: reuniao.recitativos_individuais || 0, icon: Mic2 },
+  ];
+  const carouselSlideCount = 3;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+7rem)]">
       <div className="mx-auto w-full max-w-4xl px-3 py-4">
         {/* Header interno removido: o AppLayout já fornece voltar + título no mobile */}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <section className="grid grid-cols-2 gap-2">
-            <Card className="shadow-[var(--shadow-soft)] border-border/50">
+            <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
-                <p className="text-[11px] text-muted-foreground">Participantes</p>
-                <p className="text-xl font-semibold text-foreground leading-none mt-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Participantes</p>
+                <p className="mt-1 text-2xl font-black leading-none tabular-nums text-foreground">
                   {getTotalParticipantes()}
                 </p>
               </CardContent>
             </Card>
-            <Card className="shadow-[var(--shadow-soft)] border-border/50">
+            <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
-                <p className="text-[11px] text-muted-foreground">Total recitativos</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Total recitativos</p>
                 <p
-                  className="text-xl font-semibold leading-none mt-1"
+                  className="mt-1 text-2xl font-black leading-none tabular-nums"
                   style={{ color: "hsl(var(--faixa-recitativos))" }}
                 >
                   {getTotalRecitativos()}
@@ -326,7 +357,7 @@ const VisualizarReuniao = () => {
             </Card>
           </section>
 
-          <Card className="shadow-[var(--shadow-soft)] border-border/50">
+          <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Reunião — {formatDateLocal(reuniao.data)}</CardTitle>
             </CardHeader>
@@ -399,106 +430,219 @@ const VisualizarReuniao = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-[var(--shadow-soft)] border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-4 w-4" />
-                Distribuição
+          <Card className="overflow-hidden rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4 text-primary" />
+                    Dados da reunião
+                  </CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Distribuição, participação e resumo
+                  </p>
+                </div>
+                <div className="flex gap-1 pt-1">
+                  {Array.from({ length: carouselSlideCount }).map((_, index) => (
+                    <span
+                      key={index}
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        selectedSlide === index ? "w-5 bg-primary" : "w-1.5 bg-muted-foreground/25"
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Carousel setApi={setCarouselApi} opts={{ align: "start" }} className="w-full">
+                <CarouselContent>
+                  <CarouselItem>
+                    <div className="min-h-[270px] rounded-[1.25rem] bg-background/45 p-3">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Distribuição</h3>
+                        <Badge variant="secondary" className="rounded-full text-[10px]">
+                          {getTotalParticipantes()} pessoas
+                        </Badge>
+                      </div>
+                      {chartData.length > 0 ? (
+                        <div className="space-y-3">
+                          <div className="mx-auto h-[168px] w-[168px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={chartData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius="52%"
+                                  outerRadius="72%"
+                                  startAngle={90}
+                                  endAngle={-270}
+                                  paddingAngle={4}
+                                  cornerRadius={10}
+                                  minAngle={3}
+                                  fill="hsl(var(--primary))"
+                                  dataKey="value"
+                                >
+                                  <PieLabel
+                                    position="center"
+                                    content={({ viewBox }) => {
+                                      if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null;
+                                      return (
+                                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                          <tspan x={viewBox.cx} dy="-0.2em" className="fill-foreground text-2xl font-bold">
+                                            {getTotalParticipantes()}
+                                          </tspan>
+                                          <tspan x={viewBox.cx} dy="1.5em" className="fill-muted-foreground text-[10px] font-medium">
+                                            pessoas
+                                          </tspan>
+                                        </text>
+                                      );
+                                    }}
+                                  />
+                                  {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" strokeWidth={0} />
+                                  ))}
+                                </Pie>
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {chartData.map((entry, index) => (
+                              <div key={index} className="flex items-center justify-between gap-2 rounded-2xl bg-card/70 px-2.5 py-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
+                                  <span className="truncate text-[11px] font-medium text-muted-foreground">{entry.name}</span>
+                                </div>
+                                <span className="text-[11px] font-bold tabular-nums text-foreground">{entry.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-sm text-muted-foreground">
+                          Nenhum participante registrado nesta reunião
+                        </div>
+                      )}
+                    </div>
+                  </CarouselItem>
+
+                  <CarouselItem>
+                    <div className="min-h-[270px] rounded-[1.25rem] bg-background/45 p-3">
+                      <div className="mb-3">
+                        <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Participação</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">Total de membros vs presentes</p>
+                      </div>
+                      {barChartData.length > 0 ? (
+                        <>
+                          <ResponsiveContainer width="100%" height={172}>
+                            <BarChart data={barChartData} barGap={4}>
+                              <XAxis dataKey="faixa" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} style={{ fontSize: "10px" }} />
+                              <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} width={26} style={{ fontSize: "10px" }} />
+                              <Bar dataKey="total" fillOpacity={0.28} name="Total" radius={[10, 10, 4, 4]}>
+                                {barChartData.map((entry, index) => (
+                                  <Cell key={`cell-total-${index}`} fill={FAIXA_COLORS[entry.faixa] || "hsl(var(--muted))"} />
+                                ))}
+                              </Bar>
+                              <Bar dataKey="presentes" name="Presentes" radius={[10, 10, 4, 4]}>
+                                {barChartData.map((entry, index) => (
+                                  <Cell key={`cell-presentes-${index}`} fill={FAIXA_COLORS[entry.faixa] || "hsl(var(--primary))"} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <div className="rounded-2xl bg-card/70 px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/45" />
+                                <span className="text-[11px] font-semibold text-muted-foreground">Total</span>
+                              </div>
+                              <p className="mt-1 text-[10px] text-muted-foreground">Membros cadastrados</p>
+                            </div>
+                            <div className="rounded-2xl bg-card/70 px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                                <span className="text-[11px] font-semibold text-muted-foreground">Presentes</span>
+                              </div>
+                              <p className="mt-1 text-[10px] text-muted-foreground">Nesta reunião</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="py-12 text-center text-sm text-muted-foreground">
+                          Sem dados para comparar participação
+                        </div>
+                      )}
+                    </div>
+                  </CarouselItem>
+
+                  <CarouselItem>
+                    <div className="min-h-[270px] rounded-[1.25rem] bg-background/45 p-3">
+                      <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Resumo</h3>
+                      <div className="mt-3 rounded-3xl bg-primary px-4 py-3 text-primary-foreground shadow-sm">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-80">Total de recitativos</p>
+                        <p className="mt-1 text-4xl font-black leading-none tabular-nums">{getTotalRecitativos()}</p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {resumoItems.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <div key={item.label} className="rounded-2xl bg-card/70 p-2.5">
+                              <Icon className="h-3.5 w-3.5 text-primary" />
+                              <p className="mt-2 text-lg font-black leading-none tabular-nums">{item.value}</p>
+                              <p className="mt-1 truncate text-[10px] font-medium text-muted-foreground">{item.label}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        {ageSummary.map((item) => (
+                          <div key={item.faixa} className="flex items-center justify-between rounded-2xl bg-card/70 px-3 py-2">
+                            <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+                              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: FAIXA_COLORS[item.faixa] }} />
+                              {item.faixa}
+                            </span>
+                            <span className="text-xs font-bold tabular-nums text-foreground">{item.total}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CarouselItem>
+                </CarouselContent>
+              </Carousel>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Mic2 className="h-4 w-4 text-primary" />
+                Quem orou
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {chartData.length > 0 ? (
-                <div className="flex items-center gap-3">
-                  <div className="h-[160px] w-[160px] shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={46}
-                          outerRadius={68}
-                          paddingAngle={3}
-                          fill="hsl(var(--primary))"
-                          dataKey="value"
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border))",
-                            borderRadius: "var(--radius)",
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="space-y-1.5">
-                      {chartData.map((entry, index) => (
-                        <div key={index} className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span className="text-xs text-muted-foreground truncate">{entry.name}</span>
-                          </div>
-                          <span className="text-xs font-semibold text-foreground tabular-nums">{entry.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            <CardContent className="pt-0">
+              {prayingMembers.length > 0 || (Array.isArray(reuniao.oracoes) && reuniao.oracoes.length > 0) ? (
+                <div className="flex flex-wrap gap-2">
+                  {prayingMembers.map((membro) => (
+                    <Badge key={membro.id} variant="secondary" className="rounded-full px-2.5 py-1 text-[11px]">
+                      {membro.nome}
+                    </Badge>
+                  ))}
+                  {(reuniao.oracoes || []).map((oracao, index) => (
+                    <Badge key={`${oracao.nome}-${index}`} variant="outline" className="rounded-full px-2.5 py-1 text-[11px]">
+                      {oracao.nome}
+                    </Badge>
+                  ))}
                 </div>
               ) : (
-                <div className="text-center py-6 text-sm text-muted-foreground">
-                  Nenhum participante registrado nesta reunião
-                </div>
+                <p className="text-sm text-muted-foreground">Nenhuma oração marcada nesta reunião.</p>
               )}
             </CardContent>
           </Card>
 
-          {barChartData.length > 0 && (
-            <Card className="shadow-[var(--shadow-soft)] border-border/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Participação por faixa</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Total de membros vs presentes nesta reunião
-                </p>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={barChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis dataKey="faixa" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "var(--radius)",
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="total" fillOpacity={0.5} name="Total" radius={[8, 8, 0, 0]}>
-                      {barChartData.map((entry, index) => (
-                        <Cell key={`cell-total-${index}`} fill={FAIXA_COLORS[entry.faixa] || "hsl(var(--muted))"} />
-                      ))}
-                    </Bar>
-                    <Bar dataKey="presentes" name="Presentes" radius={[8, 8, 0, 0]}>
-                      {barChartData.map((entry, index) => (
-                        <Cell key={`cell-presentes-${index}`} fill={FAIXA_COLORS[entry.faixa] || "hsl(var(--primary))"} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
           {membrosPresentes.length > 0 && (
-            <Card className="shadow-[var(--shadow-soft)] border-border/50">
+            <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
               <CardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-base">Membros presentes ({filteredMembros.length})</CardTitle>
@@ -565,20 +709,27 @@ const VisualizarReuniao = () => {
                           {faixa} ({membros.length})
                         </h4>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
                         {membros.map((membro) => (
                           <button
                             key={membro.id}
                             type="button"
-                            className="flex items-center justify-between gap-2 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                            className="flex w-full items-center gap-3 rounded-2xl border border-border/50 bg-background/55 p-2.5 text-left transition-colors hover:bg-accent/25"
                             onClick={() => navigate(`/membros/visualizar/${membro.id}`)}
                           >
-                            <div className="min-w-0">
-                              <span className="font-medium text-sm truncate block">{membro.nome}</span>
-                              {membro.ativo === false ? (
-                                <span className="text-[10px] text-muted-foreground block">Não faz mais parte da mocidade</span>
-                              ) : null}
+                            <Avatar className="h-10 w-10 rounded-2xl border border-border/50">
+                              <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
+                              <AvatarFallback className="rounded-2xl bg-primary/10 text-primary text-xs">
+                                {membro.nome.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-foreground">{membro.nome}</span>
+                              <span className="block text-[11px] text-muted-foreground">
+                                {membro.ativo === false ? "Não faz mais parte da mocidade" : membro.faixa_etaria}
+                              </span>
                             </div>
+                            {membro.orou ? <Badge variant="secondary" className="rounded-full text-[10px]">Orou</Badge> : null}
                             <span
                               className="h-2.5 w-2.5 rounded-full shrink-0"
                               style={{ backgroundColor: FAIXA_COLORS[membro.faixa_etaria] }}
@@ -595,7 +746,7 @@ const VisualizarReuniao = () => {
         </div>
       </div>
 
-      <MobileActionBar>
+      <MobileActionBar floating>
         <Button
           type="button"
           variant="destructive"

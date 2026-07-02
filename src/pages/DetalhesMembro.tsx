@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { ArrowLeft, Trash2, Camera, Users } from "lucide-react";
+import { ArrowLeft, Trash2, Camera, Users, CalendarDays } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -33,10 +33,72 @@ import { membroSchema } from "@/lib/membroSchema";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Cargo {
   id: string;
   nome: string;
+}
+
+function isValidIsoDate(isoDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return false;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
+}
+
+function formatSavedMemberDate(dataNascimento?: string | null, dataAniversario?: string | null) {
+  if (dataNascimento && /^\d{4}-\d{2}-\d{2}$/.test(dataNascimento)) {
+    const [year, month, day] = dataNascimento.split("-");
+    return `${day}/${month}/${year}`;
+  }
+  if (dataAniversario && /^\d{2}-\d{2}$/.test(dataAniversario)) {
+    const [month, day] = dataAniversario.split("-");
+    return `${day}/${month}`;
+  }
+  return "";
+}
+
+function parseSmartDate(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const day = digits.slice(0, 2);
+  const month = digits.slice(2, 4);
+  const year = digits.slice(4, 8);
+  const display = [day, month, year].filter(Boolean).join("/");
+
+  if (!digits) {
+    return { display, complete: true, data_nascimento: "", data_aniversario: "" };
+  }
+
+  const dayNumber = Number(day);
+  const monthNumber = Number(month);
+  const isValidDayMonth =
+    day.length === 2 &&
+    month.length === 2 &&
+    dayNumber >= 1 &&
+    dayNumber <= 31 &&
+    monthNumber >= 1 &&
+    monthNumber <= 12;
+
+  if (!isValidDayMonth) {
+    return { display, complete: false, data_nascimento: "", data_aniversario: "" };
+  }
+
+  if (year.length === 4) {
+    const iso = `${year}-${month}-${day}`;
+    return {
+      display,
+      complete: isValidIsoDate(iso),
+      data_nascimento: isValidIsoDate(iso) ? iso : "",
+      data_aniversario: "",
+    };
+  }
+
+  if (digits.length > 4) {
+    return { display, complete: false, data_nascimento: "", data_aniversario: "" };
+  }
+
+  return { display, complete: true, data_nascimento: "", data_aniversario: `${month}-${day}` };
 }
 
 const DetalhesMembro = () => {
@@ -53,6 +115,9 @@ const DetalhesMembro = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showCropDialog, setShowCropDialog] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState("");
+  const [birthInput, setBirthInput] = useState("");
+  const [showDateDialog, setShowDateDialog] = useState(false);
+  const [dateDraft, setDateDraft] = useState({ day: "", month: "", year: "" });
   const [formData, setFormData] = useState({
     nome: "",
     data_nascimento: "",
@@ -76,6 +141,12 @@ const DetalhesMembro = () => {
   };
 
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
+  const dayOptions = useMemo(() => Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0")), []);
+  const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")), []);
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 121 }, (_, index) => String(currentYear - index));
+  }, []);
 
   useEffect(() => {
     setConfig({
@@ -101,6 +172,16 @@ const DetalhesMembro = () => {
     loadCargos();
     loadPresencas();
   }, [id, activeGroupId]);
+
+  useEffect(() => {
+    if (!showDateDialog) return;
+    const digits = birthInput.replace(/\D/g, "");
+    setDateDraft({
+      day: digits.slice(0, 2),
+      month: digits.slice(2, 4),
+      year: digits.slice(4, 8),
+    });
+  }, [birthInput, showDateDialog]);
 
   const loadCargos = async () => {
     if (!activeGroupId) {
@@ -138,7 +219,7 @@ const DetalhesMembro = () => {
 
       setFormData({
         nome: data.nome,
-        data_nascimento: data.data_nascimento,
+        data_nascimento: data.data_nascimento || "",
         cargos: data.cargos || [],
         faixa_etaria: data.faixa_etaria,
         data_aniversario: data.data_aniversario || "",
@@ -147,6 +228,7 @@ const DetalhesMembro = () => {
         telefone: data.telefone || "",
         status_telefone: data.status_telefone || "",
       });
+      setBirthInput(formatSavedMemberDate(data.data_nascimento, data.data_aniversario));
       setMemberGroupId(data.group_id ?? null);
     } catch (error) {
       console.error("Erro ao carregar membro:", error);
@@ -237,8 +319,31 @@ const DetalhesMembro = () => {
     }
   };
 
+  const updateBirthInput = (value: string) => {
+    const parsed = parseSmartDate(value);
+    setBirthInput(parsed.display);
+
+    if (!parsed.complete) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      data_nascimento: parsed.data_nascimento,
+      data_aniversario: parsed.data_aniversario,
+    }));
+  };
+
+  const applyDateParts = (day: string, month: string, year: string) => {
+    updateBirthInput(`${day}${month}${year}`);
+    setShowDateDialog(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (birthInput && !parseSmartDate(birthInput).complete) {
+      toast.error("Complete a data ou limpe o campo antes de salvar");
+      return;
+    }
 
     const telefoneLimpo = formData.telefone.replace(/\D/g, "");
 
@@ -477,31 +582,30 @@ const DetalhesMembro = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-                  <Input
-                    id="data_nascimento"
-                    type="date"
-                    value={formData.data_nascimento}
-                    onChange={(e) =>
-                      setFormData({ ...formData, data_nascimento: e.target.value })
-                    }
-                    className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="data_aniversario">
-                    Data de Aniversário (opcional, formato: MM-DD)
-                  </Label>
-                  <Input
-                    id="data_aniversario"
-                    placeholder="Ex: 03-15 para 15 de março"
-                    value={formData.data_aniversario}
-                    onChange={(e) =>
-                      setFormData({ ...formData, data_aniversario: e.target.value })
-                    }
-                    className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
-                  />
+                  <Label htmlFor="birth_input">Nascimento ou aniversário</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="birth_input"
+                      inputMode="numeric"
+                      value={birthInput}
+                      onChange={(e) => updateBirthInput(e.target.value)}
+                      placeholder="DD/MM ou DD/MM/AAAA"
+                      className="h-12 rounded-2xl border-border/60 bg-background/70 text-base"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 shrink-0 rounded-2xl"
+                      onClick={() => setShowDateDialog(true)}
+                      aria-label="Abrir seletor de data"
+                    >
+                      <CalendarDays className="h-5 w-5" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Com ano, salva como nascimento. Sem ano, mantém apenas o aniversário.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -668,6 +772,80 @@ const DetalhesMembro = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={showDateDialog} onOpenChange={setShowDateDialog}>
+          <DialogContent className="max-w-sm rounded-3xl border-border/60 bg-background/98 p-4 shadow-[var(--shadow-card)]">
+            <DialogHeader>
+              <DialogTitle>Selecionar data</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Dia</Label>
+                  <Select value={dateDraft.day} onValueChange={(day) => setDateDraft((prev) => ({ ...prev, day }))}>
+                    <SelectTrigger className="h-12 rounded-2xl">
+                      <SelectValue placeholder="Dia" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {dayOptions.map((day) => (
+                        <SelectItem key={day} value={day}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Mês</Label>
+                  <Select value={dateDraft.month} onValueChange={(month) => setDateDraft((prev) => ({ ...prev, month }))}>
+                    <SelectTrigger className="h-12 rounded-2xl">
+                      <SelectValue placeholder="Mês" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {monthOptions.map((month) => (
+                        <SelectItem key={month} value={month}>
+                          {month}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ano</Label>
+                  <Select value={dateDraft.year || "none"} onValueChange={(year) => setDateDraft((prev) => ({ ...prev, year: year === "none" ? "" : year }))}>
+                    <SelectTrigger className="h-12 rounded-2xl">
+                      <SelectValue placeholder="Ano" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="none">Sem ano</SelectItem>
+                      {yearOptions.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border/55 bg-card/70 p-3 text-xs text-muted-foreground">
+                Dia e mês salvam o aniversário. Ao incluir ano, o app salva como nascimento.
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" className="rounded-2xl" onClick={() => updateBirthInput("")}>
+                  Limpar
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-2xl"
+                  disabled={!dateDraft.day || !dateDraft.month}
+                  onClick={() => applyDateParts(dateDraft.day, dateDraft.month, dateDraft.year)}
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <ImageCropDialog
           open={showCropDialog}
