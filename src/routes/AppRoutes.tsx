@@ -31,6 +31,7 @@ const Visitas = lazy(() => import("@/pages/Visitas"));
 const NovaVisita = lazy(() => import("@/pages/NovaVisita"));
 const VisualizarVisita = lazy(() => import("@/pages/VisualizarVisita"));
 const GrupoGestor = lazy(() => import("@/pages/GrupoGestor"));
+const GrupoInfo = lazy(() => import("@/pages/GrupoInfo"));
 const ConfiguracoesGrupoAdmin = lazy(() => import("@/pages/ConfiguracoesGrupoAdmin"));
 const GrupoConvite = lazy(() => import("@/pages/GrupoConvite"));
 
@@ -106,6 +107,7 @@ export function AppRoutes() {
       <Route path="/configuracoes" element={<ProtectedLayout><Configuracoes /></ProtectedLayout>} />
       <Route path="/configuracoes/grupo-admin" element={<ProtectedLayout><ConfiguracoesGrupoAdmin /></ProtectedLayout>} />
       <Route path="/grupo" element={<ProtectedStandalone><GrupoGestor /></ProtectedStandalone>} />
+      <Route path="/grupo/info" element={<ProtectedLayout><GrupoInfo /></ProtectedLayout>} />
 
       <Route path="/notas" element={<ProtectedLayout><Notas /></ProtectedLayout>} />
       <Route path="/notas/nova" element={<ProtectedLayout><EditorNota /></ProtectedLayout>} />

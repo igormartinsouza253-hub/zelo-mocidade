@@ -380,11 +380,23 @@ export default function ConfiguracoesGrupoAdmin() {
     setCreatingInvite(true);
     try {
       const token = createInviteToken();
-      const { error } = await supabase.rpc("create_group_invite" as any, {
+      let { error } = await supabase.rpc("create_group_invite" as any, {
         _group_id: activeGroupId,
         _token: token,
-        _expires_in_hours: 10,
+        _expires_in_minutes: 10,
       });
+
+      if (error && String(error.message ?? "").toLowerCase().includes("_expires_in_minutes")) {
+        const fallback = await supabase.rpc("create_group_invite" as any, {
+          _group_id: activeGroupId,
+          _token: token,
+          _expires_in_hours: 1,
+        });
+        error = fallback.error;
+        if (!error) {
+          toast.warning("Seu banco local ainda precisa da migration nova; este link expira pelo limite antigo.");
+        }
+      }
 
       if (error) throw error;
 
@@ -393,7 +405,7 @@ export default function ConfiguracoesGrupoAdmin() {
 
       try {
         await navigator.clipboard.writeText(link);
-        toast.success("Link de convite criado e copiado. Ele expira em 10 horas.");
+        toast.success("Link de convite criado e copiado. Ele expira em 10 minutos.");
       } catch {
         toast.success("Link de convite criado. Copie e envie para o novo membro.");
       }
@@ -570,7 +582,7 @@ export default function ConfiguracoesGrupoAdmin() {
                         Link temporario de convite
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Permite entrar direto no grupo sem senha por 10 horas.
+                        Permite entrar direto no grupo sem senha por 10 minutos.
                       </p>
                     </div>
                     <Button type="button" onClick={handleCreateInvite} disabled={creatingInvite} className="gap-2">

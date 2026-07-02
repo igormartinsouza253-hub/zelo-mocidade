@@ -33,6 +33,10 @@ type Props = {
 };
 
 function resolveNotificationHref(item: NotificationRow) {
+  if (item.entity_type === "group_join_request") {
+    return "/grupo/info";
+  }
+
   if (item.entity_type === "nota" && item.entity_id) {
     return `/notas/editar/${encodeURIComponent(item.entity_id)}`;
   }

@@ -108,7 +108,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   useEffect(() => {
     if (!user) return;
     if (loadingGroup) return;
-    if (location.pathname.startsWith("/grupo")) return;
+    if (location.pathname === "/grupo") return;
     if (!activeGroupId) {
       const redirectId = window.setTimeout(() => {
         navigate("/grupo", { replace: true });
@@ -536,6 +536,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                             <Settings className="h-4 w-4 mr-2" />
                             {"Configura\u00e7\u00f5es"}
                           </DropdownMenuItem>
+                          {activeGroupId ? (
+                            <DropdownMenuItem onClick={() => navigate("/grupo/info")} className="cursor-pointer">
+                              <Users className="h-4 w-4 mr-2" />
+                              Visualizar grupo
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuItem onClick={() => setIsNotificationsDrawerOpen(true)}>
                             <Bell className="h-4 w-4 mr-2" />
                             {"Notifica\u00e7\u00f5es"}
