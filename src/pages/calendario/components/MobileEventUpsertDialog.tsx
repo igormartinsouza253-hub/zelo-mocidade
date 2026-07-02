@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type EventoTipo = "ajuntamento" | "saida" | "visita";
 
@@ -62,6 +63,8 @@ export function MobileEventUpsertDialog({
   onSaved,
 }: Props) {
   const [saving, setSaving] = React.useState(false);
+  const inputClass = "h-12 rounded-2xl border-border/60 bg-background/70 text-base";
+  const textareaClass = "rounded-2xl border-border/60 bg-background/70 text-base";
 
   const defaultStart = React.useMemo(() => {
     const d = defaultStartISO ? new Date(defaultStartISO) : new Date();
@@ -165,22 +168,27 @@ export function MobileEventUpsertDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{editingEventId ? "Editar evento" : "Novo evento"}</DialogTitle>
-          <DialogDescription>
+      <DialogContent
+        className={cn(
+          "left-0 top-auto bottom-0 max-h-[92svh] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]",
+          "sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:max-w-md sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-3xl",
+        )}
+      >
+        <DialogHeader className="px-4 pb-2 pt-4 text-left">
+          <DialogTitle className="text-base font-black">{editingEventId ? "Editar evento" : "Novo evento"}</DialogTitle>
+          <DialogDescription className="text-xs font-medium">
             {editingEventId ? "Edite os dados do evento." : "Crie um evento rápido para este dia."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="max-h-[calc(92svh-9rem)] space-y-3 overflow-y-auto px-4 pb-4 pt-1 scrollbar-none">
           <div className="space-y-2">
             <Label>Tipo</Label>
             <Select value={tipo} onValueChange={(v) => setTipo(v as EventoTipo)}>
-              <SelectTrigger>
+              <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-3xl border-border/60 bg-background/98 p-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
                 <SelectItem value="ajuntamento">Ajuntamento</SelectItem>
                 <SelectItem value="saida">Saída</SelectItem>
                 <SelectItem value="visita">Visita (agenda)</SelectItem>
@@ -190,40 +198,40 @@ export function MobileEventUpsertDialog({
 
           <div className="space-y-2">
             <Label htmlFor="titulo">Título</Label>
-            <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Reunião com pais" />
+            <Input id="titulo" className={inputClass} value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Reunião com pais" />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="local">Local (opcional)</Label>
-            <Input id="local" value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex: Salão" />
+            <Input id="local" className={inputClass} value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex: Salão" />
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+          <div className="flex items-center justify-between gap-3 rounded-3xl border border-border/55 bg-card/80 p-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium text-foreground">Dia inteiro</div>
-              <div className="text-xs text-muted-foreground">Se ativado, o horário vira apenas informativo.</div>
+              <div className="text-sm font-black text-foreground">Dia inteiro</div>
+              <div className="text-xs font-medium text-muted-foreground">Se ativado, o horário vira apenas informativo.</div>
             </div>
             <Switch checked={diaInteiro} onCheckedChange={setDiaInteiro} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="inicio">Início</Label>
-              <Input id="inicio" type="datetime-local" value={inicio} onChange={(e) => setInicio(e.target.value)} />
+              <Input id="inicio" className={inputClass} type="datetime-local" value={inicio} onChange={(e) => setInicio(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="fim">Fim</Label>
-              <Input id="fim" type="datetime-local" value={fim} onChange={(e) => setFim(e.target.value)} />
+              <Input id="fim" className={inputClass} type="datetime-local" value={fim} onChange={(e) => setFim(e.target.value)} />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="descricao">Descrição (opcional)</Label>
-            <Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} />
+            <Textarea id="descricao" className={cn(textareaClass, "min-h-[88px] resize-none")} value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} />
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="grid grid-cols-2 gap-2 border-t border-border/50 bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:flex sm:pb-4 [&_button]:h-11 [&_button]:rounded-2xl [&_button]:font-semibold">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>

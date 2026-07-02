@@ -322,6 +322,16 @@ const VisualizarReuniao = () => {
     faixa,
     total: membrosPresentes.filter((membro) => membro.faixa_etaria === faixa).length,
   }));
+  const pieChartData = chartData.length === 1
+    ? [
+        chartData[0],
+        {
+          name: "__rounding_gap",
+          value: Math.max(chartData[0].value * 0.04, 0.25),
+          color: "transparent",
+        },
+      ]
+    : chartData;
   const resumoItems = [
     { label: "Participantes", value: getTotalParticipantes(), icon: Users },
     { label: "Visitas", value: reuniao.numero_visitas || 0, icon: UserPlus },
@@ -331,13 +341,13 @@ const VisualizarReuniao = () => {
 
   return (
     <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+7rem)]">
-      <div className="mx-auto w-full max-w-4xl px-3 py-4">
+      <div className="mx-auto w-full max-w-4xl px-2.5 py-3">
         {/* Header interno removido: o AppLayout já fornece voltar + título no mobile */}
 
         <div className="space-y-3">
           <section className="grid grid-cols-2 gap-2">
             <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
-              <CardContent className="p-3">
+              <CardContent className="p-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Participantes</p>
                 <p className="mt-1 text-2xl font-black leading-none tabular-nums text-foreground">
                   {getTotalParticipantes()}
@@ -345,7 +355,7 @@ const VisualizarReuniao = () => {
               </CardContent>
             </Card>
             <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
-              <CardContent className="p-3">
+              <CardContent className="p-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Total recitativos</p>
                 <p
                   className="mt-1 text-2xl font-black leading-none tabular-nums"
@@ -358,11 +368,11 @@ const VisualizarReuniao = () => {
           </section>
 
           <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
-            <CardHeader className="pb-3">
+            <CardHeader className="px-3 pb-2 pt-3">
               <CardTitle className="text-base">Reunião — {formatDateLocal(reuniao.data)}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-1 gap-3">
+            <CardContent className="space-y-2.5 px-3 pb-3 pt-0">
+              <div className="grid grid-cols-1 gap-2.5">
                 <div>
                   <span className="text-xs text-muted-foreground">Tema</span>
                   <p className="font-medium text-sm">{reuniao.tema || "Sem tema definido"}</p>
@@ -431,7 +441,7 @@ const VisualizarReuniao = () => {
           </Card>
 
           <Card className="overflow-hidden rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
-            <CardHeader className="pb-2">
+            <CardHeader className="px-3 pb-1.5 pt-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-sm">
@@ -455,33 +465,33 @@ const VisualizarReuniao = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="px-3 pb-3 pt-0">
               <Carousel setApi={setCarouselApi} opts={{ align: "start" }} className="w-full">
-                <CarouselContent>
-                  <CarouselItem>
-                    <div className="min-h-[270px] rounded-[1.25rem] bg-background/45 p-3">
-                      <div className="mb-3 flex items-center justify-between">
+                <CarouselContent className="items-stretch">
+                  <CarouselItem className="flex">
+                    <div className="flex h-[320px] w-full flex-col overflow-hidden rounded-[1.25rem] bg-background/45 p-2.5">
+                      <div className="mb-2 flex items-center justify-between">
                         <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Distribuição</h3>
                         <Badge variant="secondary" className="rounded-full text-[10px]">
                           {getTotalParticipantes()} pessoas
                         </Badge>
                       </div>
                       {chartData.length > 0 ? (
-                        <div className="space-y-3">
-                          <div className="mx-auto h-[168px] w-[168px]">
+                        <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+                          <div className="mx-auto h-[148px] w-[148px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
                                 <Pie
-                                  data={chartData}
+                                  data={pieChartData}
                                   cx="50%"
                                   cy="50%"
                                   innerRadius="52%"
                                   outerRadius="72%"
                                   startAngle={90}
                                   endAngle={-270}
-                                  paddingAngle={4}
-                                  cornerRadius={10}
-                                  minAngle={3}
+                                  paddingAngle={5}
+                                  cornerRadius={999}
+                                  minAngle={18}
                                   fill="hsl(var(--primary))"
                                   dataKey="value"
                                 >
@@ -501,7 +511,7 @@ const VisualizarReuniao = () => {
                                       );
                                     }}
                                   />
-                                  {chartData.map((entry, index) => (
+                                  {pieChartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" strokeWidth={0} />
                                   ))}
                                 </Pie>
@@ -528,15 +538,15 @@ const VisualizarReuniao = () => {
                     </div>
                   </CarouselItem>
 
-                  <CarouselItem>
-                    <div className="min-h-[270px] rounded-[1.25rem] bg-background/45 p-3">
-                      <div className="mb-3">
+                  <CarouselItem className="flex">
+                    <div className="flex h-[320px] w-full flex-col overflow-hidden rounded-[1.25rem] bg-background/45 p-2.5">
+                      <div className="mb-2">
                         <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Participação</h3>
                         <p className="mt-1 text-xs text-muted-foreground">Total de membros vs presentes</p>
                       </div>
                       {barChartData.length > 0 ? (
-                        <>
-                          <ResponsiveContainer width="100%" height={172}>
+                        <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+                          <ResponsiveContainer width="100%" height={176}>
                             <BarChart data={barChartData} barGap={4}>
                               <XAxis dataKey="faixa" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} style={{ fontSize: "10px" }} />
                               <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} width={26} style={{ fontSize: "10px" }} />
@@ -552,7 +562,7 @@ const VisualizarReuniao = () => {
                               </Bar>
                             </BarChart>
                           </ResponsiveContainer>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-2">
                             <div className="rounded-2xl bg-card/70 px-3 py-2">
                               <div className="flex items-center gap-2">
                                 <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/45" />
@@ -568,7 +578,7 @@ const VisualizarReuniao = () => {
                               <p className="mt-1 text-[10px] text-muted-foreground">Nesta reunião</p>
                             </div>
                           </div>
-                        </>
+                        </div>
                       ) : (
                         <div className="py-12 text-center text-sm text-muted-foreground">
                           Sem dados para comparar participação
@@ -577,8 +587,8 @@ const VisualizarReuniao = () => {
                     </div>
                   </CarouselItem>
 
-                  <CarouselItem>
-                    <div className="min-h-[270px] rounded-[1.25rem] bg-background/45 p-3">
+                  <CarouselItem className="flex">
+                    <div className="h-[320px] w-full overflow-y-auto rounded-[1.25rem] bg-background/45 p-2.5 scrollbar-none">
                       <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Resumo</h3>
                       <div className="mt-3 rounded-3xl bg-primary px-4 py-3 text-primary-foreground shadow-sm">
                         <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-80">Total de recitativos</p>
@@ -615,13 +625,13 @@ const VisualizarReuniao = () => {
           </Card>
 
           <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
-            <CardHeader className="pb-2">
+            <CardHeader className="px-3 pb-2 pt-3">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Mic2 className="h-4 w-4 text-primary" />
                 Quem orou
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="px-3 pb-3 pt-0">
               {prayingMembers.length > 0 || (Array.isArray(reuniao.oracoes) && reuniao.oracoes.length > 0) ? (
                 <div className="flex flex-wrap gap-2">
                   {prayingMembers.map((membro) => (
@@ -643,7 +653,7 @@ const VisualizarReuniao = () => {
 
           {membrosPresentes.length > 0 && (
             <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
-              <CardHeader>
+              <CardHeader className="px-3 pb-2 pt-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-base">Membros presentes ({filteredMembros.length})</CardTitle>
                   <div className="flex gap-2">
@@ -699,7 +709,7 @@ const VisualizarReuniao = () => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 pb-3 pt-0">
                 <div className="space-y-4">
                   {Object.entries(groupedMembros).map(([faixa, membros]) => (
                     <div key={faixa}>

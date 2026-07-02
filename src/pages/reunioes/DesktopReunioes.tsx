@@ -123,6 +123,9 @@ function MobileMeetingCard({
       role="button"
       tabIndex={0}
       onClick={() => (selectionMode ? onToggleSelected(reuniao.id) : onOpen(reuniao.id))}
+      onDoubleClick={() => {
+        if (!selectionMode) onViewDetails(reuniao.id);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -139,13 +142,17 @@ function MobileMeetingCard({
 
           <div className="flex-1 min-w-0">
             <h3 className="truncate text-sm font-bold text-foreground">{formatDateMobile(reuniao.data)}</h3>
-            <p className="mt-0.5 text-xs font-medium text-muted-foreground">{totalParticipantes} participantes</p>
-            <div className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-              <span>Rec:</span>
-              <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-primary">
-                {totalRecitativos}
-              </span>
-            </div>
+            {!isExpanded ? (
+              <>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">{totalParticipantes} participantes</p>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                  <span>Rec:</span>
+                  <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-primary">
+                    {totalRecitativos}
+                  </span>
+                </div>
+              </>
+            ) : null}
           </div>
 
           {selectionMode ? (
@@ -156,11 +163,10 @@ function MobileMeetingCard({
         </div>
 
         {isExpanded && !selectionMode ? (
-          <div className="mt-3 space-y-3 rounded-2xl border border-border/55 bg-background/60 p-3" data-testid="meeting-summary">
+          <div className="mt-3 space-y-2.5 rounded-2xl border border-border/55 bg-background/60 p-2.5" data-testid="meeting-summary">
             <div className="grid grid-cols-[1fr_auto] items-center gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase text-muted-foreground">Total de recitativos</p>
-                <p className="text-[11px] text-muted-foreground">Participantes + recitativos individuais</p>
               </div>
               <div className="flex h-14 min-w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
                 <span className="text-2xl font-black tabular-nums">{totalRecitativos}</span>
@@ -185,7 +191,7 @@ function MobileMeetingCard({
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-1 gap-1.5 min-[360px]:grid-cols-2">
               {activeGroups.length > 0 ? (
                 activeGroups.map((group) => (
                   <div key={group.label} className="flex items-center justify-between gap-3 rounded-xl bg-muted/35 px-2.5 py-2">
@@ -801,7 +807,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
-      <div className="flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col h-full w-full px-2.5 md:px-6 lg:px-8 py-3 md:py-6 space-y-3 md:space-y-6">
         {!isMobile ? (
           <Card>
             <CardContent className="py-3 md:py-4">
@@ -1220,7 +1226,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
               </ResizablePanel>
             </ResizablePanelGroup>
           ) : (
-            <div className="mx-auto h-full w-full max-w-[22rem] space-y-3 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+11rem)] pr-0 scrollbar-none md:max-w-none md:pb-4 md:pr-2">
+            <div className="mx-auto h-full w-full max-w-[24rem] space-y-3 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+11rem)] pr-0 scrollbar-none md:max-w-none md:pb-4 md:pr-2">
               {loading && (
                 <>
                   {[1, 2, 3].map((i) => (

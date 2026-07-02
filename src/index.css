@@ -149,6 +149,23 @@ All colors MUST be HSL.
     overflow: hidden;
   }
 
+  @media (max-width: 767px) {
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    input,
+    textarea,
+    [contenteditable="true"],
+    [role="textbox"],
+    .ProseMirror,
+    .select-text {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+  }
+
   @keyframes loading-bar {
     0% {
       transform: translateX(-110%);

@@ -381,16 +381,16 @@ const DetalhesReuniao = () => {
 
   return (
     <div className="w-full h-full flex justify-start">
-      <div className={cn("w-full px-4 md:px-6 py-4 md:py-6", isMobile && "h-full overflow-y-auto scrollbar-none")}>
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
+      <div className={cn("w-full px-3 md:px-6 py-3 md:py-6", isMobile && "h-full overflow-y-auto scrollbar-none")}>
+        <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4", isMobile && "space-y-3")}>
+          <div className="flex flex-col gap-3 md:gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
             <div className="md:flex-1 md:min-h-0">
               <Card className={cardClass}>
-                <CardHeader>
+                <CardHeader className={isMobile ? "px-3 pb-2 pt-3" : undefined}>
                   <CardTitle>Informações da Reunião</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className={cn("space-y-4", isMobile && "space-y-3 px-3 pb-3 pt-0")}>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
                     <MeetingDateInput
                       value={formData.data}
                       required
@@ -514,7 +514,7 @@ const DetalhesReuniao = () => {
 
             <div className="md:flex-[1.1] md:min-h-0">
               <Card className={cardClass}>
-                <CardHeader>
+                <CardHeader className={isMobile ? "px-3 pb-2 pt-3" : undefined}>
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className={isMobile ? "text-base" : ""}>Presenças</CardTitle>
                   </div>
@@ -533,9 +533,9 @@ const DetalhesReuniao = () => {
                     </p>
                   )}
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className={cn("space-y-4", isMobile && "space-y-3 px-3 pb-3 pt-0")}>
                   {isMobile && (
-                    <div className="grid grid-cols-1 gap-3 rounded-3xl border border-border/55 bg-background/55 p-3">
+                    <div className="grid grid-cols-1 gap-3 rounded-3xl border border-border/55 bg-background/55 p-2.5">
                       <div className="space-y-2">
                         <Label htmlFor="numero_visitas">Número de visitas</Label>
                         <Input
@@ -697,7 +697,7 @@ const DetalhesReuniao = () => {
                         <div
                           key={membro.id}
                           className={cn(
-                            "flex items-center gap-3 rounded-2xl border border-border/55 bg-background/60 p-3 cursor-pointer transition hover:bg-accent/35",
+                            "flex items-center gap-3 rounded-2xl border border-border/55 bg-background/60 p-2.5 cursor-pointer transition hover:bg-accent/35",
                             isSelected && "border-primary bg-primary/5",
                           )}
                           onClick={() => toggleMembro(membro.id)}

@@ -49,6 +49,7 @@ export default function Notas() {
   const [filtroVinculo, setFiltroVinculo] = useState<"todas" | "membro" | "reuniao" | "sem">("todas");
   const [filtroMembro, setFiltroMembro] = useState<string>("todos");
   const [filtroReuniao, setFiltroReuniao] = useState<string>("todas");
+  const [buscaNotas, setBuscaNotas] = useState("");
 
   useEffect(() => {
     loadNotas();
@@ -160,6 +161,12 @@ export default function Notas() {
     return text.length > 140 ? text.slice(0, 140) + "…" : text;
   };
 
+  const getPlainText = (html: string) => {
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    return (temp.textContent || temp.innerText || "").toLowerCase();
+  };
+
   const formatDate = (iso: string) => {
     const date = new Date(iso);
     return date.toLocaleString("pt-BR", {
@@ -201,6 +208,22 @@ export default function Notas() {
   );
 
   const notasFiltradas = notas.filter((nota) => {
+    const termo = buscaNotas.trim().toLowerCase();
+    if (termo) {
+      const haystack = [
+        getPlainText(nota.conteudo),
+        nota.membro_nome,
+        nota.reuniao_tema,
+        nota.reuniao_data ? new Date(nota.reuniao_data).toLocaleDateString("pt-BR") : null,
+        formatDate(nota.created_at),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      if (!haystack.includes(termo)) return false;
+    }
+
     if (filtroVinculo === "membro" && !nota.membro_id) return false;
     if (filtroVinculo === "reuniao" && !nota.reuniao_id) return false;
     if (filtroVinculo === "sem" && (nota.membro_id || nota.reuniao_id)) return false;
@@ -280,6 +303,40 @@ export default function Notas() {
             onClick: () => navigate("/notas/nova"),
           }
         : undefined,
+      mobileSearch: isMobile
+        ? {
+            value: buscaNotas,
+            onChange: setBuscaNotas,
+            placeholder: "Buscar notas...",
+            menu: (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="relative inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-foreground transition-colors hover:bg-accent/35" aria-label="Filtros">
+                    <Filter className="h-4 w-4" />
+                    {activeFiltersCount > 0 && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-primary" />}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  sideOffset={18}
+                  className="w-[calc(100vw-2rem)] max-w-[22rem] rounded-3xl border-border/60 bg-background/98 p-3 shadow-[var(--shadow-card)] backdrop-blur-xl"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-black">Filtros</h4>
+                      {activeFiltersCount > 0 && (
+                        <Button type="button" variant="ghost" size="sm" className="h-8 rounded-xl px-2 text-xs" onClick={clearFilters}>
+                          Limpar
+                        </Button>
+                      )}
+                    </div>
+                    {FiltersControls}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ),
+          }
+        : undefined,
       primaryActions: !isMobile ? (
         <Button
           size="sm"
@@ -328,7 +385,7 @@ export default function Notas() {
     });
 
     return () => setConfig(null);
-  }, [navigate, setConfig, isMobile, activeFiltersCount, filtroVinculo, filtroMembro, filtroReuniao, membrosDisponiveis.length, reunioesDisponiveis.length]);
+  }, [navigate, setConfig, isMobile, activeFiltersCount, filtroVinculo, filtroMembro, filtroReuniao, membrosDisponiveis.length, reunioesDisponiveis.length, buscaNotas]);
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
@@ -339,7 +396,7 @@ export default function Notas() {
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-foreground truncate">Notas</h2>
                 <p className="text-xs text-muted-foreground">
-                  {loading ? "Carregando…" : `${notas.length} nota${notas.length === 1 ? "" : "s"}`}
+                  {loading ? "Carregando…" : `${notasFiltradas.length} nota${notasFiltradas.length === 1 ? "" : "s"}`}
                 </p>
               </div>
             </div>
@@ -351,18 +408,18 @@ export default function Notas() {
                   <div className="h-16 rounded-2xl border border-border bg-card/50" />
                   <div className="h-16 rounded-2xl border border-border bg-card/50" />
                 </div>
-              ) : notas.length === 0 ? (
-                <div className="rounded-3xl border border-border bg-card p-6">
-                  <p className="text-sm text-muted-foreground">ainda não há notas</p>
+              ) : notasFiltradas.length === 0 ? (
+                <div className="rounded-3xl border border-border/60 bg-card/95 p-6 shadow-[var(--shadow-soft)]">
+                  <p className="text-sm font-semibold text-foreground">{notas.length === 0 ? "Ainda nao ha notas" : "Nenhuma nota encontrada"}</p><p className="mt-1 text-xs text-muted-foreground">{notas.length === 0 ? "Crie a primeira nota do grupo." : "Tente outra palavra ou limpe os filtros."}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {notas.map((nota) => (
+                  {notasFiltradas.map((nota) => (
                     <button
                       key={nota.id}
                       type="button"
                       onClick={() => navigate(`/notas/editar/${nota.id}`)}
-                      className="w-full text-left rounded-3xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-soft)] active:scale-[0.99] transition"
+                      className="w-full text-left rounded-3xl border border-border/60 bg-card/95 px-3 py-3 shadow-[var(--shadow-soft)] active:scale-[0.99] transition"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">

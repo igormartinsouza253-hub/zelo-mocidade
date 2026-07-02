@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
+import { cn } from "@/lib/utils";
 
 interface Membro {
   id: string;
@@ -41,6 +42,9 @@ interface VisitaRow {
 }
 
 const NovaVisita = () => {
+  const inputClass = "h-12 rounded-2xl border-border/60 bg-background/70 text-base";
+  const textareaClass = "rounded-2xl border-border/60 bg-background/70 text-base";
+  const cardClass = "h-full rounded-3xl border-border/50 bg-card/95 shadow-[var(--shadow-soft)]";
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
@@ -89,6 +93,7 @@ const NovaVisita = () => {
     const id = searchParams.get("id");
     const membroId = searchParams.get("membroId");
     const eventoId = searchParams.get("eventoId");
+    const data = searchParams.get("data");
 
     if (eventoId) setLinkedEventoId(eventoId);
 
@@ -97,6 +102,11 @@ const NovaVisita = () => {
       void loadVisita(id);
     } else if (membroId) {
       setMembroVisitadoId(membroId);
+    }
+
+    if (!id && data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      setDataVisitaDate(data);
+      setTipoVisita(isDatePast(data) ? "passada" : "futura");
     }
   }, [searchParams]);
 
@@ -291,7 +301,7 @@ const NovaVisita = () => {
 
   return (
     <div className="w-full min-h-full flex justify-start bg-background">
-      <div className="w-full px-4 md:px-6 py-4 md:py-6">
+      <div className={cn("w-full px-3 py-3 md:px-6 md:py-6", isMobile && "h-full overflow-y-auto pb-28 scrollbar-none")}>
         {/* No mobile, o header (voltar+título) vem da barra superior do layout */}
         {!isMobile && (
           <div className="flex items-center gap-4 mb-6">
@@ -308,33 +318,33 @@ const NovaVisita = () => {
           </div>
         )}
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
+        <div className="flex flex-col gap-3 md:gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
           <div className="md:flex-1 md:min-h-0">
-            <Card className="h-full shadow-[var(--shadow-soft)] border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <Card className={cardClass}>
+              <CardHeader className={cn("flex flex-row items-center justify-between gap-2", isMobile && "px-3 pb-2 pt-3")}>
                 <CardTitle className="text-base md:text-lg">
                   {editingId ? "Informações da visita" : "Registrar visita"}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 md:max-h-[520px] md:overflow-y-auto pr-1 md:pr-2 scrollbar-thin">
+              <CardContent className={cn("space-y-4 md:max-h-[520px] md:overflow-y-auto md:pr-2 md:scrollbar-thin", isMobile && "space-y-3 px-3 pb-3 pt-0")}>
                 <div className="space-y-2">
                   <Label className="text-xs md:text-sm">Tipo de visita</Label>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/35 p-1">
                     <Button
                       type="button"
-                      variant={tipoVisita === "futura" ? "default" : "outline"}
+                      variant={tipoVisita === "futura" ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setTipoVisita("futura")}
-                      className="flex-1 h-8 text-xs md:h-9 md:text-sm"
+                      className="h-10 rounded-xl text-xs font-black md:h-9 md:text-sm"
                     >
                       Futura
                     </Button>
                     <Button
                       type="button"
-                      variant={tipoVisita === "passada" ? "default" : "outline"}
+                      variant={tipoVisita === "passada" ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setTipoVisita("passada")}
-                      className="flex-1 h-8 text-xs md:h-9 md:text-sm"
+                      className="h-10 rounded-xl text-xs font-black md:h-9 md:text-sm"
                     >
                       Passada
                     </Button>
@@ -348,14 +358,14 @@ const NovaVisita = () => {
                     onValueChange={setMembroVisitadoId}
                     disabled={loadingMembros || loadingVisita}
                   >
-                    <SelectTrigger className="h-9 text-xs md:text-sm">
+                    <SelectTrigger className={inputClass}>
                       <SelectValue placeholder="Selecione o membro" />
                     </SelectTrigger>
                     <SelectContent>
                       {membros.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
+                            <Avatar className="h-7 w-7 rounded-xl">
                               <AvatarImage src={m.foto_url || undefined} alt={m.nome} />
                               <AvatarFallback className="text-[10px]">
                                 {m.nome.charAt(0).toUpperCase()}
@@ -374,20 +384,20 @@ const NovaVisita = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label className="text-xs md:text-sm">Data e hora</Label>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2 flex-1">
                         <Input
                           type="date"
-                          className="h-8 text-xs md:h-9 md:text-sm"
+                          className={inputClass}
                           value={dataVisitaDate}
                           onChange={(e) => setDataVisitaDate(e.target.value)}
                         />
                         <Input
                           type="time"
-                          className="h-8 text-xs md:h-9 md:text-sm"
+                          className={inputClass}
                           value={dataVisitaTime}
                           onChange={(e) => setDataVisitaTime(e.target.value)}
                         />
@@ -410,7 +420,7 @@ const NovaVisita = () => {
                       value={motivo}
                       onChange={(e) => setMotivo(e.target.value)}
                       rows={tipoVisita === "passada" ? 3 : 2}
-                      className="min-h-[60px] md:min-h-[72px] resize-none text-xs md:text-sm"
+                      className={cn(textareaClass, "min-h-[76px] resize-none")}
                       placeholder="Ex.: ausência em reuniões, enfermidade, apoio espiritual..."
                     />
                   </div>
@@ -425,12 +435,12 @@ const NovaVisita = () => {
                       </span>
                     )}
                   </div>
-                  <div className="max-h-40 overflow-y-auto rounded-md border border-border/80 p-2 space-y-1.5 bg-background/40">
+                  <div className="max-h-[min(42vh,24rem)] overflow-y-auto rounded-3xl border border-border/55 bg-background/55 p-2.5 space-y-2 scrollbar-none">
                     {loadingMembros ? (
                       <>
                         {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <Skeleton className="h-3.5 w-3.5 rounded" />
+                          <div key={i} className="flex items-center gap-3 rounded-2xl border border-border/40 bg-card p-2.5">
+                            <Skeleton className="h-9 w-9 rounded-xl" />
                             <Skeleton className="h-3 w-32" />
                           </div>
                         ))}
@@ -443,20 +453,23 @@ const NovaVisita = () => {
                       membros.map((m) => (
                         <label
                           key={m.id}
-                          className="flex items-center gap-2 text-[11px] md:text-xs cursor-pointer select-none"
+                          className={cn(
+                            "flex items-center gap-3 rounded-2xl border border-border/55 bg-background/60 p-2.5 text-xs cursor-pointer transition hover:bg-accent/35 select-none",
+                            membrosPresentesIds.includes(m.id) && "border-primary bg-primary/5",
+                          )}
                         >
                           <Checkbox
                             checked={membrosPresentesIds.includes(m.id)}
                             onCheckedChange={() => toggleMembroPresente(m.id)}
-                            className="h-3.5 w-3.5"
+                            className="h-4 w-4 rounded-md"
                           />
-                          <Avatar className="h-6 w-6">
+                          <Avatar className="h-9 w-9 rounded-xl">
                             <AvatarImage src={m.foto_url || undefined} alt={m.nome} />
-                            <AvatarFallback className="text-[9px]">
+                            <AvatarFallback className="rounded-xl text-[11px] font-bold">
                               {m.nome.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="truncate">{m.nome}</span>
+                          <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{m.nome}</span>
                         </label>
                       ))
                     )}
@@ -474,7 +487,7 @@ const NovaVisita = () => {
                     value={observacoes}
                     onChange={(e) => setObservacoes(e.target.value)}
                     rows={2}
-                    className="min-h-[56px] md:min-h-[64px] resize-none text-xs md:text-sm"
+                    className={cn(textareaClass, "min-h-[76px] resize-none")}
                     placeholder="Anote detalhes importantes da visita"
                   />
                 </div>
@@ -484,7 +497,7 @@ const NovaVisita = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-8 md:h-9 text-xs md:text-sm flex-1 order-2 md:order-1"
+                      className="h-10 rounded-2xl text-xs md:text-sm flex-1 order-2 md:order-1"
                       onClick={resetForm}
                       disabled={saving || loadingVisita}
                     >
@@ -492,7 +505,7 @@ const NovaVisita = () => {
                     </Button>
                     <Button
                       type="button"
-                      className="h-8 md:h-9 text-xs md:text-sm flex-1 order-1 md:order-2"
+                      className="h-10 rounded-2xl text-xs md:text-sm flex-1 order-1 md:order-2"
                       onClick={handleSaveVisita}
                       disabled={saving || loadingMembros || loadingVisita}
                     >
@@ -511,7 +524,7 @@ const NovaVisita = () => {
 
         {/* Action bar inferior somente no mobile (substitui a dock padrão) */}
         {isMobile && (
-          <MobileActionBar>
+          <MobileActionBar floating>
             <Button
               type="button"
               variant="outline"

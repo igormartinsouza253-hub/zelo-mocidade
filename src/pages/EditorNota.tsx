@@ -43,6 +43,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { formatDateLocal } from "@/lib/date-utils";
+import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 
 const HIGHLIGHT_COLORS = [
   { name: "Amarelo", color: "rgba(234, 179, 8, 0.5)" },
@@ -449,10 +450,10 @@ const EditorNota = () => {
 
     return (
       <div
-        className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
-        style={{ bottom: keyboardInset > 0 ? `${keyboardInset}px` : undefined }}
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-40 flex justify-center px-3 md:hidden"
+        style={{ bottom: keyboardInset > 0 ? `${keyboardInset + 12}px` : undefined }}
       >
-        <div className="mx-auto w-full max-w-4xl px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+        <div className="pointer-events-auto w-full max-w-[23rem] rounded-3xl border border-border/65 bg-background/95 px-2.5 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
           <div className="flex items-center justify-between gap-2">
             {/* Ações */}
             <div className="flex items-center gap-2">
@@ -734,13 +735,14 @@ const EditorNota = () => {
         className={cn(
           "flex flex-col h-full w-full px-3 md:px-6 lg:px-8 py-4 md:py-6 overflow-y-auto",
           isMobile ? "scrollbar-none" : "scrollbar-thin",
-          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+14rem)]" : "",
+          isMobile && !isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+9rem)]" : "",
+          isMobile && isViewMode ? "pb-[calc(env(safe-area-inset-bottom)+7rem)]" : "",
         )}
       >
-        <div className="max-w-4xl mx-auto w-full space-y-4">
-          <Card className="shadow-[var(--shadow-soft)] border-border/50">
-            <CardHeader className="pb-3 border-b border-border/50 space-y-3">
-              <CardTitle className="text-base md:text-lg">{isViewMode ? "Conteúdo da Nota" : "Editor"}</CardTitle>
+        <div className="max-w-4xl mx-auto w-full space-y-3 md:space-y-4">
+          <Card className="rounded-3xl border-border/50 bg-card/95 shadow-[var(--shadow-soft)]">
+            <CardHeader className={cn("border-b border-border/50 space-y-3", isMobile ? "px-3 pb-2 pt-3" : "pb-3")}> 
+              <CardTitle className="text-base font-black md:text-lg">{isViewMode ? "Conteúdo da Nota" : "Editor"}</CardTitle>
 
               {/* Vinculações: desktop/tablet ficam visíveis; mobile vai para o popover da toolbar */}
               {!isViewMode && !isMobile && (
@@ -899,7 +901,7 @@ const EditorNota = () => {
             <CardContent className="p-0">
               <EditorContent
                 editor={editor}
-                className={cn("min-h-[400px]")}
+                className={cn("min-h-[400px] [&_.ProseMirror]:min-h-[420px] [&_.ProseMirror]:max-w-none [&_.ProseMirror]:outline-none", isMobile && "[&_.ProseMirror]:min-h-[calc(100svh-17rem)] [&_.ProseMirror]:px-3 [&_.ProseMirror]:py-3 [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-7", isViewMode && "bg-background/35")}
                 onClick={(event) => {
                   const target = event.target as HTMLElement;
                   const mentionEl = target.closest(".mention") as HTMLElement | null;
@@ -936,7 +938,7 @@ const EditorNota = () => {
           {/* Ações antigas do mobile removidas: agora ficam na toolbar fixa */}
 
           {isMobile && isViewMode && (
-            <div className="flex gap-3 justify-end">
+            <MobileActionBar floating>
               <Button variant="outline" onClick={() => navigate("/notas")} type="button">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
@@ -945,7 +947,7 @@ const EditorNota = () => {
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </Button>
-            </div>
+            </MobileActionBar>
           )}
 
           {mentionPopup && (

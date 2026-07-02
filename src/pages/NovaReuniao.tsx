@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Filter, X, Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -119,6 +119,7 @@ const NovaReuniao = () => {
   const cardClass = "h-full rounded-3xl border-border/50 bg-card/95 shadow-[var(--shadow-soft)]";
   const { activeGroupId } = useActiveGroup();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const formRef = useRef<HTMLFormElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -142,6 +143,12 @@ const NovaReuniao = () => {
 
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
   const { setConfig } = usePageHeader();
+
+  useEffect(() => {
+    const suggestedDate = searchParams.get("data");
+    if (!suggestedDate || !/^\d{4}-\d{2}-\d{2}$/.test(suggestedDate)) return;
+    setFormData((prev) => ({ ...prev, data: suggestedDate }));
+  }, [searchParams]);
 
   useEffect(() => {
     setConfig({
@@ -382,17 +389,17 @@ const NovaReuniao = () => {
 
   return (
     <div className="w-full h-full flex justify-start">
-      <div className={cn("w-full px-4 md:px-6 py-4 md:py-6", isMobile && "h-full overflow-y-auto scrollbar-none")}
+      <div className={cn("w-full px-3 md:px-6 py-3 md:py-6", isMobile && "h-full overflow-y-auto scrollbar-none")}
       >
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
+        <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4", isMobile && "space-y-3")}>
+          <div className="flex flex-col gap-3 md:gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
             <div className="md:flex-1 md:min-h-0">
               <Card className={cardClass}>
-                <CardHeader>
+                <CardHeader className={isMobile ? "px-3 pb-2 pt-3" : undefined}>
                   <CardTitle>Informações da Reunião</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className={cn("space-y-4", isMobile && "space-y-3 px-3 pb-3 pt-0")}>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
                     <MeetingDateInput
                       value={formData.data}
                       required
@@ -516,7 +523,7 @@ const NovaReuniao = () => {
 
             <div className="md:flex-[1.1] md:min-h-0">
               <Card className={cardClass}>
-                <CardHeader>
+                <CardHeader className={isMobile ? "px-3 pb-2 pt-3" : undefined}>
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className={isMobile ? "text-base" : ""}>Presenças</CardTitle>
                   </div>
@@ -543,9 +550,9 @@ const NovaReuniao = () => {
                     </p>
                   )}
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className={cn("space-y-4", isMobile && "space-y-3 px-3 pb-3 pt-0")}>
                   {isMobile && (
-                    <div className="grid grid-cols-1 gap-3 rounded-3xl border border-border/55 bg-background/55 p-3">
+                    <div className="grid grid-cols-1 gap-3 rounded-3xl border border-border/55 bg-background/55 p-2.5">
                       <div className="space-y-2">
                         <Label htmlFor="numero_visitas">Número de visitas</Label>
                         <Input
@@ -702,7 +709,7 @@ const NovaReuniao = () => {
                         {[1, 2, 3, 4, 5].map((i) => (
                           <div
                             key={i}
-                            className="flex items-center gap-3 p-3 rounded-2xl border border-border/40 bg-card"
+                            className="flex items-center gap-3 p-2.5 rounded-2xl border border-border/40 bg-card"
                           >
                             <div className="h-9 w-9 rounded-xl bg-muted" />
                             <div className="flex-1">
@@ -720,7 +727,7 @@ const NovaReuniao = () => {
                           <div
                             key={membro.id}
                             className={cn(
-                              "flex items-center gap-3 rounded-2xl border border-border/55 bg-background/60 p-3 cursor-pointer transition hover:bg-accent/35",
+                              "flex items-center gap-3 rounded-2xl border border-border/55 bg-background/60 p-2.5 cursor-pointer transition hover:bg-accent/35",
                               isSelected && "border-primary bg-primary/5",
                             )}
                             onClick={() => toggleMembro(membro.id)}

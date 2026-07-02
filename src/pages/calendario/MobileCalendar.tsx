@@ -13,9 +13,12 @@ import {
   startOfMonth,
   startOfWeek,
   subMonths,
+  subWeeks,
+  addWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus } from "lucide-react";
+import { Bell, Cake, CalendarCheck2, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock, Handshake, MapPin, MoreVertical, Plus, Rows3, UserRoundCheck } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +27,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -293,6 +297,66 @@ function dayTintStyle(items: MobileCalendarItem[]): CSSProperties | undefined {
   return { backgroundColor: "hsl(var(--primary) / 0.08)" };
 }
 
+function itemTone(item: MobileCalendarItem) {
+  if (item.kind === "aniversario") {
+    return {
+      icon: Cake,
+      label: "aniversário",
+      dot: "hsl(var(--primary))",
+      tint: "hsl(var(--primary) / 0.12)",
+      text: "hsl(var(--primary))",
+    };
+  }
+
+  if (item.kind === "reuniao") {
+    return {
+      icon: Handshake,
+      label: "reunião",
+      dot: "hsl(var(--faixa-mocos))",
+      tint: "hsl(var(--faixa-mocos) / 0.14)",
+      text: "hsl(var(--faixa-mocos))",
+    };
+  }
+
+  if (item.kind === "visita_registrada") {
+    return {
+      icon: UserRoundCheck,
+      label: "visita",
+      dot: "hsl(var(--faixa-visitas))",
+      tint: "hsl(var(--faixa-visitas) / 0.14)",
+      text: "hsl(var(--faixa-visitas))",
+    };
+  }
+
+  if (item.tipo === "ajuntamento") {
+    return {
+      icon: CalendarCheck2,
+      label: "ajuntamento",
+      dot: "hsl(var(--primary))",
+      tint: "hsl(var(--primary) / 0.12)",
+      text: "hsl(var(--primary))",
+    };
+  }
+
+  if (item.tipo === "saida") {
+    return {
+      icon: MapPin,
+      label: "saida",
+      dot: "hsl(var(--faixa-meninos))",
+      tint: "hsl(var(--faixa-meninos) / 0.14)",
+      text: "hsl(var(--faixa-meninos))",
+    };
+  }
+
+  return {
+    icon: UserRoundCheck,
+    label: "visita",
+    dot: "hsl(var(--faixa-visitas))",
+    tint: "hsl(var(--faixa-visitas) / 0.14)",
+    text: "hsl(var(--faixa-visitas))",
+  };
+}
+
 type PresenceCountState = { loading: boolean; count: number };
 
 export default function MobileCalendar() {
@@ -326,6 +390,10 @@ export default function MobileCalendar() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsEvent, setDetailsEvent] = useState<MobileEventDetails | null>(null);
+  const [daySummaryOpen, setDaySummaryOpen] = useState(false);
+  const [creationSheetOpen, setCreationSheetOpen] = useState(false);
+  const [calendarMode, setCalendarMode] = useState<"month" | "week">("month");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem("mobileCalendarNotificationsV1") === "true");
 
   const [isGroupAdmin, setIsGroupAdmin] = useState(false);
 
@@ -341,6 +409,8 @@ export default function MobileCalendar() {
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const longPressTimer = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const notificationTimersRef = useRef<number[]>([]);
 
   useEffect(() => {
     setConfig({
@@ -356,7 +426,7 @@ export default function MobileCalendar() {
         menu: (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="inline-flex items-center justify-center border border-border/70 bg-background/70 text-foreground transition-colors hover:bg-accent/35" aria-label="Filtros">
+              <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/70 bg-background/70 text-foreground transition-colors hover:bg-accent/35" aria-label="Filtros">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
@@ -394,12 +464,10 @@ export default function MobileCalendar() {
         ),
       },
       mobilePrimaryAction: {
-        label: "Novo evento",
+        label: "Criar",
         icon: Plus,
         onClick: () => {
-          setEditingEvent(null);
-          setUpsertDefaultISO(selectedDay.toISOString());
-          setUpsertOpen(true);
+          setCreationSheetOpen(true);
         },
       },
     });
@@ -647,13 +715,15 @@ export default function MobileCalendar() {
 
   const days = useMemo(() => {
     const arr: Date[] = [];
-    let cursor = monthRange.start;
-    while (cursor.getTime() <= monthRange.end.getTime()) {
+    const start = calendarMode === "week" ? startOfWeek(selectedDay, { locale: ptBR }) : monthRange.start;
+    const end = calendarMode === "week" ? endOfWeek(selectedDay, { locale: ptBR }) : monthRange.end;
+    let cursor = start;
+    while (cursor.getTime() <= end.getTime()) {
       arr.push(cursor);
       cursor = addDays(cursor, 1);
     }
     return arr;
-  }, [monthRange.end, monthRange.start]);
+  }, [calendarMode, monthRange.end, monthRange.start, selectedDay]);
 
   const isItemVisible = (it: MobileCalendarItem) => {
     if (it.kind === "evento") {
@@ -764,6 +834,46 @@ export default function MobileCalendar() {
     return creatorNameByUserId[ownerId] ?? "Usuário";
   };
 
+  const selectedDayItems = useMemo(() => itemsByDayKey.get(selectedKey) ?? [], [itemsByDayKey, selectedKey]);
+
+  const openEventDetails = (item: Extract<MobileCalendarItem, { kind: "evento" }>) => {
+    setDetailsEvent({
+      baseId: item.baseId,
+      title: item.title,
+      start: item.start,
+      end: item.end,
+      allDay: item.allDay,
+      tipo: item.tipo,
+      descricao: item.descricao ?? null,
+      local: item.local ?? null,
+      createdByName: getEventCreatorName(item.baseId),
+    });
+    setDetailsOpen(true);
+  };
+
+  const openDaySummary = (date: Date) => {
+    setSelectedDay(date);
+    setMonthCursor(date);
+    setDaySummaryOpen(true);
+  };
+
+  const openCreateSheet = (date: Date) => {
+    setSelectedDay(date);
+    setMonthCursor(date);
+    setUpsertDefaultISO(startOfDay(date).toISOString());
+    setEditingEvent(null);
+    setCreationSheetOpen(true);
+  };
+
+  const createCalendarEventForSelectedDay = () => {
+    setCreationSheetOpen(false);
+    setEditingEvent(null);
+    setUpsertDefaultISO(startOfDay(selectedDay).toISOString());
+    setUpsertOpen(true);
+  };
+
+  const selectedDayParam = format(selectedDay, "yyyy-MM-dd");
+
   const loadPresenceCount = async (reuniaoId: string) => {
     setPresenceByMeetingId((prev) => ({
       ...prev,
@@ -806,15 +916,143 @@ export default function MobileCalendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey, upcomingItems]);
 
-  const onPrevMonth = () => setMonthCursor((d) => subMonths(d, 1));
-  const onNextMonth = () => setMonthCursor((d) => addMonths(d, 1));
+  const requestCalendarNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      toast.error("Este celular/navegador nao oferece suporte a notificacoes.");
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      toast.error("Notificacoes bloqueadas. Ative novamente nas permissoes do navegador.");
+      return;
+    }
+
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (permission !== "granted") {
+      toast.error("Permissao de notificacao nao concedida.");
+      return;
+    }
+
+    localStorage.setItem("mobileCalendarNotificationsV1", "true");
+    setNotificationsEnabled(true);
+    toast.success("Lembretes da agenda ativados neste dispositivo.");
+  };
+
+  useEffect(() => {
+    notificationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    notificationTimersRef.current = [];
+
+    if (!notificationsEnabled || typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
+      return;
+    }
+
+    const notifiedKey = "mobileCalendarNotifiedV1";
+    const readNotified = () => {
+      try {
+        return JSON.parse(localStorage.getItem(notifiedKey) || "{}") as Record<string, true>;
+      } catch {
+        return {};
+      }
+    };
+
+    const writeNotified = (notified: Record<string, true>) => {
+      localStorage.setItem(notifiedKey, JSON.stringify(notified));
+    };
+
+    const showDeviceNotification = async (title: string, body: string, tag: string) => {
+      const options: NotificationOptions = {
+        body,
+        tag,
+        icon: "/pwa-192.png",
+        badge: "/pwa-192.png",
+        data: { url: "/calendario" },
+      };
+
+      try {
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification(title, options);
+          return;
+        }
+      } catch (error) {
+        console.warn("Falha ao exibir notificacao via Service Worker:", error);
+      }
+
+      new Notification(title, options);
+    };
+
+    const now = Date.now();
+    const maxDelay = 1000 * 60 * 60 * 24 * 14;
+
+    upcomingItems
+      .filter((item) => item.kind === "evento" || item.kind === "aniversario")
+      .slice(0, 40)
+      .forEach((item) => {
+        const target = new Date(item.start);
+        if (item.kind === "aniversario") {
+          target.setHours(9, 0, 0, 0);
+        } else if (!item.allDay) {
+          target.setTime(item.start.getTime() - 60 * 60 * 1000);
+        } else {
+          target.setHours(9, 0, 0, 0);
+        }
+
+        const delay = target.getTime() - now;
+        if (delay <= 0 || delay > maxDelay) return;
+
+        const tag = `calendar-${item.kind}-${item.id}-${format(item.start, "yyyy-MM-dd-HH-mm")}`;
+        const notified = readNotified();
+        if (notified[tag]) return;
+
+        const title = item.kind === "aniversario" ? "Aniversariante hoje" : "Lembrete de evento";
+        const body =
+          item.kind === "aniversario"
+            ? `${item.title}${item.idade ? ` faz ${item.idade} anos` : " faz aniversario"} hoje.`
+            : `${item.title} comeca ${item.allDay ? "hoje" : `as ${format(item.start, "HH:mm", { locale: ptBR })}`}.`;
+
+        const timer = window.setTimeout(() => {
+          const nextNotified = readNotified();
+          if (nextNotified[tag]) return;
+          nextNotified[tag] = true;
+          writeNotified(nextNotified);
+          void showDeviceNotification(title, body, tag);
+        }, delay);
+
+        notificationTimersRef.current.push(timer);
+      });
+
+    return () => {
+      notificationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      notificationTimersRef.current = [];
+    };
+  }, [notificationsEnabled, upcomingItems]);
+
+  const onPrevPeriod = () => {
+    if (calendarMode === "week") {
+      const next = subWeeks(selectedDay, 1);
+      setSelectedDay(next);
+      setMonthCursor(next);
+      return;
+    }
+    setMonthCursor((d) => subMonths(d, 1));
+  };
+
+  const onNextPeriod = () => {
+    if (calendarMode === "week") {
+      const next = addWeeks(selectedDay, 1);
+      setSelectedDay(next);
+      setMonthCursor(next);
+      return;
+    }
+    setMonthCursor((d) => addMonths(d, 1));
+  };
 
   const startLongPress = (date: Date) => {
     if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    longPressTriggeredRef.current = false;
     longPressTimer.current = window.setTimeout(() => {
-      setEditingEvent(null);
-      setUpsertDefaultISO(date.toISOString());
-      setUpsertOpen(true);
+      longPressTriggeredRef.current = true;
+      openCreateSheet(date);
     }, 450);
   };
 
@@ -839,12 +1077,15 @@ export default function MobileCalendar() {
 
     // swipe horizontal intencional
     if (Math.abs(dx) > 60 && Math.abs(dy) < 40) {
-      if (dx < 0) onNextMonth();
-      else onPrevMonth();
+      if (dx < 0) onNextPeriod();
+      else onPrevPeriod();
     }
   };
 
   const monthLabel = format(monthCursor, "MMMM yyyy", { locale: ptBR });
+  const weekStartLabel = format(startOfWeek(selectedDay, { locale: ptBR }), "dd MMM", { locale: ptBR });
+  const weekEndLabel = format(endOfWeek(selectedDay, { locale: ptBR }), "dd MMM", { locale: ptBR });
+  const periodLabel = calendarMode === "week" ? `${weekStartLabel} - ${weekEndLabel}` : monthLabel;
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
@@ -888,20 +1129,147 @@ export default function MobileCalendar() {
         onDeleted={() => setMonthCursor((d) => new Date(d))}
       />
 
+      <Sheet open={daySummaryOpen} onOpenChange={setDaySummaryOpen}>
+        <SheetContent side="bottom" className="max-h-[82svh] rounded-t-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]">
+          <SheetHeader className="px-4 pb-2 pt-4 text-left">
+            <SheetTitle className="text-base font-black capitalize">
+              {format(selectedDay, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+            </SheetTitle>
+            <SheetDescription className="text-xs font-medium">
+              {selectedDayItems.length ? `${selectedDayItems.length} ${selectedDayItems.length === 1 ? "item" : "itens"} na agenda` : "Sem itens nesse dia"}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="max-h-[62svh] space-y-2 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-1 scrollbar-none">
+            {selectedDayItems.length === 0 ? (
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 rounded-3xl border border-dashed border-border/70 bg-card/70 p-3 text-left"
+                onClick={() => {
+                  setDaySummaryOpen(false);
+                  setCreationSheetOpen(true);
+                }}
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                  <CalendarPlus className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-foreground">Criar algo nesse dia</div>
+                  <div className="text-xs font-medium text-muted-foreground">Reuniao, visita ou evento</div>
+                </div>
+              </button>
+            ) : (
+              selectedDayItems.map((item, index) => {
+                const tone = itemTone(item);
+                const Icon = tone.icon;
+                const timeLabel =
+                  item.kind === "aniversario"
+                    ? item.idade
+                      ? `${item.idade} anos`
+                      : "Aniversario"
+                    : item.kind === "evento" && item.allDay
+                      ? "Dia inteiro"
+                      : format(item.start, "HH:mm", { locale: ptBR });
+
+                return (
+                  <button
+                    key={`${item.kind}-${item.id}-${index}`}
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-3xl border border-border/60 bg-card/95 p-2.5 text-left shadow-[var(--shadow-soft)]"
+                    onClick={() => {
+                      setDaySummaryOpen(false);
+                      if (item.kind === "evento") openEventDetails(item);
+                      if (item.kind === "reuniao") navigate(`/reunioes/visualizar/${item.id}`);
+                      if (item.kind === "visita_registrada") navigate("/visitas");
+                    }}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: tone.tint, color: tone.text }}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-black text-foreground">{item.title}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <span className="capitalize" style={{ color: tone.text }}>
+                          {tone.label}
+                        </span>
+                        <span>{timeLabel}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={creationSheetOpen} onOpenChange={setCreationSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]">
+          <SheetHeader className="px-4 pb-2 pt-4 text-left">
+            <SheetTitle className="text-base font-black">Criar em {format(selectedDay, "dd/MM", { locale: ptBR })}</SheetTitle>
+            <SheetDescription className="text-xs font-medium">Escolha o tipo e a data ja vai sugerida.</SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-2 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-1">
+            <button type="button" className="flex w-full items-center gap-3 rounded-3xl border border-border/60 bg-card/95 p-3 text-left shadow-[var(--shadow-soft)]" onClick={createCalendarEventForSelectedDay}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                <CalendarCheck2 className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-black text-foreground">Criar evento</div>
+                <div className="text-xs font-medium text-muted-foreground">Ajuntamento, saida ou visita na agenda</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-3xl border border-border/60 bg-card/95 p-3 text-left shadow-[var(--shadow-soft)]"
+              onClick={() => {
+                setCreationSheetOpen(false);
+                navigate(`/reunioes/nova?data=${selectedDayParam}`);
+              }}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[hsl(var(--faixa-mocos)/0.14)] text-[hsl(var(--faixa-mocos))]">
+                <Handshake className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-black text-foreground">Criar reuniao</div>
+                <div className="text-xs font-medium text-muted-foreground">Registro completo de presencas</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-3xl border border-border/60 bg-card/95 p-3 text-left shadow-[var(--shadow-soft)]"
+              onClick={() => {
+                setCreationSheetOpen(false);
+                navigate(`/visitas/nova?data=${selectedDayParam}`);
+              }}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[hsl(var(--faixa-visitas)/0.14)] text-[hsl(var(--faixa-visitas))]">
+                <UserRoundCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-black text-foreground">Criar visita</div>
+                <div className="text-xs font-medium text-muted-foreground">Agendada para a data selecionada</div>
+              </div>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <div className="h-full w-full pb-[calc(env(safe-area-inset-bottom)+11rem)] overflow-y-auto scrollbar-none">
         {/* Header fixo */}
-        <div className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-          <div className="px-3 py-3 flex items-center justify-between gap-2">
+        <div className="sticky top-0 z-20 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <div className="px-3 py-2.5 flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[11px] text-muted-foreground">Calendário</div>
-              <div className="text-base font-semibold text-foreground capitalize truncate">{monthLabel}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Calendário</div>
+              <div className="text-base font-black text-foreground capitalize truncate">{periodLabel}</div>
             </div>
 
             <div className="flex items-center gap-1">
-              <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={onPrevMonth} aria-label="Mês anterior">
+              <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-2xl border-border/60 bg-card/80" onClick={onPrevPeriod} aria-label="Periodo anterior">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={onNextMonth} aria-label="Próximo mês">
+              <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-2xl border-border/60 bg-card/80" onClick={onNextPeriod} aria-label="Proximo periodo">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -909,20 +1277,47 @@ export default function MobileCalendar() {
         </div>
 
         {/* Grid mensal */}
-        <div className="px-3 pt-3" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          <div className="grid grid-cols-7 gap-2 pb-2">
+        <div className="px-2.5 pt-3" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <div className="mb-2 grid grid-cols-2 gap-1 rounded-2xl bg-muted/35 p-1">
+            <button
+              type="button"
+              className={cn(
+                "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-black transition",
+                calendarMode === "month" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+              )}
+              onClick={() => setCalendarMode("month")}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Mes
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-black transition",
+                calendarMode === "week" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+              )}
+              onClick={() => setCalendarMode("week")}
+            >
+              <Rows3 className="h-3.5 w-3.5" />
+              Semana
+            </button>
+          </div>
+
+          <div className="rounded-3xl border border-border/60 bg-card/95 p-2.5 shadow-[var(--shadow-card)]">
+          <div className="grid grid-cols-7 gap-1.5 pb-2">
             {Array.from({ length: 7 }).map((_, idx) => (
-              <div key={idx} className="text-center text-[10px] font-medium text-muted-foreground">
+              <div key={idx} className="text-center text-[10px] font-bold uppercase text-muted-foreground">
                 {format(addDays(startOfWeek(new Date(), { locale: ptBR }), idx), "EEEEE", { locale: ptBR })}
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1.5">
             {days.map((day) => {
               const key = format(day, "yyyy-MM-dd");
               const dayItems = itemsByDayKey.get(key) ?? [];
               const selected = isSameDay(day, selectedDay);
+              const today = isSameDay(day, new Date());
               const inMonth = isSameMonth(day, monthCursor);
               const tint = !selected ? dayTintStyle(dayItems) : undefined;
 
@@ -932,63 +1327,93 @@ export default function MobileCalendar() {
                   type="button"
                   style={tint}
                   className={cn(
-                    "relative flex h-12 flex-col items-center justify-between rounded-xl border px-1 py-1 transition",
+                    "relative flex h-12 flex-col items-center justify-between rounded-2xl border px-1 py-1 transition",
                     "active:scale-[0.98]",
                     selected
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border/60 bg-card hover:bg-accent/30",
+                      ? "border-primary/60 bg-primary/12 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.16)]"
+                      : "border-border/45 bg-background/45 hover:bg-accent/30",
                     !inMonth && "opacity-55",
                   )}
-                  onClick={() => setSelectedDay(day)}
+                  onClick={() => {
+                    if (longPressTriggeredRef.current) {
+                      longPressTriggeredRef.current = false;
+                      return;
+                    }
+                    openDaySummary(day);
+                  }}
                   onPointerDown={() => startLongPress(day)}
                   onPointerUp={cancelLongPress}
                   onPointerCancel={cancelLongPress}
                   onPointerLeave={cancelLongPress}
                   aria-pressed={selected}
                 >
-                  <span className={cn("text-xs font-semibold", selected ? "text-foreground" : "text-foreground")}>{format(day, "d")}</span>
+                  <span
+                    className={cn(
+                      "flex h-5 min-w-5 items-center justify-center rounded-full text-xs font-black leading-none",
+                      today && !selected && "bg-primary/10 text-primary",
+                      selected && "bg-primary text-primary-foreground"
+                    )}
+                  >
+                    {format(day, "d")}
+                  </span>
 
-                    <div className="flex items-center gap-1">
-                      {dayItems.slice(0, 3).map((it, i) => (
-                        <span
-                          key={`${it.kind}-${it.id}-${i}`}
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={dotStyle(it.kind, it.kind === "evento" ? it.tipo : undefined)}
-                          aria-hidden="true"
-                        />
-
-                      ))}
-                    {dayItems.length > 3 ? (
-                      <span className="text-[10px] font-medium text-muted-foreground">+{dayItems.length - 3}</span>
-                    ) : null}
+                    <div className="flex h-3 w-full items-center justify-center gap-0.5 overflow-hidden">
+                      {dayItems.length >= 3 ? (
+                        <span className="max-w-full truncate rounded-full bg-background/80 px-1 text-[8px] font-black leading-3 text-muted-foreground shadow-sm">
+                          {dayItems.length} eventos
+                        </span>
+                      ) : (
+                        dayItems.map((it, i) => (
+                          <span
+                            key={`${it.kind}-${it.id}-${i}`}
+                            className="h-1.5 w-1.5 rounded-full ring-1 ring-background/70"
+                            style={dotStyle(it.kind, it.kind === "evento" ? it.tipo : undefined)}
+                            aria-hidden="true"
+                          />
+                        ))
+                      )}
                   </div>
                 </button>
               );
             })}
           </div>
+          </div>
 
-          <div className="mt-3 text-xs text-muted-foreground">
-            Dica: deslize para os lados para trocar de mês. Toque longo em um dia para criar evento.
+          <div className="mt-2 rounded-2xl bg-muted/35 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+            Toque para ver o resumo do dia. Toque longo para criar reuniao, visita ou evento.
           </div>
         </div>
 
         {/* Próximos itens */}
-        <div className="px-3 py-4 space-y-3">
+        <div className="px-2.5 py-3 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-xs text-muted-foreground">Próximos</div>
-              <div className="text-sm font-semibold text-foreground truncate">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Próximos</div>
+              <div className="text-sm font-black text-foreground truncate">
                 A partir de {format(selectedDay, "dd/MM", { locale: ptBR })}
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={cn(
+                  "h-9 w-9 rounded-2xl border-border/60 bg-card/80",
+                  notificationsEnabled && "border-primary/45 bg-primary/10 text-primary",
+                )}
+                onClick={requestCalendarNotifications}
+                aria-label="Ativar lembretes"
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
 
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9"
+                className="h-9 rounded-2xl border-border/60 bg-card/80"
                 onClick={() => {
                   setSelectedDay(new Date());
                   setMonthCursor(new Date());
@@ -1000,19 +1425,20 @@ export default function MobileCalendar() {
           </div>
 
           {loading ? (
-            <Card>
+            <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
               <CardContent className="py-8 text-center text-sm text-muted-foreground">Carregando…</CardContent>
             </Card>
           ) : upcomingGrouped.length === 0 ? (
-            <Card>
+            <Card className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
               <CardContent className="py-10 text-center text-sm text-muted-foreground">Nenhum item futuro encontrado.</CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {upcomingGrouped.map(([dayKey, dayItems]) => (
-                <section key={dayKey} className="space-y-2">
-                  <div className="px-1">
-                    <h2 className="text-sm font-semibold text-foreground">
+                <section key={dayKey} className="space-y-2.5">
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                    <h2 className="text-sm font-bold text-foreground capitalize">
                       {format(new Date(`${dayKey}T00:00:00`), "EEEE, dd 'de' MMMM", { locale: ptBR })}
                     </h2>
                   </div>
@@ -1020,17 +1446,22 @@ export default function MobileCalendar() {
                   <div className="space-y-2">
                     {dayItems.map((it) => {
                       if (it.kind === "aniversario") {
+                        const tone = itemTone(it);
+                        const Icon = tone.icon;
                         return (
-                          <Card key={`aniv-${dayKey}-${it.id}`} className="border-border/60 shadow-[var(--shadow-card)]">
-                            <CardContent className="p-3 flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-foreground truncate">🎂 {it.title}</div>
-                                <div className="text-xs text-muted-foreground truncate">{it.idade ? `${it.idade} anos` : "Aniversário"}</div>
+                          <Card key={`aniv-${dayKey}-${it.id}`} className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
+                            <CardContent className="flex items-center justify-between gap-3 p-2.5">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: tone.tint, color: tone.text }}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-bold text-foreground">{it.title}</div>
+                                <div className="truncate text-xs font-medium text-muted-foreground">{it.idade ? `${it.idade} anos` : "Aniversário"}</div>
                                 <div className="mt-1">
                                   <Badge
                                     variant="secondary"
-                                    className="text-[10px]"
-                                    style={{ backgroundColor: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}
+                                    className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                    style={{ backgroundColor: tone.tint, color: tone.text }}
                                   >
                                     aniversário
                                   </Badge>
@@ -1046,15 +1477,20 @@ export default function MobileCalendar() {
                         const presCount = pres?.count ?? 0;
                         const visitasCount = Number(it.reuniao.numero_visitas ?? 0) || 0;
                         const total = pres ? presCount + visitasCount : null;
+                        const tone = itemTone(it);
+                        const Icon = tone.icon;
 
                         return (
-                          <Card key={`reuniao-${dayKey}-${it.id}`} className="border-border/60 shadow-[var(--shadow-card)]">
-                            <CardContent className="p-3 flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-foreground truncate">Reunião</div>
-                                <div className="text-xs text-muted-foreground truncate">{it.theme || "Sem tema"}</div>
+                          <Card key={`reuniao-${dayKey}-${it.id}`} className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
+                            <CardContent className="flex items-center justify-between gap-3 p-2.5">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: tone.tint, color: tone.text }}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-bold text-foreground">Reunião</div>
+                                <div className="truncate text-xs font-medium text-muted-foreground">{it.theme || "Sem tema"}</div>
                                 <div className="mt-1 flex items-center gap-2">
-                                  <Badge variant="secondary" className="text-[10px]">
+                                  <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: tone.tint, color: tone.text }}>
                                     reunião
                                   </Badge>
                                   <span className="text-[10px] text-muted-foreground">
@@ -1066,7 +1502,7 @@ export default function MobileCalendar() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8"
+                                className="h-8 rounded-2xl border-border/60 px-3 text-xs"
                                 onClick={() => navigate(`/reunioes/visualizar/${it.id}`)}
                               >
                                 Abrir
@@ -1077,19 +1513,24 @@ export default function MobileCalendar() {
                       }
 
                       if (it.kind === "visita_registrada") {
+                        const tone = itemTone(it);
+                        const Icon = tone.icon;
                         return (
-                          <Card key={`visita-${dayKey}-${it.id}`} className="border-border/60 shadow-[var(--shadow-card)]">
-                            <CardContent className="p-3 flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-foreground truncate">Visita registrada</div>
-                                {it.motivo ? <div className="text-xs text-muted-foreground truncate">{it.motivo}</div> : null}
+                          <Card key={`visita-${dayKey}-${it.id}`} className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]">
+                            <CardContent className="flex items-center justify-between gap-3 p-2.5">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: tone.tint, color: tone.text }}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-bold text-foreground">Visita registrada</div>
+                                {it.motivo ? <div className="truncate text-xs font-medium text-muted-foreground">{it.motivo}</div> : null}
                                 <div className="mt-1">
-                                  <Badge variant="secondary" className="text-[10px]">
+                                  <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: tone.tint, color: tone.text }}>
                                     visita
                                   </Badge>
                                 </div>
                               </div>
-                              <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => navigate("/visitas")}>
+                              <Button type="button" variant="outline" size="sm" className="h-8 rounded-2xl border-border/60 px-3 text-xs" onClick={() => navigate("/visitas")}>
                                 Ver
                               </Button>
                             </CardContent>
@@ -1103,51 +1544,35 @@ export default function MobileCalendar() {
                         : `${format(it.start, "HH:mm", { locale: ptBR })} — ${format(it.end, "HH:mm", { locale: ptBR })}`;
 
                       const canEdit = !!user?.id && rawEventos.some((e) => e.id === it.baseId && e.user_id === user.id);
+                      const tone = itemTone(it);
+                      const Icon = tone.icon;
 
                       return (
                         <Card
                           key={`evento-${dayKey}-${it.id}`}
-                          className="border-border/60 shadow-[var(--shadow-card)]"
+                          className="rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)]"
                           role="button"
                           tabIndex={0}
-                          onClick={() => {
-                            setDetailsEvent({
-                              baseId: it.baseId,
-                              title: it.title,
-                              start: it.start,
-                              end: it.end,
-                              allDay: it.allDay,
-                              tipo: it.tipo,
-                              descricao: it.descricao ?? null,
-                              local: it.local ?? null,
-                              createdByName: getEventCreatorName(it.baseId),
-                            });
-                            setDetailsOpen(true);
-                          }}
+                          onClick={() => openEventDetails(it)}
                           onKeyDown={(e) => {
                             if (e.key !== "Enter" && e.key !== " ") return;
                             e.preventDefault();
-                            setDetailsEvent({
-                              baseId: it.baseId,
-                              title: it.title,
-                              start: it.start,
-                              end: it.end,
-                              allDay: it.allDay,
-                              tipo: it.tipo,
-                              descricao: it.descricao ?? null,
-                              local: it.local ?? null,
-                              createdByName: getEventCreatorName(it.baseId),
-                            });
-                            setDetailsOpen(true);
+                            openEventDetails(it);
                           }}
                           aria-label={`Ver detalhes do evento ${it.title}`}
                         >
-                          <CardContent className="p-3 flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-foreground truncate">{it.title}</div>
-                              <div className="text-xs text-muted-foreground truncate">{timeLabel}</div>
+                          <CardContent className="flex items-center justify-between gap-3 p-2.5">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: tone.tint, color: tone.text }}>
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-bold text-foreground">{it.title}</div>
+                              <div className="flex items-center gap-1 truncate text-xs font-medium text-muted-foreground">
+                                <Clock className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{timeLabel}</span>
+                              </div>
                               <div className="mt-1 flex items-center gap-2">
-                                <Badge variant="secondary" className="text-[10px]" style={eventAccentStyle(it.tipo)}>
+                                <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={eventAccentStyle(it.tipo)}>
                                   {it.tipo}
                                 </Badge>
 
@@ -1160,21 +1585,10 @@ export default function MobileCalendar() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-8"
+                              className="h-8 rounded-2xl border-border/60 px-3 text-xs"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDetailsEvent({
-                                  baseId: it.baseId,
-                                  title: it.title,
-                                  start: it.start,
-                                  end: it.end,
-                                  allDay: it.allDay,
-                                  tipo: it.tipo,
-                                  descricao: it.descricao ?? null,
-                                  local: it.local ?? null,
-                                  createdByName: getEventCreatorName(it.baseId),
-                                });
-                                setDetailsOpen(true);
+                                openEventDetails(it);
                               }}
                             >
                               Detalhes
