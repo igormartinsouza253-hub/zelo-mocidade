@@ -2,7 +2,6 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { WidgetSize } from "../types";
-import { formatDateShort } from "@/lib/date-utils";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WIDGET_HEADER_PADDING, widgetTitleClass } from "../widgetHeaderStyles";
@@ -21,6 +20,11 @@ interface AniversariantesWidgetProps {
   aniversariantes: AniversarianteItem[];
 }
 
+const getBirthdayParts = (data: string) => {
+  const [, mes, dia] = data.split("-").map(Number);
+  return { mes, dia };
+};
+
 export const AniversariantesWidget = ({
   size,
   aniversariantes,
@@ -35,9 +39,10 @@ export const AniversariantesWidget = ({
     .toLocaleString("pt-BR", { month: "short" })
     .toUpperCase();
 
-  const aniversariantesMes = aniversariantes.filter(
-    (a) => new Date(a.data).getMonth() === displayedMonthIndex
-  );
+  const aniversariantesMes = aniversariantes.filter((a) => {
+    const { mes } = getBirthdayParts(a.data);
+    return mes - 1 === displayedMonthIndex;
+  });
   const totalMes = aniversariantesMes.length;
 
   const principais =
@@ -51,7 +56,7 @@ export const AniversariantesWidget = ({
     today.getDate()
   ).padStart(2, "0")}`;
 
-  const getDia = (data: string) => String(new Date(data).getDate()).padStart(2, "0");
+  const getDia = (data: string) => String(getBirthdayParts(data).dia || "").padStart(2, "0");
 
   if (size === "sm") {
     return (

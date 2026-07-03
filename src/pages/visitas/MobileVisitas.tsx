@@ -11,17 +11,30 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertTriangle,
   Calendar,
+  CalendarRange,
   CheckCircle2,
   Clock,
   Handshake,
+  History,
+  ListFilter,
+  MoreVertical,
   Pencil,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLongPress } from "@/hooks/useLongPress";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +70,7 @@ interface EnrichedVisita extends Visita {
 }
 
 type Filter = "futuras" | "passadas";
+type PeriodFilter = "all" | "today" | "week" | "month" | "custom";
 
 function formatDateTime(value: string | null) {
   if (!value) return "Sem data";
@@ -70,18 +84,46 @@ function formatDateTime(value: string | null) {
   });
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function formatDateInput(date: Date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getVisitDate(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDayRange(date: Date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  return { start, end };
+}
+
 function StatusPill({ isPast }: { isPast: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-        isPast ? "bg-muted text-muted-foreground border-border" : "bg-primary text-primary-foreground border-primary/20",
+        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-black",
+        isPast
+          ? "border-border/70 bg-muted/45 text-muted-foreground"
+          : "border-primary/30 bg-primary/12 text-primary",
       )}
     >
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          isPast ? "bg-muted-foreground" : "bg-primary-foreground",
+          isPast ? "bg-muted-foreground" : "bg-primary",
         )}
         aria-hidden="true"
       />
@@ -124,10 +166,10 @@ function VisitaCard({
   return (
     <Card
       className={cn(
-        "rounded-2xl transition-colors",
+        "overflow-hidden rounded-3xl border-border/55 bg-card/92 shadow-[var(--shadow-soft)] transition-colors",
         !prefersReducedMotion && "transition-transform",
         !prefersReducedMotion && pressed && "scale-[0.99]",
-        selectionMode && selected && "ring-2 ring-ring",
+        selectionMode && selected && "border-primary/70 ring-2 ring-primary/35",
       )}
       role="button"
       tabIndex={0}
@@ -160,12 +202,11 @@ function VisitaCard({
         longPress.onPointerLeave();
       }}
     >
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar className="h-10 w-10">
+      <div className="p-3.5">
+        <div className="flex items-start gap-3">
+          <Avatar className="h-12 w-12 shrink-0 rounded-2xl border border-border/60">
               <AvatarImage src={visita.membro_visitado_avatar || undefined} alt={visita.membro_visitado_nome} />
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="rounded-2xl bg-primary/12 text-sm font-black text-primary">
                 {visita.membro_visitado_nome
                   .split(" ")
                   .map((n) => n[0])
@@ -174,32 +215,41 @@ function VisitaCard({
                   .toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{visita.membro_visitado_nome}</p>
-                <StatusPill isPast={visita.is_past} />
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-black leading-tight text-foreground">{visita.membro_visitado_nome}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{visita.motivo}</p>
               </div>
-              <p className="text-xs text-muted-foreground truncate">{visita.motivo}</p>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <div className="flex shrink-0 items-center gap-2">
+                <StatusPill isPast={visita.is_past} />
+                {selectionMode && (
+                  <div
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-lg border",
+                      selected ? "border-primary/30 bg-primary text-primary-foreground" : "border-border bg-background",
+                    )}
+                    aria-hidden="true"
+                  >
+                    {selected && <CheckCircle2 className="h-4 w-4" />}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/70 px-2.5">
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formatDateTime(visita.data_visita)}</span>
-              </div>
+              </span>
+              {visita.membros_presentes.length > 0 && (
+                <span className="inline-flex h-7 items-center rounded-full border border-border/60 bg-background/70 px-2.5">
+                  {visita.membros_presentes.length} presente{visita.membros_presentes.length === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
           </div>
-
-          {selectionMode && (
-            <div className="pt-1">
-              <div
-                className={cn(
-                  "h-5 w-5 rounded-md border flex items-center justify-center",
-                  selected ? "bg-primary text-primary-foreground border-primary/30" : "bg-background border-border",
-                )}
-                aria-hidden="true"
-              >
-                {selected && <CheckCircle2 className="h-4 w-4" />}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </Card>
@@ -209,12 +259,18 @@ function VisitaCard({
 export default function MobileVisitas() {
   const navigate = useNavigate();
   const { setConfig } = usePageHeader();
+  const { activeGroupId } = useActiveGroup();
+  const { user } = useAuth();
 
   const [membros, setMembros] = useState<Membro[]>([]);
   const [visitasRaw, setVisitasRaw] = useState<Visita[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filter, setFilter] = useState<Filter>("futuras");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [suggestions, setSuggestions] = useState<Membro[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
@@ -252,17 +308,6 @@ export default function MobileVisitas() {
       breadcrumbs: [{ label: "Início", href: "/" }, { label: "Visitas" }],
       showBackButton: true,
       backTo: "/",
-      mobileActions: (
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs"
-          onClick={() => setSuggestionsOpen(true)}
-        >
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Sugestoes
-        </Button>
-      ),
       mobilePrimaryAction: {
         label: "Nova visita",
         icon: Plus,
@@ -274,20 +319,31 @@ export default function MobileVisitas() {
   }, [navigate, setConfig]);
 
   useEffect(() => {
+    if (!activeGroupId) {
+      setMembros([]);
+      setVisitasRaw([]);
+      setSuggestions([]);
+      setLoading(false);
+      setLoadingSuggestions(false);
+      return;
+    }
+
     void loadAll();
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     if (membros.length > 0) void loadSuggestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [membros.length, visitasRaw.length]);
+  }, [activeGroupId, membros.length, visitasRaw.length]);
 
   useEffect(() => {
+    if (!activeGroupId) return;
+
     const channel = supabase
-      .channel("visitas-changes-mobile")
+      .channel(`visitas-changes-mobile:${activeGroupId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "visitas" },
+        { event: "*", schema: "public", table: "visitas", filter: `group_id=eq.${activeGroupId}` },
         () => {
           void loadVisitas();
           void loadSuggestions();
@@ -298,9 +354,11 @@ export default function MobileVisitas() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeGroupId]);
 
   async function loadAll() {
+    if (!activeGroupId) return;
+
     try {
       setLoading(true);
       await Promise.all([loadMembros(), loadVisitas()]);
@@ -310,9 +368,12 @@ export default function MobileVisitas() {
   }
 
   async function loadMembros() {
+    if (!activeGroupId) return;
+
     const { data, error } = await supabase
       .from("membros")
       .select("id, nome, faixa_etaria, foto_url")
+      .eq("group_id", activeGroupId)
       .order("nome");
 
     if (error) {
@@ -325,9 +386,12 @@ export default function MobileVisitas() {
   }
 
   async function loadVisitas() {
+    if (!activeGroupId) return;
+
     const { data, error } = await supabase
       .from("visitas")
       .select("*")
+      .eq("group_id", activeGroupId)
       .order("data_visita", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -346,12 +410,15 @@ export default function MobileVisitas() {
   }
 
   async function loadSuggestions() {
+    if (!activeGroupId) return;
+
     try {
       setLoadingSuggestions(true);
 
       const { data: reunioes, error: reunioesError } = await supabase
         .from("reunioes")
         .select("id, data")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false })
         .limit(4);
 
@@ -367,13 +434,15 @@ export default function MobileVisitas() {
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
         .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId)
         .in("reuniao_id", reuniaoIds);
 
       if (presencasError) throw presencasError;
 
       const { data: visitasData, error: visitasError } = await supabase
         .from("visitas")
-        .select("membro_visitado_id");
+        .select("membro_visitado_id")
+        .eq("group_id", activeGroupId);
 
       if (visitasError) throw visitasError;
 
@@ -432,7 +501,217 @@ export default function MobileVisitas() {
     [visitasEnriquecidas],
   );
 
-  const data = filter === "futuras" ? futuras : passadas;
+  const baseData = filter === "futuras" ? futuras : passadas;
+  const periodData = useMemo(() => {
+    if (periodFilter === "all") return baseData;
+
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (periodFilter === "today") {
+      const range = getDayRange(now);
+      start = range.start;
+      end = range.end;
+    } else if (periodFilter === "week") {
+      start = getDayRange(now).start;
+      end = getDayRange(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)).end;
+    } else if (periodFilter === "month") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (periodFilter === "custom") {
+      start = customStart ? getDayRange(new Date(`${customStart}T00:00:00`)).start : null;
+      end = customEnd ? getDayRange(new Date(`${customEnd}T00:00:00`)).end : null;
+    }
+
+    return baseData.filter((visita) => {
+      const visitDate = getVisitDate(visita.data_visita);
+      if (!visitDate) return false;
+      if (start && visitDate < start) return false;
+      if (end && visitDate > end) return false;
+      return true;
+    });
+  }, [baseData, customEnd, customStart, periodFilter]);
+
+  const filteredData = useMemo(() => {
+    const term = normalizeSearchText(searchQuery.trim());
+    if (!term) return periodData;
+
+    return periodData.filter((visita) => {
+      const searchable = normalizeSearchText(
+        [
+          visita.membro_visitado_nome,
+          visita.motivo,
+          visita.observacoes ?? "",
+          visita.is_past ? "passada historico realizada" : "futura agendada pendente",
+          formatDateTime(visita.data_visita),
+        ].join(" "),
+      );
+
+      return searchable.includes(term);
+    });
+  }, [periodData, searchQuery]);
+
+  const activeFilterLabel = filter === "futuras" ? "Futuras" : "Passadas";
+  const periodFilterLabel =
+    periodFilter === "today"
+      ? "Hoje"
+      : periodFilter === "week"
+        ? "Semana"
+        : periodFilter === "month"
+          ? "Mes"
+          : periodFilter === "custom"
+            ? "Personalizado"
+            : "Todo periodo";
+  const totalAtivas = periodData.length;
+  const totalVisitas = futuras.length + passadas.length;
+
+  useEffect(() => {
+    setConfig({
+      title: "Visitas",
+      icon: Handshake,
+      breadcrumbs: [{ label: "Inicio", href: "/" }, { label: "Visitas" }],
+      showBackButton: true,
+      backTo: "/",
+      mobileSearch: {
+        value: searchQuery,
+        onChange: setSearchQuery,
+        placeholder: "Buscar visitas",
+        menu: (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" aria-label="Abrir filtros de visitas">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={12} className="w-72 rounded-2xl border-border/60 bg-popover p-2">
+              <DropdownMenuLabel className="px-2 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                Exibir visitas
+              </DropdownMenuLabel>
+              <DropdownMenuItem className="rounded-xl" onClick={() => setFilter("futuras")}>
+                <Clock className="mr-2 h-4 w-4" />
+                Futuras
+                <span className="ml-auto text-xs text-muted-foreground">{futuras.length}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-xl" onClick={() => setFilter("passadas")}>
+                <History className="mr-2 h-4 w-4" />
+                Passadas
+                <span className="ml-auto text-xs text-muted-foreground">{passadas.length}</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="px-2 text-[11px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                Periodo
+              </DropdownMenuLabel>
+              <DropdownMenuItem className="rounded-xl" onClick={() => setPeriodFilter("all")}>
+                <CalendarRange className="mr-2 h-4 w-4" />
+                Todo periodo
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-xl" onClick={() => setPeriodFilter("today")}>
+                <Calendar className="mr-2 h-4 w-4" />
+                Hoje
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-xl" onClick={() => setPeriodFilter("week")}>
+                <CalendarRange className="mr-2 h-4 w-4" />
+                Semana
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-xl" onClick={() => setPeriodFilter("month")}>
+                <CalendarRange className="mr-2 h-4 w-4" />
+                Mes
+              </DropdownMenuItem>
+
+              <div className="mt-1 rounded-2xl border border-border/55 bg-background/70 p-2" onClick={(event) => event.stopPropagation()}>
+                <div className="mb-2 flex items-center gap-2 text-xs font-black text-foreground">
+                  <CalendarRange className="h-4 w-4 text-primary" />
+                  Personalizado
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(event) => {
+                      setCustomStart(event.target.value);
+                      setPeriodFilter("custom");
+                    }}
+                    className="h-9 min-w-0 rounded-xl border border-border/60 bg-card px-2 text-xs text-foreground outline-none focus:border-primary/70"
+                    aria-label="Data inicial"
+                  />
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={(event) => {
+                      setCustomEnd(event.target.value);
+                      setPeriodFilter("custom");
+                    }}
+                    className="h-9 min-w-0 rounded-xl border border-border/60 bg-card px-2 text-xs text-foreground outline-none focus:border-primary/70"
+                    aria-label="Data final"
+                  />
+                </div>
+              </div>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="rounded-xl" onClick={() => setSuggestionsOpen(true)}>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                Sugestoes
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {loadingSuggestions ? "..." : suggestions.length}
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+      mobilePrimaryAction: {
+        label: "Nova visita",
+        icon: Plus,
+        onClick: () => navigate("/visitas/nova"),
+      },
+    });
+
+    return () => setConfig(null);
+  }, [
+    customEnd,
+    customStart,
+    futuras.length,
+    loadingSuggestions,
+    navigate,
+    passadas.length,
+    searchQuery,
+    setConfig,
+    suggestions.length,
+  ]);
+
+  useEffect(() => {
+    if (!activeGroupId || !user?.id || futuras.length === 0) return;
+
+    const now = Date.now();
+    const next24h = now + 24 * 60 * 60 * 1000;
+    const upcoming = futuras.filter((visita) => {
+      const visitDate = getVisitDate(visita.data_visita);
+      if (!visitDate) return false;
+      const time = visitDate.getTime();
+      return time >= now && time <= next24h;
+    });
+
+    if (upcoming.length === 0) return;
+
+    upcoming.forEach((visita) => {
+      void supabase.rpc("create_user_notification", {
+        _recipient_user_id: user.id,
+        _group_id: activeGroupId,
+        _type: "visit_upcoming",
+        _title: "Visita próxima",
+        _message: `${visita.membro_visitado_nome} - ${formatDateTime(visita.data_visita)}`,
+        _entity_type: "visita",
+        _entity_id: visita.id,
+        _metadata: {
+          data_visita: visita.data_visita,
+          membro_visitado_id: visita.membro_visitado_id,
+        },
+        _dedupe_key: `visit-upcoming:${activeGroupId}:${visita.id}:${visita.data_visita ?? "sem-data"}`,
+      });
+    });
+  }, [activeGroupId, futuras, user?.id]);
 
   async function handleMarkAsDone(visita: EnrichedVisita) {
     try {
@@ -440,7 +719,8 @@ export default function MobileVisitas() {
       const { error } = await supabase
         .from("visitas")
         .update({ is_past: true, data_visita: now })
-        .eq("id", visita.id);
+        .eq("id", visita.id)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
       toast.success("Visita marcada como concluída");
@@ -452,17 +732,13 @@ export default function MobileVisitas() {
 
   async function handleDeleteMany(ids: string[]) {
     try {
-      const { error } = await supabase.from("visitas").delete().in("id", ids);
+      const { error } = await supabase.from("visitas").delete().in("id", ids).eq("group_id", activeGroupId);
       if (error) throw error;
       toast.success(ids.length === 1 ? "Visita excluída" : "Visitas excluídas");
     } catch (e) {
       console.error(e);
       toast.error("Erro ao excluir visita");
     }
-  }
-
-  async function handleDelete(visita: EnrichedVisita) {
-    await handleDeleteMany([visita.id]);
   }
 
   function handleEdit(visita: EnrichedVisita) {
@@ -497,28 +773,28 @@ export default function MobileVisitas() {
           aria-hidden="true"
         />
       )}
-      <section className="relative mx-auto w-full max-w-4xl px-3 pb-28 pt-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-            <TabsList className="h-9">
-              <TabsTrigger value="futuras" className="text-xs">
-                Futuras
-              </TabsTrigger>
-              <TabsTrigger value="passadas" className="text-xs">
-                Passadas
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+      <section className="relative mx-auto w-full max-w-4xl px-3 pb-48 pt-3">
+        <div className="mb-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 font-black text-primary">
+              <ListFilter className="h-3.5 w-3.5" />
+              {activeFilterLabel}
+            </span>
+            <span className="truncate">{periodFilterLabel}</span>
+          </div>
+          <span className="shrink-0 tabular-nums">
+            {searchQuery.trim() ? `${filteredData.length}/${totalAtivas}` : `${totalAtivas}/${totalVisitas}`}
+          </span>
         </div>
 
         {loading ? (
-          <div className="space-y-2">
+          <div className="mt-3 space-y-2">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+              <Skeleton key={i} className="h-24 w-full rounded-3xl" />
             ))}
           </div>
-        ) : data.length === 0 ? (
-          <Card className="rounded-2xl">
+        ) : filteredData.length === 0 ? (
+          <Card className="mt-3 rounded-3xl border-border/55 bg-card/92 shadow-[var(--shadow-soft)]">
             <div className="p-6 text-center text-muted-foreground space-y-2">
               <div className="mx-auto h-11 w-11 rounded-2xl border border-border bg-muted/40 flex items-center justify-center">
                 {filter === "futuras" ? (
@@ -527,7 +803,7 @@ export default function MobileVisitas() {
                   <Calendar className="h-5 w-5" />
                 )}
               </div>
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-sm font-black text-foreground">
                 {filter === "futuras" ? "Nenhuma visita futura" : "Nenhuma visita registrada"}
               </p>
               <p className="text-xs">
@@ -538,8 +814,8 @@ export default function MobileVisitas() {
             </div>
           </Card>
         ) : (
-          <div className="space-y-2">
-            {data.map((visita) => {
+          <div className="mt-3 space-y-2.5">
+            {filteredData.map((visita) => {
               const selected = selectedIds.has(visita.id);
               return (
                 <VisitaCard

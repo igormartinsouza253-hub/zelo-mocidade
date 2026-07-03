@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StickyNote, Plus, MoreVertical, Filter } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Download, Lock, Pin, Plus, MoreVertical, Filter, Tag, UserCircle, Users, StickyNote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
+import { Badge } from "@/components/ui/badge";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Nota {
   id: string;
@@ -31,6 +34,15 @@ interface Nota {
   user_id: string;
   membro_id: string | null;
   reuniao_id: string | null;
+  group_id: string | null;
+  visibility: "private" | "group";
+  is_pinned: boolean;
+  archived_at: string | null;
+  tags: string[];
+  shared_editing_enabled: boolean;
+  updated_at: string;
+  updated_by: string | null;
+  author_name?: string | null;
   membro_nome?: string | null;
   reuniao_data?: string | null;
   reuniao_tema?: string | null;
@@ -40,6 +52,8 @@ export default function Notas() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { setConfig } = usePageHeader();
+  const { user } = useAuth();
+  const { activeGroupId, loading: loadingActiveGroup, isAdmin } = useActiveGroup();
   const [notas, setNotas] = useState<Nota[]>([]);
   const [loading, setLoading] = useState(false);
   const [notaParaExcluir, setNotaParaExcluir] = useState<Nota | null>(null);
@@ -47,26 +61,39 @@ export default function Notas() {
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [mobileActionsNota, setMobileActionsNota] = useState<Nota | null>(null);
   const [filtroVinculo, setFiltroVinculo] = useState<"todas" | "membro" | "reuniao" | "sem">("todas");
+  const [filtroRapido, setFiltroRapido] = useState<"ativas" | "minhas" | "publicas" | "privadas" | "fixadas" | "arquivadas">("ativas");
   const [filtroMembro, setFiltroMembro] = useState<string>("todos");
   const [filtroReuniao, setFiltroReuniao] = useState<string>("todas");
+  const [filtroTag, setFiltroTag] = useState<string>("todas");
   const [buscaNotas, setBuscaNotas] = useState("");
 
   useEffect(() => {
-    loadNotas();
-  }, []);
+    if (!loadingActiveGroup && activeGroupId) loadNotas();
+    if (!loadingActiveGroup && !activeGroupId) navigate("/grupo", { replace: true });
+  }, [activeGroupId, loadingActiveGroup]);
 
   const clearFilters = () => {
+    setFiltroRapido("ativas");
     setFiltroVinculo("todas");
     setFiltroMembro("todos");
     setFiltroReuniao("todas");
+    setFiltroTag("todas");
   };
 
   const loadNotas = async () => {
+    if (!activeGroupId) {
+      setNotas([]);
+      setSelectedNota(null);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("notas")
-        .select("id, conteudo, created_at, user_id, membro_id, reuniao_id")
+        .select("id, conteudo, created_at, user_id, membro_id, reuniao_id, group_id, visibility, is_pinned, archived_at, tags, shared_editing_enabled, updated_at, updated_by")
+        .eq("group_id", activeGroupId)
+        .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -78,18 +105,25 @@ export default function Notas() {
       const reuniaoIds = Array.from(
         new Set(notasBase.map((n) => n.reuniao_id).filter((id): id is string => !!id)),
       );
+      const userIds = Array.from(
+        new Set(notasBase.map((n) => n.user_id).filter((id): id is string => !!id)),
+      );
 
-      const [membrosResp, reunioesResp] = await Promise.all([
+      const [membrosResp, reunioesResp, profilesResp] = await Promise.all([
         membroIds.length
-          ? supabase.from("membros").select("id, nome").in("id", membroIds)
+          ? supabase.from("membros").select("id, nome").eq("group_id", activeGroupId).in("id", membroIds)
           : Promise.resolve({ data: [], error: null }),
         reuniaoIds.length
-          ? supabase.from("reunioes").select("id, data, tema").in("id", reuniaoIds)
+          ? supabase.from("reunioes").select("id, data, tema").eq("group_id", activeGroupId).in("id", reuniaoIds)
+          : Promise.resolve({ data: [], error: null }),
+        userIds.length
+          ? supabase.from("profiles").select("id, username").in("id", userIds)
           : Promise.resolve({ data: [], error: null }),
       ] as const);
 
       if (membrosResp.error) throw membrosResp.error;
       if (reunioesResp.error) throw reunioesResp.error;
+      if (profilesResp.error) throw profilesResp.error;
 
       const membrosMap = new Map<string, string>();
       (membrosResp.data || []).forEach((m: any) => {
@@ -101,8 +135,15 @@ export default function Notas() {
         reunioesMap.set(r.id, { data: r.data, tema: r.tema });
       });
 
+      const profilesMap = new Map<string, string>();
+      (profilesResp.data || []).forEach((p: any) => {
+        profilesMap.set(p.id, p.username);
+      });
+
       const notasEnriquecidas: Nota[] = notasBase.map((n) => ({
         ...n,
+        tags: n.tags || [],
+        author_name: profilesMap.get(n.user_id) || null,
         membro_nome: n.membro_id ? membrosMap.get(n.membro_id) || null : null,
         reuniao_data: n.reuniao_id ? reunioesMap.get(n.reuniao_id)?.data || null : null,
         reuniao_tema: n.reuniao_id ? reunioesMap.get(n.reuniao_id)?.tema || null : null,
@@ -119,6 +160,12 @@ export default function Notas() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const noteToPlainText = (html: string) => {
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || "";
   };
 
   const handleDeleteNota = async () => {
@@ -138,7 +185,7 @@ export default function Notas() {
         .from("notas")
         .delete()
         .eq("id", notaParaExcluir.id)
-        .eq("user_id", user.id);
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
 
@@ -161,11 +208,44 @@ export default function Notas() {
     return text.length > 140 ? text.slice(0, 140) + "…" : text;
   };
 
-  const getPlainText = (html: string) => {
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-    return (temp.textContent || temp.innerText || "").toLowerCase();
+  const updateNotaFlags = async (nota: Nota, patch: Partial<Pick<Nota, "is_pinned" | "archived_at">>) => {
+    if (!activeGroupId) return;
+    try {
+      const { error } = await supabase
+        .from("notas")
+        .update(patch as any)
+        .eq("id", nota.id)
+        .eq("group_id", activeGroupId);
+
+      if (error) throw error;
+      toast.success("Nota atualizada");
+      loadNotas();
+    } catch (error) {
+      console.error("Erro ao atualizar nota:", error);
+      toast.error("Erro ao atualizar nota");
+    }
   };
+
+  const copyNota = async (nota: Nota) => {
+    try {
+      await navigator.clipboard.writeText(noteToPlainText(nota.conteudo));
+      toast.success("Nota copiada");
+    } catch {
+      toast.error("Nao foi possivel copiar a nota");
+    }
+  };
+
+  const exportNota = (nota: Nota) => {
+    const blob = new Blob([noteToPlainText(nota.conteudo)], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${getTituloFromHtml(nota.conteudo).replace(/[^\w\-]+/g, "-").slice(0, 40) || "nota"}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getPlainText = (html: string) => noteToPlainText(html).toLowerCase();
 
   const formatDate = (iso: string) => {
     const date = new Date(iso);
@@ -185,6 +265,81 @@ export default function Notas() {
     if (!text) return "(Sem título)";
     return text.length > 80 ? text.slice(0, 80) + "…" : text;
   };
+
+  const canDeleteNota = (nota: Nota) => isAdmin || nota.user_id === user?.id;
+  const canEditNota = (nota: Nota) => (
+    isAdmin
+    || nota.user_id === user?.id
+    || (nota.visibility === "group" && nota.shared_editing_enabled && !nota.archived_at)
+  );
+  const canOrganizeNota = (nota: Nota) => isAdmin || nota.user_id === user?.id;
+  const VisibilityBadge = ({ nota }: { nota: Nota }) => (
+    <Badge variant={nota.visibility === "group" ? "secondary" : "outline"} className="gap-1 rounded-full px-2 py-0 text-[0.65rem]">
+      {nota.visibility === "group" ? <Users className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+      {nota.visibility === "group" ? "Grupo" : "Privada"}
+    </Badge>
+  );
+
+  const NoteBadges = ({ nota }: { nota: Nota }) => (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {nota.is_pinned ? (
+        <Badge variant="outline" className="gap-1 rounded-full px-2 py-0 text-[0.65rem]">
+          <Pin className="h-3 w-3" />
+          Fixada
+        </Badge>
+      ) : null}
+      {nota.archived_at ? (
+        <Badge variant="outline" className="gap-1 rounded-full px-2 py-0 text-[0.65rem]">
+          <Archive className="h-3 w-3" />
+          Arquivada
+        </Badge>
+      ) : null}
+      {(nota.tags || []).slice(0, 3).map((tag) => (
+        <Badge key={tag} variant="outline" className="gap-1 rounded-full px-2 py-0 text-[0.65rem]">
+          <Tag className="h-3 w-3" />
+          {tag}
+        </Badge>
+      ))}
+    </div>
+  );
+
+  const NoteAuthor = ({ nota }: { nota: Nota }) => (
+    <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+      <UserCircle className="h-3 w-3 shrink-0" />
+      <span className="truncate">{nota.author_name || "Usuario"}</span>
+    </span>
+  );
+
+  const NoteMenuItems = ({ nota }: { nota: Nota }) => (
+    <>
+      <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>
+        {canEditNota(nota) ? "Abrir / Editar" : "Visualizar"}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => copyNota(nota)}>
+        <Copy className="mr-2 h-4 w-4" />
+        Copiar texto
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => exportNota(nota)}>
+        <Download className="mr-2 h-4 w-4" />
+        Exportar .txt
+      </DropdownMenuItem>
+      {canOrganizeNota(nota) ? (
+        <>
+          <DropdownMenuItem onClick={() => updateNotaFlags(nota, { is_pinned: !nota.is_pinned })}>
+            <Pin className="mr-2 h-4 w-4" />
+            {nota.is_pinned ? "Desfixar" : "Fixar"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => updateNotaFlags(nota, { archived_at: nota.archived_at ? null : new Date().toISOString() })}>
+            {nota.archived_at ? <ArchiveRestore className="mr-2 h-4 w-4" /> : <Archive className="mr-2 h-4 w-4" />}
+            {nota.archived_at ? "Restaurar" : "Arquivar"}
+          </DropdownMenuItem>
+        </>
+      ) : null}
+      <DropdownMenuItem disabled={!canDeleteNota(nota)} className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
+        Excluir
+      </DropdownMenuItem>
+    </>
+  );
 
   const isSplitView = !isMobile && !!selectedNota && notas.length > 0;
 
@@ -207,13 +362,24 @@ export default function Notas() {
     ).values(),
   );
 
+  const tagsDisponiveis = Array.from(new Set(notas.flatMap((n) => n.tags || []))).sort();
+
   const notasFiltradas = notas.filter((nota) => {
+    if (filtroRapido !== "arquivadas" && nota.archived_at) return false;
+    if (filtroRapido === "arquivadas" && !nota.archived_at) return false;
+    if (filtroRapido === "minhas" && nota.user_id !== user?.id) return false;
+    if (filtroRapido === "publicas" && nota.visibility !== "group") return false;
+    if (filtroRapido === "privadas" && nota.visibility !== "private") return false;
+    if (filtroRapido === "fixadas" && !nota.is_pinned) return false;
+
     const termo = buscaNotas.trim().toLowerCase();
     if (termo) {
       const haystack = [
         getPlainText(nota.conteudo),
         nota.membro_nome,
         nota.reuniao_tema,
+        nota.author_name,
+        ...(nota.tags || []),
         nota.reuniao_data ? new Date(nota.reuniao_data).toLocaleDateString("pt-BR") : null,
         formatDate(nota.created_at),
       ]
@@ -230,17 +396,44 @@ export default function Notas() {
 
     if (filtroMembro !== "todos" && nota.membro_nome !== filtroMembro) return false;
     if (filtroReuniao !== "todas" && nota.reuniao_id !== filtroReuniao) return false;
+    if (filtroTag !== "todas" && !(nota.tags || []).includes(filtroTag)) return false;
 
     return true;
   });
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
+    if (filtroRapido !== "ativas") count += 1;
     if (filtroVinculo !== "todas") count += 1;
     if (filtroMembro !== "todos") count += 1;
     if (filtroReuniao !== "todas") count += 1;
+    if (filtroTag !== "todas") count += 1;
     return count;
-  }, [filtroMembro, filtroReuniao, filtroVinculo]);
+  }, [filtroMembro, filtroRapido, filtroReuniao, filtroTag, filtroVinculo]);
+
+  const QuickFilters = (
+    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      {[
+        { id: "ativas", label: "Todas" },
+        { id: "minhas", label: "Minhas" },
+        { id: "publicas", label: "Publicas" },
+        { id: "privadas", label: "Privadas" },
+        { id: "fixadas", label: "Fixadas" },
+        { id: "arquivadas", label: "Arquivadas" },
+      ].map((item) => (
+        <Button
+          key={item.id}
+          type="button"
+          variant={filtroRapido === item.id ? "default" : "outline"}
+          size="sm"
+          className="h-8 shrink-0 rounded-full px-3 text-xs"
+          onClick={() => setFiltroRapido(item.id as typeof filtroRapido)}
+        >
+          {item.label}
+        </Button>
+      ))}
+    </div>
+  );
 
   const FiltersControls = (
     <div className="flex flex-wrap gap-2 text-xs md:text-sm">
@@ -279,6 +472,20 @@ export default function Notas() {
           {reunioesDisponiveis.map((r) => (
             <SelectItem key={r.id} value={r.id}>
               {new Date(r.data).toLocaleDateString("pt-BR")} {r.tema ? `- ${r.tema}` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={filtroTag} onValueChange={setFiltroTag} disabled={tagsDisponiveis.length === 0}>
+        <SelectTrigger className="h-8 w-[150px]">
+          <SelectValue placeholder="Etiqueta" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todas">Todas etiquetas</SelectItem>
+          {tagsDisponiveis.map((tag) => (
+            <SelectItem key={tag} value={tag}>
+              {tag}
             </SelectItem>
           ))}
         </SelectContent>
@@ -385,7 +592,7 @@ export default function Notas() {
     });
 
     return () => setConfig(null);
-  }, [navigate, setConfig, isMobile, activeFiltersCount, filtroVinculo, filtroMembro, filtroReuniao, membrosDisponiveis.length, reunioesDisponiveis.length, buscaNotas]);
+  }, [navigate, setConfig, isMobile, activeFiltersCount, filtroVinculo, filtroMembro, filtroReuniao, filtroTag, membrosDisponiveis.length, reunioesDisponiveis.length, tagsDisponiveis.length, buscaNotas]);
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
@@ -402,6 +609,7 @@ export default function Notas() {
             </div>
 
             <div className="mt-4 min-h-0 flex-1 overflow-y-auto scrollbar-none pb-[calc(env(safe-area-inset-bottom)+5.5rem)]">
+              <div className="mb-3">{QuickFilters}</div>
               {loading ? (
                 <div className="space-y-2">
                   <div className="h-16 rounded-2xl border border-border bg-card/50" />
@@ -423,13 +631,20 @@ export default function Notas() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-muted-foreground">{formatDate(nota.created_at)}</p>
-                          <p className="mt-1 text-sm font-semibold text-foreground truncate">
-                            {getTituloFromHtml(nota.conteudo)}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-muted-foreground">{formatDate(nota.created_at)}</p>
+                            <NoteAuthor nota={nota} />
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                              {getTituloFromHtml(nota.conteudo)}
+                            </p>
+                            <VisibilityBadge nota={nota} />
+                          </div>
                           <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                             {getPreviewText(nota.conteudo)}
                           </p>
+                          <NoteBadges nota={nota} />
                         </div>
 
                         <button
@@ -481,10 +696,55 @@ export default function Notas() {
                     </Button>
 
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       className="w-full justify-start rounded-2xl h-12"
                       onClick={() => {
                         if (!mobileActionsNota) return;
+                        setMobileActionsOpen(false);
+                        copyNota(mobileActionsNota);
+                      }}
+                      type="button"
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copiar texto
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start rounded-2xl h-12"
+                      disabled={!mobileActionsNota || !canOrganizeNota(mobileActionsNota)}
+                      onClick={() => {
+                        if (!mobileActionsNota || !canOrganizeNota(mobileActionsNota)) return;
+                        setMobileActionsOpen(false);
+                        updateNotaFlags(mobileActionsNota, { is_pinned: !mobileActionsNota.is_pinned });
+                      }}
+                      type="button"
+                    >
+                      <Pin className="mr-2 h-4 w-4" />
+                      {mobileActionsNota?.is_pinned ? "Desfixar" : "Fixar"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start rounded-2xl h-12"
+                      disabled={!mobileActionsNota || !canOrganizeNota(mobileActionsNota)}
+                      onClick={() => {
+                        if (!mobileActionsNota || !canOrganizeNota(mobileActionsNota)) return;
+                        setMobileActionsOpen(false);
+                        updateNotaFlags(mobileActionsNota, { archived_at: mobileActionsNota.archived_at ? null : new Date().toISOString() });
+                      }}
+                      type="button"
+                    >
+                      {mobileActionsNota?.archived_at ? <ArchiveRestore className="mr-2 h-4 w-4" /> : <Archive className="mr-2 h-4 w-4" />}
+                      {mobileActionsNota?.archived_at ? "Restaurar" : "Arquivar"}
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      className="w-full justify-start rounded-2xl h-12"
+                      disabled={!mobileActionsNota || !canDeleteNota(mobileActionsNota)}
+                      onClick={() => {
+                        if (!mobileActionsNota || !canDeleteNota(mobileActionsNota)) return;
                         setMobileActionsOpen(false);
                         setNotaParaExcluir(mobileActionsNota);
                       }}
@@ -517,6 +777,7 @@ export default function Notas() {
                 {/* No mobile, mantemos filtros no corpo para não lotar o header */}
                 {isMobile ? FiltersControls : null}
               </div>
+              {!isMobile ? QuickFilters : null}
             </CardHeader>
             <CardContent className="p-0">
               <ResizablePanelGroup direction="horizontal" className="min-h-[420px] md:min-h-[520px]">
@@ -541,8 +802,14 @@ export default function Notas() {
                           }}
                           onDoubleClick={!isMobile ? () => navigate(`/notas/editar/${nota.id}`) : undefined}
                         >
-                          <p className="text-xs text-muted-foreground mb-1">{formatDate(nota.created_at)}</p>
-                          <p className="text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                          <div className="mb-1 flex items-center gap-2">
+                            <p className="text-xs text-muted-foreground">{formatDate(nota.created_at)}</p>
+                            <NoteAuthor nota={nota} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="min-w-0 flex-1 truncate text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                            <VisibilityBadge nota={nota} />
+                          </div>
                           {(nota.membro_nome || nota.reuniao_data) && (
                             <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                               {nota.membro_nome && <p>Membro: {nota.membro_nome}</p>}
@@ -554,6 +821,7 @@ export default function Notas() {
                               )}
                             </div>
                           )}
+                          <NoteBadges nota={nota} />
                         </div>
                         <div className="flex items-start justify-end">
                           <DropdownMenu>
@@ -563,11 +831,8 @@ export default function Notas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setSelectedNota(nota)}>Visualizar</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>Editar</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
-                                Excluir
-                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setSelectedNota(nota)}>Visualizar ao lado</DropdownMenuItem>
+                              <NoteMenuItems nota={nota} />
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -581,7 +846,10 @@ export default function Notas() {
                     {selectedNota ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs text-muted-foreground">{formatDate(selectedNota.created_at)}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">{formatDate(selectedNota.created_at)}</p>
+                            <NoteAuthor nota={selectedNota} />
+                          </div>
                           <div className="flex gap-2">
                             {selectedNota.membro_id && (
                               <Button
@@ -604,6 +872,10 @@ export default function Notas() {
                               </Button>
                             )}
                           </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <VisibilityBadge nota={selectedNota} />
+                          <NoteBadges nota={selectedNota} />
                         </div>
                         <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: selectedNota.conteudo }} />
                       </div>
@@ -633,13 +905,20 @@ export default function Notas() {
                 {/* No mobile, mantemos filtros no corpo para não lotar o header */}
                 {isMobile ? FiltersControls : null}
               </div>
+              {!isMobile ? QuickFilters : null}
             </CardHeader>
             <CardContent className="space-y-3">
               {notasFiltradas.map((nota) => (
                 <div key={nota.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card">
                   <div className="flex-1 cursor-pointer" onClick={() => navigate(`/notas/editar/${nota.id}`)}>
-                    <p className="text-xs text-muted-foreground mb-1">{formatDate(nota.created_at)}</p>
-                    <p className="text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                    <div className="mb-1 flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{formatDate(nota.created_at)}</p>
+                      <NoteAuthor nota={nota} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="min-w-0 flex-1 truncate text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                      <VisibilityBadge nota={nota} />
+                    </div>
                     {(nota.membro_nome || nota.reuniao_data) && (
                       <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                         {nota.membro_nome && <p>Membro: {nota.membro_nome}</p>}
@@ -651,6 +930,7 @@ export default function Notas() {
                         )}
                       </div>
                     )}
+                    <NoteBadges nota={nota} />
                   </div>
                   <div className="flex items-start justify-end">
                     <DropdownMenu>
@@ -660,10 +940,7 @@ export default function Notas() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/notas/editar/${nota.id}`)}>Visualizar / Editar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => setNotaParaExcluir(nota)}>
-                          Excluir
-                        </DropdownMenuItem>
+                        <NoteMenuItems nota={nota} />
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

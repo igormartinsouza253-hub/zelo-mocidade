@@ -542,7 +542,10 @@ export default function GrupoInfo() {
   };
 
   const handleSwitchGroup = async (groupId: string) => {
-    if (groupId === activeGroupId) return;
+    if (groupId === activeGroupId) {
+      navigate("/", { replace: true });
+      return;
+    }
 
     setSwitchingGroupId(groupId);
     try {
@@ -727,7 +730,7 @@ export default function GrupoInfo() {
                     key={availableGroup.id}
                     type="button"
                     onClick={() => void handleSwitchGroup(availableGroup.id)}
-                    disabled={current || switchingGroupId === availableGroup.id}
+                    disabled={switchingGroupId === availableGroup.id}
                     className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left transition-colors md:rounded-lg ${
                       current ? "border-primary bg-primary/10" : "border-border bg-background/60 hover:bg-accent/45"
                     }`}

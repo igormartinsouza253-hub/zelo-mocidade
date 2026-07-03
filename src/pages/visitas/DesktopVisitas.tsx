@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 interface Membro {
   id: string;
@@ -52,6 +53,7 @@ interface EnrichedVisita extends Visita {
 export default function DesktopVisitas() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { activeGroupId } = useActiveGroup();
 
   const [membros, setMembros] = useState<Membro[]>([]);
   const [visitasRaw, setVisitasRaw] = useState<Visita[]>([]);
@@ -67,22 +69,35 @@ export default function DesktopVisitas() {
   const { setConfig } = usePageHeader();
 
   useEffect(() => {
+    if (!activeGroupId) {
+      setMembros([]);
+      setVisitasRaw([]);
+      setSuggestions([]);
+      setLoadingMembros(false);
+      setLoadingVisitas(false);
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    setSelectedVisita(null);
     void loadMembros();
     void loadVisitas();
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     if (membros.length > 0 && visitasRaw.length >= 0) {
       void loadSuggestions();
     }
-  }, [membros.length, visitasRaw.length]);
+  }, [activeGroupId, membros.length, visitasRaw.length]);
 
   useEffect(() => {
+    if (!activeGroupId) return;
+
     const channel = supabase
-      .channel("visitas-changes")
+      .channel(`visitas-changes:${activeGroupId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "visitas" },
+        { event: "*", schema: "public", table: "visitas", filter: `group_id=eq.${activeGroupId}` },
         () => {
           void loadVisitas();
           void loadSuggestions();
@@ -93,14 +108,17 @@ export default function DesktopVisitas() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeGroupId]);
 
   const loadMembros = async () => {
+    if (!activeGroupId) return;
+
     try {
       setLoadingMembros(true);
       const { data, error } = await supabase
         .from("membros")
         .select("id, nome, faixa_etaria, foto_url")
+        .eq("group_id", activeGroupId)
         .order("nome");
 
       if (error) throw error;
@@ -114,11 +132,14 @@ export default function DesktopVisitas() {
   };
 
   const loadVisitas = async () => {
+    if (!activeGroupId) return;
+
     try {
       setLoadingVisitas(true);
       const { data, error } = await supabase
         .from("visitas")
         .select("*")
+        .eq("group_id", activeGroupId)
         .order("data_visita", { ascending: false })
         .order("created_at", { ascending: false });
 
@@ -139,12 +160,15 @@ export default function DesktopVisitas() {
   };
 
   const loadSuggestions = async () => {
+    if (!activeGroupId) return;
+
     try {
       setLoadingSuggestions(true);
 
       const { data: reunioes, error: reunioesError } = await supabase
         .from("reunioes")
         .select("id, data")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false })
         .limit(4);
 
@@ -160,13 +184,15 @@ export default function DesktopVisitas() {
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
         .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId)
         .in("reuniao_id", reuniaoIds);
 
       if (presencasError) throw presencasError;
 
       const { data: visitasData, error: visitasError } = await supabase
         .from("visitas")
-        .select("membro_visitado_id");
+        .select("membro_visitado_id")
+        .eq("group_id", activeGroupId);
 
       if (visitasError) throw visitasError;
 
@@ -282,7 +308,8 @@ export default function DesktopVisitas() {
       const { error } = await supabase
         .from("visitas")
         .update({ is_past: true, data_visita: now })
-        .eq("id", visita.id);
+        .eq("id", visita.id)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
       toast.success("Visita marcada como concluída");
@@ -297,7 +324,7 @@ export default function DesktopVisitas() {
     if (!confirmDelete) return;
 
     try {
-      const { error } = await supabase.from("visitas").delete().eq("id", visita.id);
+      const { error } = await supabase.from("visitas").delete().eq("id", visita.id).eq("group_id", activeGroupId);
       if (error) throw error;
       toast.success("Visita excluída com sucesso");
     } catch (error) {

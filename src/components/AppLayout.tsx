@@ -104,6 +104,30 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const isViewportMobile = useIsMobile();
   // Arquitetura por breakpoint: Mobile (<md) e Desktop/Tablet (md+).
   const isMobileMode = isViewportMobile;
+  useEffect(() => {
+    if (!isMobileMode || typeof window === "undefined" || !window.visualViewport) {
+      document.documentElement.style.setProperty("--mobile-keyboard-inset", "0px");
+      return;
+    }
+
+    const updateKeyboardInset = () => {
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      document.documentElement.style.setProperty("--mobile-keyboard-inset", `${Math.round(inset)}px`);
+    };
+
+    updateKeyboardInset();
+    window.visualViewport.addEventListener("resize", updateKeyboardInset);
+    window.visualViewport.addEventListener("scroll", updateKeyboardInset);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateKeyboardInset);
+      window.visualViewport?.removeEventListener("scroll", updateKeyboardInset);
+      document.documentElement.style.setProperty("--mobile-keyboard-inset", "0px");
+    };
+  }, [isMobileMode]);
+
   // Exige grupo ativo para usar o app (exceto na tela de Grupo Gestor)
   useEffect(() => {
     if (!user) return;
@@ -187,7 +211,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   useEffect(() => {
     if (!user?.id || !activeGroupId) return;
 
-    const showDeviceNotification = async (incoming: { id?: string; title?: string; message?: string }) => {
+    const showDeviceNotification = async (incoming: { id?: string; title?: string; message?: string; entity_type?: string | null; entity_id?: string | null }) => {
       if (
         typeof window === "undefined" ||
         !("Notification" in window) ||
@@ -203,7 +227,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         tag: incoming.id ? `notification-${incoming.id}` : undefined,
         icon: "/pwa-192.png",
         badge: "/pwa-192.png",
-        data: { url: "/configuracoes" },
+        data: {
+          url:
+            incoming.entity_type === "group_join_request"
+              ? "/grupo/info"
+              : incoming.entity_type === "visita" && incoming.entity_id
+                ? `/visitas/${incoming.entity_id}`
+                : "/configuracoes",
+        },
       };
 
       try {
@@ -235,7 +266,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const incoming = payload.new as { id?: string; title?: string; message?: string };
+          const incoming = payload.new as { id?: string; title?: string; message?: string; entity_type?: string | null; entity_id?: string | null };
           if (!incoming?.title || !incoming?.message) return;
 
           if (document.visibilityState === "visible") {
@@ -683,7 +714,7 @@ function MobilePageActionDock({
   const PrimaryIcon = mobilePrimaryAction?.icon ?? Plus;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.125rem)] z-40 flex justify-center px-4 md:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.125rem+var(--mobile-keyboard-inset,0px))] z-40 flex justify-center px-4 md:hidden">
       <div className="pointer-events-auto flex min-h-14 w-full max-w-[22rem] items-center gap-2 rounded-3xl border border-border/65 bg-background/95 px-2.5 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
         {mobileSearch ? (
           <div className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-2xl border border-border/60 bg-card/70 py-1 pl-3 pr-1">

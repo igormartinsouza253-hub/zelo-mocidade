@@ -98,8 +98,8 @@ export function MobileBottomNav() {
                   aria-label={fixedActive ? "Abrir menu" : `Abrir menu (${label})`}
                 >
                   <MenuIcon className="h-5 w-5" />
-                  <span className="mt-1 text-[10px] font-semibold leading-none">
-                    Menu
+                  <span className="mt-1 max-w-[3.25rem] truncate text-[10px] font-semibold leading-none">
+                    {label}
                   </span>
                 </button>
               );

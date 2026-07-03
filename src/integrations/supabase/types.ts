@@ -753,27 +753,48 @@ export type Database = {
           created_at: string
           group_id: string | null
           id: string
+          archived_at: string | null
+          is_pinned: boolean
           membro_id: string | null
           reuniao_id: string | null
+          shared_editing_enabled: boolean
+          tags: string[]
+          updated_at: string
+          updated_by: string | null
           user_id: string
+          visibility: string
         }
         Insert: {
           conteudo: string
           created_at?: string
           group_id?: string | null
           id?: string
+          archived_at?: string | null
+          is_pinned?: boolean
           membro_id?: string | null
           reuniao_id?: string | null
+          shared_editing_enabled?: boolean
+          tags?: string[]
+          updated_at?: string
+          updated_by?: string | null
           user_id: string
+          visibility?: string
         }
         Update: {
           conteudo?: string
           created_at?: string
           group_id?: string | null
           id?: string
+          archived_at?: string | null
+          is_pinned?: boolean
           membro_id?: string | null
           reuniao_id?: string | null
+          shared_editing_enabled?: boolean
+          tags?: string[]
+          updated_at?: string
+          updated_by?: string | null
           user_id?: string
+          visibility?: string
         }
         Relationships: [
           {

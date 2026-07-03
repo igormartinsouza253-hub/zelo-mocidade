@@ -86,8 +86,9 @@ const NovaVisita = () => {
   }, [editingId, setConfig]);
 
   useEffect(() => {
+    if (!activeGroupId) return;
     void loadMembros();
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     const id = searchParams.get("id");
@@ -108,14 +109,17 @@ const NovaVisita = () => {
       setDataVisitaDate(data);
       setTipoVisita(isDatePast(data) ? "passada" : "futura");
     }
-  }, [searchParams]);
+  }, [searchParams, activeGroupId]);
 
   const loadMembros = async () => {
+    if (!activeGroupId) return;
+
     try {
       setLoadingMembros(true);
       const { data, error } = await supabase
         .from("membros")
         .select("id, nome, faixa_etaria, foto_url")
+        .eq("group_id", activeGroupId)
         .order("nome");
 
       if (error) throw error;
@@ -162,12 +166,15 @@ const NovaVisita = () => {
   };
 
   const loadVisita = async (id: string) => {
+    if (!activeGroupId) return;
+
     try {
       setLoadingVisita(true);
       const { data, error } = await supabase
         .from("visitas")
         .select("*")
         .eq("id", id)
+        .eq("group_id", activeGroupId)
         .single<VisitaRow>();
 
       if (error) throw error;
@@ -206,6 +213,12 @@ const NovaVisita = () => {
   };
 
   const handleSaveVisita = async () => {
+    if (!activeGroupId) {
+      toast.error("Selecione um grupo gestor antes de registrar visitas");
+      navigate("/grupo");
+      return;
+    }
+
     if (!membroVisitadoId) {
       toast.error("Selecione o membro que será visitado");
       return;
@@ -217,6 +230,11 @@ const NovaVisita = () => {
     }
 
     // Regra mobile: se não registrar data, salva como futura.
+    if (!membros.some((m) => m.id === membroVisitadoId)) {
+      toast.error("Selecione um membro do grupo atual");
+      return;
+    }
+
     const hasDate = Boolean(dataVisitaDate);
 
     // Se a data for passada, obriga preencher hora.
@@ -260,7 +278,11 @@ const NovaVisita = () => {
       let visitaIdToLink: string | null = null;
 
       if (editingId) {
-        const { error } = await supabase.from("visitas").update(payload).eq("id", editingId);
+        const { error } = await supabase
+          .from("visitas")
+          .update(payload)
+          .eq("id", editingId)
+          .eq("group_id", activeGroupId);
 
         if (error) throw error;
         toast.success("Visita atualizada com sucesso");

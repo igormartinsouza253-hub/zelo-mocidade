@@ -45,6 +45,10 @@ function resolveNotificationHref(item: NotificationRow) {
     return `/calendario?eventId=${encodeURIComponent(item.entity_id)}`;
   }
 
+  if (item.entity_type === "visita" && item.entity_id) {
+    return `/visitas/${encodeURIComponent(item.entity_id)}`;
+  }
+
   return "/configuracoes?section=notifications";
 }
 

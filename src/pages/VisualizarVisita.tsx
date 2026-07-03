@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Calendar, CheckCircle2, Pencil, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,7 @@ function formatDateTime(value: string | null) {
 export default function VisualizarVisita() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { activeGroupId } = useActiveGroup();
 
   const [loading, setLoading] = useState(true);
   const [visita, setVisita] = useState<Visita | null>(null);
@@ -61,12 +63,14 @@ export default function VisualizarVisita() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !activeGroupId) return;
     void load(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, activeGroupId]);
 
   async function load(visitaId: string) {
+    if (!activeGroupId) return;
+
     try {
       setLoading(true);
 
@@ -74,6 +78,7 @@ export default function VisualizarVisita() {
         .from("visitas")
         .select("*")
         .eq("id", visitaId)
+        .eq("group_id", activeGroupId)
         .single<Visita>();
 
       if (visitaError) throw visitaError;
@@ -90,6 +95,7 @@ export default function VisualizarVisita() {
         .from("membros")
         .select("id, nome, foto_url, faixa_etaria")
         .eq("id", normalized.membro_visitado_id)
+        .eq("group_id", activeGroupId)
         .maybeSingle<Membro>();
 
       setMembro(membroData ?? null);
@@ -98,6 +104,7 @@ export default function VisualizarVisita() {
         const { data: presentesData } = await supabase
           .from("membros")
           .select("id, nome, foto_url, faixa_etaria")
+          .eq("group_id", activeGroupId)
           .in("id", normalized.membros_presentes);
 
         setPresentes((presentesData as any) || []);
@@ -123,7 +130,8 @@ export default function VisualizarVisita() {
       const { error } = await supabase
         .from("visitas")
         .update({ is_past: true, data_visita: now })
-        .eq("id", visita.id);
+        .eq("id", visita.id)
+        .eq("group_id", activeGroupId);
       if (error) throw error;
 
       toast.success("Visita marcada como concluída");
@@ -138,7 +146,7 @@ export default function VisualizarVisita() {
     if (!visita) return;
 
     try {
-      const { error } = await supabase.from("visitas").delete().eq("id", visita.id);
+      const { error } = await supabase.from("visitas").delete().eq("id", visita.id).eq("group_id", activeGroupId);
       if (error) throw error;
 
       toast.success("Visita excluída");
