@@ -67,12 +67,14 @@ serve(async (req) => {
     });
 
     const requestBody = await req.json().catch(() => ({}));
-    const { email, role, action = "add", user_id } = requestBody as {
+    const { email, role, action = "add", user_id, group_id } = requestBody as {
       email?: string;
       role?: "admin" | "user";
       action?: string;
       user_id?: string;
+      group_id?: string;
     };
+    const isSuperAdminCaller = (caller.email ?? "").toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
 
     // Self-approve: allow any authenticated user to ensure they have the base 'user' role.
     // This is safe because it does not grant elevated privileges.
@@ -97,7 +99,7 @@ serve(async (req) => {
 
     // Bootstrap: allow a pre-approved email to self-promote to admin
     if (action === "bootstrap_admin") {
-      if ((caller.email ?? "").toLowerCase() !== BOOTSTRAP_ADMIN_EMAIL.toLowerCase()) {
+      if (!isSuperAdminCaller) {
         return new Response(
           JSON.stringify({ error: "Operação não permitida" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -120,6 +122,147 @@ serve(async (req) => {
         JSON.stringify({ success: true }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    if (action.startsWith("super_admin_")) {
+      if (!isSuperAdminCaller) {
+        return new Response(
+          JSON.stringify({ error: "Operacao exclusiva do super administrador" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      if (action === "super_admin_list") {
+        const authUsers: any[] = [];
+        let page = 1;
+        const perPage = 1000;
+
+        while (page <= 10) {
+          const { data, error: listError } = await serviceClient.auth.admin.listUsers({ page, perPage });
+          if (listError) {
+            console.error("Erro ao listar auth users:", listError);
+            return new Response(
+              JSON.stringify({ error: "Erro ao carregar usuarios" }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+          const currentUsers = data?.users ?? [];
+          authUsers.push(...currentUsers);
+          if (currentUsers.length < perPage) break;
+          page++;
+        }
+
+        const userIds = authUsers.map((authUser) => authUser.id).filter(Boolean);
+        const emptyResult = { data: [], error: null };
+        const [profilesResult, rolesResult, membershipsResult, groupsResult, presenceResult] = await Promise.all([
+          userIds.length ? serviceClient.from("profiles").select("id, username, email, avatar_url").in("id", userIds) : Promise.resolve(emptyResult),
+          userIds.length ? serviceClient.from("user_roles").select("user_id, role, created_at").in("user_id", userIds) : Promise.resolve(emptyResult),
+          userIds.length ? serviceClient.from("group_members").select("id, user_id, group_id, role, created_at").in("user_id", userIds) : Promise.resolve(emptyResult),
+          serviceClient.from("management_groups").select("id, name"),
+          userIds.length ? serviceClient.from("group_user_presence").select("user_id, updated_at").in("user_id", userIds) : Promise.resolve(emptyResult),
+        ]);
+
+        if (profilesResult.error) console.error("Erro ao carregar profiles:", profilesResult.error);
+        if (rolesResult.error) console.error("Erro ao carregar roles:", rolesResult.error);
+        if (membershipsResult.error) console.error("Erro ao carregar memberships:", membershipsResult.error);
+        if (groupsResult.error) console.error("Erro ao carregar grupos:", groupsResult.error);
+        if (presenceResult.error) console.error("Erro ao carregar presenca:", presenceResult.error);
+
+        const profileById = Object.fromEntries(((profilesResult.data as any[]) ?? []).map((profile) => [profile.id, profile]));
+        const roleById = Object.fromEntries(((rolesResult.data as any[]) ?? []).map((item) => [item.user_id, item]));
+        const groupById = Object.fromEntries(((groupsResult.data as any[]) ?? []).map((group) => [group.id, group]));
+        const presenceById = Object.fromEntries(((presenceResult.data as any[]) ?? []).map((item) => [item.user_id, item]));
+        const membershipsByUser = ((membershipsResult.data as any[]) ?? []).reduce((acc: Record<string, any[]>, membership) => {
+          const list = acc[membership.user_id] ?? [];
+          list.push({
+            id: membership.id,
+            group_id: membership.group_id,
+            group_name: groupById[membership.group_id]?.name ?? "Grupo",
+            role: membership.role,
+            created_at: membership.created_at,
+          });
+          acc[membership.user_id] = list;
+          return acc;
+        }, {});
+
+        const now = Date.now();
+        const users = authUsers.map((authUser) => {
+          const profile = profileById[authUser.id] as any | undefined;
+          const presence = presenceById[authUser.id] as any | undefined;
+          const lastSeen = presence?.updated_at ?? authUser.last_sign_in_at ?? null;
+          return {
+            id: authUser.id,
+            email: authUser.email ?? profile?.email ?? null,
+            username: profile?.username ?? authUser.user_metadata?.name ?? authUser.user_metadata?.full_name ?? null,
+            avatar_url: profile?.avatar_url ?? authUser.user_metadata?.avatar_url ?? authUser.user_metadata?.picture ?? null,
+            role: roleById[authUser.id]?.role ?? "user",
+            created_at: authUser.created_at,
+            last_seen_at: lastSeen,
+            online: lastSeen ? now - new Date(lastSeen).getTime() < 2 * 60 * 1000 : false,
+            groups: membershipsByUser[authUser.id] ?? [],
+          };
+        });
+
+        return new Response(JSON.stringify({ users }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (action === "super_admin_remove_from_group") {
+        if (!user_id || !group_id) {
+          return new Response(JSON.stringify({ error: "user_id e group_id sao obrigatorios" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { error: removeError } = await serviceClient.from("group_members").delete().eq("user_id", user_id).eq("group_id", group_id);
+        if (removeError) {
+          console.error("Erro ao remover usuario do grupo:", removeError);
+          return new Response(JSON.stringify({ error: "Erro ao remover usuario do grupo" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (action === "super_admin_delete_user") {
+        if (!user_id) {
+          return new Response(JSON.stringify({ error: "user_id e obrigatorio" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (user_id === caller.id) {
+          return new Response(JSON.stringify({ error: "Voce nao pode excluir a propria conta" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        await serviceClient.from("group_members").delete().eq("user_id", user_id);
+        await serviceClient.from("user_roles").delete().eq("user_id", user_id);
+        const { error: deleteAuthError } = await serviceClient.auth.admin.deleteUser(user_id);
+        if (deleteAuthError) {
+          console.error("Erro ao excluir auth user:", deleteAuthError);
+          return new Response(JSON.stringify({ error: "Erro ao excluir usuario" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "Acao de super admin invalida" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // From here on, require caller to be:

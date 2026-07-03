@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Camera,
@@ -59,15 +59,15 @@ function getGroupErrorMessage(error: any, fallback: string) {
   const code = String(error?.code ?? "");
   const message = String(error?.message ?? error ?? "").toLowerCase();
 
-  if (message.includes("not_authenticated") || code === "401") return "Sua sessÃ£o expirou. FaÃ§a login novamente.";
+  if (message.includes("not_authenticated") || code === "401") return "Sua sessão expirou. Faça login novamente.";
   if (message.includes("invalid_password")) return "Senha do grupo incorreta.";
-  if (message.includes("already_member")) return "VocÃª jÃ¡ faz parte deste grupo.";
-  if (message.includes("group_not_found") || code === "PGRST116") return "Grupo nÃ£o encontrado. Atualize a lista e tente novamente.";
-  if (message.includes("duplicate") || code === "23505") return "JÃ¡ existe uma solicitaÃ§Ã£o para este grupo.";
+  if (message.includes("already_member")) return "Você já faz parte deste grupo.";
+  if (message.includes("group_not_found") || code === "PGRST116") return "Grupo não encontrado. Atualize a lista e tente novamente.";
+  if (message.includes("duplicate") || code === "23505") return "Já existe uma solicitação para este grupo.";
   if (code === "42501" || message.includes("row-level security") || message.includes("permission denied")) {
-    return "Sua conta ainda nÃ£o tem permissÃ£o para concluir esta aÃ§Ã£o. Saia e entre novamente; se continuar, peÃ§a ao admin para verificar seu acesso.";
+    return "Sua conta ainda não tem permissão para concluir esta ação. Saia e entre novamente; se continuar, peça ao admin para verificar seu acesso.";
   }
-  if (message.includes("network") || message.includes("failed to fetch")) return "Falha de conexÃ£o. Verifique a internet e tente novamente.";
+  if (message.includes("network") || message.includes("failed to fetch")) return "Falha de conexão. Verifique a internet e tente novamente.";
 
   return fallback;
 }
@@ -108,7 +108,7 @@ export default function GrupoGestor() {
     setConfig({
       title: "Grupo gestor",
       icon: Users,
-      breadcrumbs: [{ label: "InÃ­cio", href: "/" }, { label: "Grupo gestor" }],
+      breadcrumbs: [{ label: "Início", href: "/" }, { label: "Grupo gestor" }],
       showBackButton: true,
       backTo: "/",
     });
@@ -195,7 +195,7 @@ export default function GrupoGestor() {
   useEffect(() => {
     void loadGroups().catch((error) => {
       console.error(error);
-      toast.error("NÃ£o foi possÃ­vel carregar os grupos.");
+      toast.error("Não foi possível carregar os grupos.");
     });
   }, []);
 
@@ -214,7 +214,7 @@ export default function GrupoGestor() {
         const hasGroup = await refresh();
         if (!cancelled && hasGroup) toast.success("Grupo confirmado! Toque em Ir para o app.");
       } catch (error) {
-        console.error("[GrupoGestor] Erro ao atualizar grupos do usuÃ¡rio", error);
+        console.error("[GrupoGestor] Erro ao atualizar grupos do usuário", error);
       }
     }, 5000);
 
@@ -280,12 +280,12 @@ export default function GrupoGestor() {
       });
 
       if (error) {
-        let msgErro = "NÃ£o foi possÃ­vel criar o grupo.";
-        if (error.message?.includes("not_authenticated")) msgErro = "Sua sessÃ£o expirou. FaÃ§a login novamente.";
-        else if (error.message?.includes("duplicate") || error.code === "23505") msgErro = "JÃ¡ existe um grupo com esse nome.";
-        else if (error.message?.includes("invalid_name")) msgErro = "Nome do grupo invÃ¡lido.";
-        else if (error.message?.includes("invalid_password")) msgErro = "Senha invÃ¡lida ou muito curta (mÃ­n. 4 caracteres).";
-        else if (error.code === "42501") msgErro = "VocÃª nÃ£o tem permissÃ£o para criar um grupo.";
+        let msgErro = "Não foi possível criar o grupo.";
+        if (error.message?.includes("not_authenticated")) msgErro = "Sua sessão expirou. Faça login novamente.";
+        else if (error.message?.includes("duplicate") || error.code === "23505") msgErro = "Já existe um grupo com esse nome.";
+        else if (error.message?.includes("invalid_name")) msgErro = "Nome do grupo inválido.";
+        else if (error.message?.includes("invalid_password")) msgErro = "Senha inválida ou muito curta (mín. 4 caracteres).";
+        else if (error.code === "42501") msgErro = "Você não tem permissão para criar um grupo.";
         toast.error(msgErro);
         return;
       }
@@ -296,9 +296,9 @@ export default function GrupoGestor() {
         await uploadCreatedGroupPhoto(createdGroupId);
       } catch (photoError) {
         console.error("[GrupoGestor] Erro ao salvar foto do grupo", photoError);
-        toast.warning("Grupo criado, mas nÃ£o foi possÃ­vel salvar a foto agora.");
+        toast.warning("Grupo criado, mas não foi possível salvar a foto agora.");
       }
-      toast.success("Grupo criado! VocÃª Ã© admin do grupo.");
+      toast.success("Grupo criado! Você é admin do grupo.");
       navigate("/grupo/info");
     } catch (error) {
       console.error("[GrupoGestor] Erro inesperado ao criar grupo", error);
@@ -335,13 +335,13 @@ export default function GrupoGestor() {
         return;
       }
 
-      if (requestStatus === "already_pending") toast.info("Sua solicitaÃ§Ã£o jÃ¡ estÃ¡ pendente. Aguarde a aprovaÃ§Ã£o do admin.");
-      else toast.success("SolicitaÃ§Ã£o enviada! Aguarde aprovaÃ§Ã£o do admin.");
+      if (requestStatus === "already_pending") toast.info("Sua solicitação já está pendente. Aguarde a aprovação do admin.");
+      else toast.success("Solicitação enviada! Aguarde aprovação do admin.");
       setJoinPassword("");
       await loadMyJoinRequests();
     } catch (error) {
       console.error(error);
-      toast.error(getGroupErrorMessage(error, "NÃ£o foi possÃ­vel solicitar entrada no grupo."));
+      toast.error(getGroupErrorMessage(error, "Não foi possível solicitar entrada no grupo."));
     } finally {
       setJoining(false);
     }
@@ -367,14 +367,14 @@ export default function GrupoGestor() {
       navigate("/auth", { replace: true });
     } catch (error) {
       console.error(error);
-      toast.error("NÃ£o foi possÃ­vel sair da conta.");
+      toast.error("Não foi possível sair da conta.");
     }
   };
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background">
       <div className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 px-3 backdrop-blur md:hidden">
-        <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2" aria-label="Ir para inÃ­cio">
+        <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2" aria-label="Ir para início">
           <ZeloLogo className="h-10 w-10 rounded-xl p-1" />
         </button>
 
@@ -427,8 +427,8 @@ export default function GrupoGestor() {
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground md:text-sm">
                   {canContinueToApp
                     ? changeMode
-                      ? "VocÃª pode solicitar entrada em outro grupo sem sair do atual."
-                      : "Sua conta jÃ¡ estÃ¡ vinculada a um grupo gestor."
+                      ? "Você pode solicitar entrada em outro grupo sem sair do atual."
+                      : "Sua conta já está vinculada a um grupo gestor."
                     : "Escolha um grupo existente para entrar ou avance para criar um grupo novo."}
                 </p>
               </div>
@@ -601,7 +601,7 @@ function GroupListCard({
       <CardHeader className="px-4 pb-2 pt-4 md:px-6 md:pt-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-lg leading-tight md:text-2xl">Grupos disponÃ­veis</CardTitle>
+            <CardTitle className="text-lg leading-tight md:text-2xl">Grupos disponíveis</CardTitle>
             <CardDescription>{loadingGroups ? "Carregando grupos..." : `${groups.length} grupo(s) encontrado(s)`}</CardDescription>
           </div>
           <Button size="icon" variant="outline" disabled={loadingGroups} onClick={onRefresh} className="h-10 w-10 rounded-2xl md:rounded-md" aria-label="Atualizar lista">
@@ -612,7 +612,7 @@ function GroupListCard({
       <CardContent className="space-y-3 px-4 pb-4 md:px-6 md:pb-6">
         {!loadingGroups && groups.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
-            Nenhum grupo disponÃ­vel no momento.
+            Nenhum grupo disponível no momento.
           </div>
         ) : null}
 
@@ -636,7 +636,7 @@ function GroupListCard({
                   <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
                   {activeGroupId === group.id ? <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> : null}
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{group.description || "Sem descriÃ§Ã£o"}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{group.description || "Sem descrição"}</p>
               </div>
             </button>
           );
@@ -720,7 +720,7 @@ function CreateGroupCard({
           <Input value={groupName} onChange={(event) => setGroupName(event.target.value)} className="h-11 rounded-2xl md:rounded-md" />
         </div>
         <div className="space-y-2">
-          <Label>DescriÃ§Ã£o (opcional)</Label>
+          <Label>Descrição (opcional)</Label>
           <Textarea value={groupDesc} onChange={(event) => setGroupDesc(event.target.value)} className="rounded-2xl md:rounded-md" />
         </div>
         <div className="space-y-2">

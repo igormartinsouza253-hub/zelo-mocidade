@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { endOfMonth, format } from "date-fns";
-import { Maximize2, SlidersHorizontal } from "lucide-react";
+import { Maximize2, Sparkles, SlidersHorizontal } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -16,6 +16,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,13 @@ type TopFrequentMember = {
   presencas: number;
   faixa_etaria: string;
   foto_url?: string | null;
+};
+
+type MonthlyInsight = {
+  label: string;
+  title: string;
+  description: string;
+  value: string;
 };
 
 function FullscreenChartDialog({
@@ -93,6 +101,7 @@ function FullscreenChartDialog({
 export default function MobileEstatisticasReunioes() {
   const navigate = useNavigate();
   const { setConfig } = usePageHeader();
+  const { activeGroupId } = useActiveGroup();
 
   const FAIXA_COLORS: Record<string, string> = {
     "Crianças": resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
@@ -147,6 +156,8 @@ export default function MobileEstatisticasReunioes() {
       backTo: "/",
     });
 
+    if (!activeGroupId) return;
+
     void Promise.all([
       loadStats(),
       loadRecentMeetings(),
@@ -154,22 +165,25 @@ export default function MobileEstatisticasReunioes() {
       loadTopPrayerMembers(),
       loadTopFrequentMembers(),
     ]);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId]);
 
   useEffect(() => {
     return () => setConfig(null);
   }, [setConfig]);
 
   useEffect(() => {
-    if (avgStartPeriod && avgEndPeriod) {
+    if (activeGroupId && avgStartPeriod && avgEndPeriod) {
       void loadStats(avgStartPeriod, avgEndPeriod);
     }
-  }, [avgStartPeriod, avgEndPeriod]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId, avgStartPeriod, avgEndPeriod]);
 
   useEffect(() => {
+    if (!activeGroupId) return;
     void loadTopFrequentMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [membersPeriod, membersFaixa]);
+  }, [activeGroupId, membersPeriod, membersFaixa]);
 
   useEffect(() => {
     if (availableDates.length > 0 && !avgStartPeriod && !avgEndPeriod) {
@@ -221,15 +235,22 @@ export default function MobileEstatisticasReunioes() {
   };
 
   const loadRecentMeetings = async () => {
+    if (!activeGroupId) return;
+
     const { data: reunioes } = await supabase
       .from("reunioes")
       .select("id, data, tema, numero_visitas")
+      .eq("group_id", activeGroupId)
       .order("data", { ascending: false })
       .limit(5);
 
     const meetingsData = await Promise.all(
       (reunioes || []).map(async (meeting) => {
-        const { data: presencas } = await supabase.from("presencas").select("id").eq("reuniao_id", meeting.id);
+        const { data: presencas } = await supabase
+          .from("presencas")
+          .select("id")
+          .eq("group_id", activeGroupId)
+          .eq("reuniao_id", meeting.id);
 
         return {
           ...meeting,
@@ -242,10 +263,13 @@ export default function MobileEstatisticasReunioes() {
   };
 
   const loadTopPrayerMembers = async () => {
+    if (!activeGroupId) return;
+
     try {
       const { data: presencasOracao } = await supabase
         .from("presencas")
         .select("membro_id, membro_nome")
+        .eq("group_id", activeGroupId)
         .eq("orou", true)
         .limit(5000);
 
@@ -276,11 +300,16 @@ export default function MobileEstatisticasReunioes() {
         .filter((id) => typeof id === "string" && id.length >= 32 && id.includes("-"));
 
       const { data: prayerMemberPhotos } = uuidCandidates.length
-        ? await supabase.from("membros").select("id, foto_url").in("id", uuidCandidates)
-        : { data: [] as { id: string; foto_url: string | null }[] };
+        ? await supabase.from("membros").select("id, nome, foto_url").eq("group_id", activeGroupId).in("id", uuidCandidates)
+        : { data: [] as { id: string; nome: string; foto_url: string | null }[] };
 
       const photoMap = new Map((prayerMemberPhotos || []).map((m) => [m.id, m.foto_url] as const));
-      const top: RankedPrayerMember[] = topRaw.map((t) => ({ ...t, foto_url: photoMap.get(t.id) ?? null }));
+      const nameMap = new Map((prayerMemberPhotos || []).map((m) => [m.id, m.nome] as const));
+      const top: RankedPrayerMember[] = topRaw.map((t) => ({
+        ...t,
+        nome: nameMap.get(t.id) || t.nome,
+        foto_url: photoMap.get(t.id) ?? null,
+      }));
 
       setTopPrayerMembers(top);
     } catch (error) {
@@ -291,6 +320,8 @@ export default function MobileEstatisticasReunioes() {
 
 
   const loadTopFrequentMembers = async () => {
+    if (!activeGroupId) return;
+
     try {
       const now = new Date();
       let cutoffIso: string | null = null;
@@ -305,12 +336,22 @@ export default function MobileEstatisticasReunioes() {
 
       let meetingIdSet: Set<string> | null = null;
       if (cutoffIso) {
-        const { data: reunioesPeriodo } = await supabase.from("reunioes").select("id").gte("data", cutoffIso);
+        const { data: reunioesPeriodo } = await supabase
+          .from("reunioes")
+          .select("id")
+          .eq("group_id", activeGroupId)
+          .gte("data", cutoffIso);
         meetingIdSet = new Set((reunioesPeriodo || []).map((r) => r.id));
       }
 
-      const { data: membros } = await supabase.from("membros").select("id, nome, faixa_etaria, foto_url");
-      const { data: presencas } = await supabase.from("presencas").select("membro_id, reuniao_id");
+      const { data: membros } = await supabase
+        .from("membros")
+        .select("id, nome, faixa_etaria, foto_url")
+        .eq("group_id", activeGroupId);
+      const { data: presencas } = await supabase
+        .from("presencas")
+        .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId);
 
       const membersFiltered = (membros || []).filter((m) => (membersFaixa === "all" ? true : m.faixa_etaria === membersFaixa));
       const memberIdSet = new Set(membersFiltered.map((m) => m.id));
@@ -342,10 +383,13 @@ export default function MobileEstatisticasReunioes() {
   };
 
   const loadStats = async (filterStart?: string, filterEnd?: string) => {
+    if (!activeGroupId) return;
+
     try {
       let query = supabase.from("reunioes").select("id, data, numero_visitas, recitativos_individuais").order("data", {
         ascending: false,
       });
+      query = query.eq("group_id", activeGroupId);
 
       if (filterStart && filterEnd) {
         const startDate = `${filterStart}-01`;
@@ -367,8 +411,11 @@ export default function MobileEstatisticasReunioes() {
         return;
       }
 
-      const { data: todasPresencas } = await supabase.from("presencas").select("membro_id, reuniao_id");
-      const { data: membros } = await supabase.from("membros").select("id, faixa_etaria");
+      const { data: todasPresencas } = await supabase
+        .from("presencas")
+        .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId);
+      const { data: membros } = await supabase.from("membros").select("id, faixa_etaria").eq("group_id", activeGroupId);
 
       const totalMembrosPorFaixa: Record<string, number> = {};
       membros?.forEach((membro) => {
@@ -438,16 +485,22 @@ export default function MobileEstatisticasReunioes() {
   };
 
   const loadMainChartData = async () => {
+    if (!activeGroupId) return;
+
     try {
       const { data: reunioes } = await supabase
         .from("reunioes")
         .select("id, data, numero_visitas, recitativos_individuais")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: true });
 
       if (!reunioes || reunioes.length === 0) return;
 
-      const { data: todasPresencas } = await supabase.from("presencas").select("membro_id, reuniao_id");
-      const { data: membros } = await supabase.from("membros").select("id, faixa_etaria");
+      const { data: todasPresencas } = await supabase
+        .from("presencas")
+        .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId);
+      const { data: membros } = await supabase.from("membros").select("id, faixa_etaria").eq("group_id", activeGroupId);
 
       const faixasSet = new Set<string>();
       membros?.forEach((m) => faixasSet.add(m.faixa_etaria));
@@ -456,8 +509,8 @@ export default function MobileEstatisticasReunioes() {
 
       const initialVisible: Record<string, boolean> = {};
       faixas.forEach((f) => (initialVisible[f] = true));
-      initialVisible["Visitas"] = true;
-      initialVisible["Recitativos Individuais"] = true;
+      initialVisible["Visitas"] = false;
+      initialVisible["Recitativos Individuais"] = false;
       setVisibleCategories(initialVisible);
 
       const chartData: MainChartData[] = (reunioes as any[]).map((reuniao) => {
@@ -497,7 +550,119 @@ export default function MobileEstatisticasReunioes() {
     }
   };
 
-  const slideHeightClass = "h-[clamp(300px,42vh,420px)]";
+  const filteredChartData = getFilteredChartData();
+  const visibleChartCategories = getVisibleCategories();
+  const mainChartTickInterval = Math.max(0, Math.ceil(filteredChartData.length / 5) - 1);
+  const totalNoPeriodo = filteredChartData.reduce((sum, item) => {
+    return (
+      sum +
+      visibleChartCategories.reduce((categorySum, category) => {
+        const value = item[category];
+        return categorySum + (typeof value === "number" ? value : 0);
+      }, 0)
+    );
+  }, 0);
+  const mediaVisivelNoPeriodo = filteredChartData.length ? Math.round(totalNoPeriodo / filteredChartData.length) : 0;
+  const monthlyInsights = useMemo<MonthlyInsight[]>(() => {
+    if (mainChartData.length === 0) {
+      return [
+        {
+          label: "Aguardando dados",
+          title: "Sem reuniões registradas",
+          description: "Os insights aparecem automaticamente quando houver reuniões no grupo atual.",
+          value: "0",
+        },
+      ];
+    }
+
+    const attendanceCategories = [...allFaixas, "Visitas"];
+    const monthKeys = Array.from(new Set(mainChartData.map((item) => String(item.fullDate).slice(0, 7)))).sort();
+    const currentMonth = monthKeys[monthKeys.length - 1];
+    const previousMonth = monthKeys[monthKeys.length - 2] ?? null;
+    const monthRows = mainChartData.filter((item) => String(item.fullDate).startsWith(currentMonth));
+    const previousRows = previousMonth ? mainChartData.filter((item) => String(item.fullDate).startsWith(previousMonth)) : [];
+
+    const totalForRow = (row: MainChartData) =>
+      attendanceCategories.reduce((sum, category) => {
+        const value = row[category];
+        return sum + (typeof value === "number" ? value : 0);
+      }, 0);
+
+    const currentTotal = monthRows.reduce((sum, row) => sum + totalForRow(row), 0);
+    const previousTotal = previousRows.reduce((sum, row) => sum + totalForRow(row), 0);
+    const currentAverage = monthRows.length ? Math.round(currentTotal / monthRows.length) : 0;
+    const previousAverage = previousRows.length ? Math.round(previousTotal / previousRows.length) : 0;
+    const difference = currentAverage - previousAverage;
+    const differenceLabel = previousRows.length ? `${difference >= 0 ? "+" : ""}${difference}` : "novo";
+
+    const categoryTotals = attendanceCategories
+      .map((category) => ({
+        category,
+        total: monthRows.reduce((sum, row) => {
+          const value = row[category];
+          return sum + (typeof value === "number" ? value : 0);
+        }, 0),
+      }))
+      .filter((item) => item.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    const previousCategoryTotals = new Map(
+      attendanceCategories.map((category) => [
+        category,
+        previousRows.reduce((sum, row) => {
+          const value = row[category];
+          return sum + (typeof value === "number" ? value : 0);
+        }, 0),
+      ]),
+    );
+
+    const biggestDrop = categoryTotals
+      .map((item) => ({
+        category: item.category,
+        drop: (previousCategoryTotals.get(item.category) ?? 0) - item.total,
+      }))
+      .filter((item) => item.drop > 0)
+      .sort((a, b) => b.drop - a.drop)[0];
+
+    const insights: MonthlyInsight[] = [
+      {
+        label: previousRows.length ? "Comparativo mensal" : "Mês atual",
+        title: difference > 0 ? "Participação em alta" : difference < 0 ? "Participação abaixo do mês anterior" : "Participação estável",
+        description: previousRows.length
+          ? `Média de ${currentAverage} participantes por reunião no mês atual.`
+          : `Média de ${currentAverage} participantes nas reuniões deste mês.`,
+        value: differenceLabel,
+      },
+    ];
+
+    if (categoryTotals[0]) {
+      insights.push({
+        label: "Faixa em destaque",
+        title: categoryTotals[0].category,
+        description: "Maior volume de presenças no mês atual.",
+        value: String(categoryTotals[0].total),
+      });
+    }
+
+    if (biggestDrop) {
+      insights.push({
+        label: "Ponto de atenção",
+        title: biggestDrop.category,
+        description: "Teve queda em relação ao mês anterior.",
+        value: `-${biggestDrop.drop}`,
+      });
+    } else {
+      insights.push({
+        label: "Leitura geral",
+        title: stats.percentualGeral >= 50 ? "Frequência saudável" : "Acompanhar frequência",
+        description: "Baseado na média geral de presença do grupo.",
+        value: `${stats.percentualGeral}%`,
+      });
+    }
+
+    return insights.slice(0, 3);
+  }, [allFaixas, mainChartData, stats.percentualGeral]);
+  const slideHeightClass = "min-h-[450px]";
 
   return (
     <div className="h-full w-full bg-background overflow-x-hidden">
@@ -519,7 +684,7 @@ export default function MobileEstatisticasReunioes() {
             <Card className="rounded-2xl border-border/50 bg-card shadow-[var(--shadow-card)]">
               <CardContent className="p-3">
                 <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Reuniões</p>
-                <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{getFilteredChartData().length}</p>
+                <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{filteredChartData.length}</p>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">no período</p>
               </CardContent>
             </Card>
@@ -534,6 +699,42 @@ export default function MobileEstatisticasReunioes() {
               </CardContent>
             </Card>
           </div>
+        </section>
+
+        <section aria-label="Insights automáticos">
+          <Card className="overflow-hidden rounded-3xl border-border/50 bg-card shadow-[var(--shadow-card)]">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-3 px-1">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Insights automáticos</p>
+                  <h2 className="mt-1 text-sm font-semibold text-foreground">Atualiza todo mês</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leitura gerada com base nas reuniões mais recentes do grupo atual.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {monthlyInsights.map((insight) => (
+                  <div key={`${insight.label}-${insight.title}`} className="rounded-2xl border border-border/50 bg-muted/10 px-3 py-2.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{insight.label}</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-foreground">{insight.title}</p>
+                        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{insight.description}</p>
+                      </div>
+                      <span className="inline-flex min-w-[42px] shrink-0 items-center justify-center rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary tabular-nums">
+                        {insight.value}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </section>
 
         <section aria-label="Participação">
@@ -552,8 +753,8 @@ export default function MobileEstatisticasReunioes() {
                   opts={{ align: "start", loop: false }}
                   className="w-full max-w-full overflow-hidden"
                 >
-                  <CarouselContent>
-                    <CarouselItem>
+                  <CarouselContent className="-ml-2">
+                    <CarouselItem className="pl-2">
                       <div className={slideHeightClass + " w-full min-w-0"}>
                         <div className="px-1">
                           <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Distribuição</p>
@@ -598,7 +799,7 @@ export default function MobileEstatisticasReunioes() {
                                 Faixas visíveis
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                {getVisibleCategories().length} categorias ativas
+                                {visibleChartCategories.length} categorias ativas
                               </p>
                             </div>
 
@@ -643,28 +844,47 @@ export default function MobileEstatisticasReunioes() {
                           </div>
                         </div>
 
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2 relative">
-                          <ResponsiveContainer width="100%" height={260}>
-                            <BarChart data={getFilteredChartData()} margin={{ top: 6, right: 10, left: 0, bottom: 28 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-2xl border border-border/50 bg-muted/10 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Média visível</p>
+                            <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{mediaVisivelNoPeriodo}</p>
+                          </div>
+                          <div className="rounded-2xl border border-border/50 bg-muted/10 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Reuniões</p>
+                            <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{filteredChartData.length}</p>
+                          </div>
+                        </div>
+
+                        <div className="relative mt-3 h-[230px] rounded-2xl border border-border/50 bg-muted/10 p-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={filteredChartData} margin={{ top: 8, right: 6, left: -18, bottom: 8 }} barCategoryGap="24%">
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.22} />
                               <XAxis
                                 dataKey="data"
                                 stroke="hsl(var(--muted-foreground))"
-                                style={{ fontSize: "11px" }}
-                                angle={-35}
-                                textAnchor="end"
-                                height={70}
+                                style={{ fontSize: "10px" }}
+                                interval={mainChartTickInterval}
+                                axisLine={false}
+                                tickLine={false}
+                                minTickGap={8}
+                                height={26}
                               />
-                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
+                              <YAxis
+                                stroke="hsl(var(--muted-foreground))"
+                                style={{ fontSize: "10px" }}
+                                axisLine={false}
+                                tickLine={false}
+                                width={34}
+                              />
                               <Tooltip
+                                cursor={{ fill: "hsl(var(--muted) / 0.14)" }}
                                 contentStyle={{
                                   backgroundColor: "hsl(var(--card))",
                                   border: "1px solid hsl(var(--border))",
                                   borderRadius: "var(--radius)",
                                 }}
                               />
-                              <Legend wrapperStyle={{ fontSize: "11px" }} iconType="circle" />
-                              {getVisibleCategories().map((category, index, array) => {
+                              {visibleChartCategories.map((category, index, array) => {
                                 const isLast = index === array.length - 1;
                                 return (
                                   <Bar
@@ -674,6 +894,7 @@ export default function MobileEstatisticasReunioes() {
                                     fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")}
                                     name={category}
                                     radius={isLast ? [10, 10, 0, 0] : [0, 0, 0, 0]}
+                                    maxBarSize={24}
                                   />
                                 );
                               })}
@@ -683,8 +904,8 @@ export default function MobileEstatisticasReunioes() {
                           <FullscreenChartDialog title="Distribuição por reunião" className="absolute bottom-2 right-2">
                             <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
                               <ResponsiveContainer width="100%" height={420}>
-                                <BarChart data={getFilteredChartData()} margin={{ top: 8, right: 12, left: 0, bottom: 32 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                                <BarChart data={filteredChartData} margin={{ top: 8, right: 12, left: -8, bottom: 32 }} barCategoryGap="18%">
+                                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.22} />
                                   <XAxis
                                     dataKey="data"
                                     stroke="hsl(var(--muted-foreground))"
@@ -692,9 +913,12 @@ export default function MobileEstatisticasReunioes() {
                                     angle={-35}
                                     textAnchor="end"
                                     height={72}
+                                    axisLine={false}
+                                    tickLine={false}
                                   />
-                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} axisLine={false} tickLine={false} />
                                   <Tooltip
+                                    cursor={{ fill: "hsl(var(--muted) / 0.14)" }}
                                     contentStyle={{
                                       backgroundColor: "hsl(var(--card))",
                                       border: "1px solid hsl(var(--border))",
@@ -702,7 +926,7 @@ export default function MobileEstatisticasReunioes() {
                                     }}
                                   />
                                   <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
-                                  {getVisibleCategories().map((category, index, array) => {
+                                  {visibleChartCategories.map((category, index, array) => {
                                     const isLast = index === array.length - 1;
                                     return (
                                       <Bar
@@ -712,6 +936,7 @@ export default function MobileEstatisticasReunioes() {
                                         fill={FAIXA_COLORS[category] || resolveHslFromCssVar("--muted", "220 13% 95%")}
                                         name={category}
                                         radius={isLast ? [10, 10, 0, 0] : [0, 0, 0, 0]}
+                                        maxBarSize={30}
                                       />
                                     );
                                   })}
@@ -723,7 +948,7 @@ export default function MobileEstatisticasReunioes() {
                       </div>
                     </CarouselItem>
 
-                    <CarouselItem>
+                    <CarouselItem className="pl-2">
                       <div className={slideHeightClass + " w-full min-w-0"}>
                         <div className="px-1">
                           <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Faixas</p>
@@ -766,28 +991,31 @@ export default function MobileEstatisticasReunioes() {
                           </p>
                         </div>
 
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2 relative">
-                          <ResponsiveContainer width="100%" height={280}>
-                            <BarChart data={stats.mediaPorFaixa} margin={{ top: 6, right: 10, left: 0, bottom: 26 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
+                        <div className="relative mt-3 h-[270px] rounded-2xl border border-border/50 bg-muted/10 p-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.mediaPorFaixa} margin={{ top: 8, right: 6, left: -18, bottom: 34 }} barCategoryGap="18%">
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.22} />
                               <XAxis
                                 dataKey="faixa"
                                 stroke="hsl(var(--muted-foreground))"
-                                style={{ fontSize: "11px" }}
+                                style={{ fontSize: "10px" }}
                                 interval={0}
-                                angle={-15}
+                                angle={-28}
                                 textAnchor="end"
-                                height={64}
+                                height={60}
+                                axisLine={false}
+                                tickLine={false}
                               />
-                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
+                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "10px" }} axisLine={false} tickLine={false} width={34} />
                               <Tooltip
+                                cursor={{ fill: "hsl(var(--muted) / 0.14)" }}
                                 contentStyle={{
                                   backgroundColor: "hsl(var(--card))",
                                   border: "1px solid hsl(var(--border))",
                                   borderRadius: "var(--radius)",
                                 }}
                               />
-                              <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.45} radius={[10, 10, 0, 0]}>
+                              <Bar dataKey="total" fill="hsl(var(--primary))" fillOpacity={0.32} radius={[10, 10, 0, 0]} maxBarSize={28}>
                                 {stats.mediaPorFaixa.map((entry) => (
                                   <Cell
                                     key={`cell-total-${entry.faixa}`}
@@ -796,7 +1024,7 @@ export default function MobileEstatisticasReunioes() {
                                   />
                                 ))}
                               </Bar>
-                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]}>
+                              <Bar dataKey="media" fill="hsl(var(--primary))" radius={[10, 10, 0, 0]} maxBarSize={28}>
                                 {stats.mediaPorFaixa.map((entry) => (
                                   <Cell
                                     key={`cell-media-${entry.faixa}`}
@@ -854,20 +1082,21 @@ export default function MobileEstatisticasReunioes() {
                       </div>
                     </CarouselItem>
 
-                    <CarouselItem>
+                    <CarouselItem className="pl-2">
                       <div className={slideHeightClass + " w-full min-w-0"}>
                         <div className="px-1">
                           <p className="text-[10px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">Tendência</p>
                           <h3 className="mt-1 text-sm font-semibold text-foreground">Média mensal (12 meses)</h3>
                         </div>
 
-                        <div className="mt-3 rounded-2xl border border-border/50 bg-muted/10 p-2 relative">
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={stats.mediaPorMes} margin={{ top: 6, right: 10, left: 0, bottom: 18 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.25} />
-                              <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
-                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "11px" }} />
+                        <div className="relative mt-3 h-[330px] rounded-2xl border border-border/50 bg-muted/10 p-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.mediaPorMes} margin={{ top: 8, right: 6, left: -18, bottom: 10 }} barCategoryGap="20%">
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.22} />
+                              <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "10px" }} axisLine={false} tickLine={false} />
+                              <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "10px" }} axisLine={false} tickLine={false} width={34} />
                               <Tooltip
+                                cursor={{ fill: "hsl(var(--muted) / 0.14)" }}
                                 contentStyle={{
                                   backgroundColor: "hsl(var(--card))",
                                   border: "1px solid hsl(var(--border))",
@@ -1085,4 +1314,3 @@ export default function MobileEstatisticasReunioes() {
     </div>
   );
 }
-

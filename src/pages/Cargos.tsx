@@ -496,20 +496,20 @@ export default function Cargos() {
       </section>
 
       <Dialog open={!!selectedCargo} onOpenChange={(open) => !open && setSelectedCargo(null)}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md overflow-hidden rounded-3xl p-0">
-          <DialogHeader>
+        <DialogContent className="left-1/2 flex max-h-[calc(100dvh-2rem)] w-[calc(100dvw-1rem)] max-w-[calc(100dvw-1rem)] flex-col overflow-hidden rounded-3xl p-0 sm:max-w-md">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex min-w-0 items-center gap-2 px-5 pt-5">
               <Users className="h-4 w-4 text-primary" />
               <span className="min-w-0 truncate">{selectedCargo?.nome}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3 px-3 pb-4">
-            <div className="rounded-2xl border border-border/60 bg-muted/35 px-3 py-2 text-xs text-muted-foreground">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col space-y-3 overflow-hidden px-2 pb-4 sm:px-3">
+            <div className="shrink-0 min-w-0 rounded-2xl border border-border/60 bg-muted/35 px-3 py-2 text-xs text-muted-foreground">
               {selectedMembers.length} de {membros.length} membro{membros.length === 1 ? "" : "s"} com este cargo.
             </div>
 
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-0 scrollbar-none">
+            <div className="min-h-0 min-w-0 max-w-full flex-1 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain pr-0 scrollbar-none">
               {membros.length === 0 ? (
                 <div className="rounded-2xl border border-border/60 bg-muted/35 p-4 text-sm text-muted-foreground">
                   Nenhum membro ativo encontrado.
@@ -519,7 +519,7 @@ export default function Cargos() {
                   const hasCargo = selectedCargo ? (membro.cargos || []).includes(selectedCargo.nome) : false;
 
                   return (
-                    <div key={membro.id} className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/60 bg-card p-2.5">
+                    <div key={membro.id} className="grid min-w-0 max-w-full grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 rounded-2xl border border-border/60 bg-card p-2.5">
                       <Avatar className="h-10 w-10 shrink-0 rounded-2xl border border-border/60">
                         <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
                         <AvatarFallback className="rounded-2xl bg-primary/10 font-black text-primary">

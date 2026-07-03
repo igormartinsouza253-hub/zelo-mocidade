@@ -302,6 +302,30 @@ All colors MUST be HSL.
     background-color: hsl(var(--muted-foreground) / 0.08);
     border-radius: 9999px;
   }
+
+  .settings-mobile .rounded-lg.border.bg-card,
+  .settings-mobile .rounded-lg.border.bg-card.text-card-foreground {
+    border-radius: 1.5rem;
+    border-color: hsl(var(--border) / 0.5);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .settings-mobile .rounded-lg.border:not(.bg-card) {
+    border-radius: 1rem;
+    border-color: hsl(var(--border) / 0.5);
+    background: hsl(var(--muted) / 0.1);
+  }
+
+  .settings-mobile input,
+  .settings-mobile button[role="combobox"],
+  .settings-mobile select {
+    border-radius: 1rem;
+  }
+
+  .settings-mobile button:not([role="combobox"]) {
+    border-radius: 9999px;
+  }
 }
 
 @media (max-height: 800px) {

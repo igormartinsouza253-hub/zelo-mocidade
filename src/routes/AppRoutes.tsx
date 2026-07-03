@@ -17,6 +17,7 @@ const VisualizarReuniao = lazy(() => import("@/pages/VisualizarReuniao"));
 const HistoricoReunioes = lazy(() => import("@/pages/HistoricoReunioes"));
 const EstatisticasReunioes = lazy(() => import("@/pages/EstatisticasReunioes"));
 const Configuracoes = lazy(() => import("@/pages/Configuracoes"));
+const SuperAdminUsuarios = lazy(() => import("@/pages/SuperAdminUsuarios"));
 const Calendario = lazy(() => import("@/pages/Calendario"));
 const Auth = lazy(() => import("@/pages/Auth"));
 const MembrosGrupo = lazy(() => import("@/pages/MembrosGrupo"));
@@ -105,6 +106,7 @@ export function AppRoutes() {
       <Route path="/aniversariantes" element={<ProtectedLayout><Navigate to="/calendario" replace /></ProtectedLayout>} />
 
       <Route path="/configuracoes" element={<ProtectedLayout><Configuracoes /></ProtectedLayout>} />
+      <Route path="/configuracoes/super-admin" element={<ProtectedLayout><SuperAdminUsuarios /></ProtectedLayout>} />
       <Route path="/configuracoes/grupo-admin" element={<ProtectedLayout><ConfiguracoesGrupoAdmin /></ProtectedLayout>} />
       <Route path="/grupo" element={<ProtectedStandalone><GrupoGestor /></ProtectedStandalone>} />
       <Route path="/grupo/info" element={<ProtectedLayout><GrupoInfo /></ProtectedLayout>} />

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -49,6 +49,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarConfigCard } from "@/components/SidebarConfigCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { cn } from "@/lib/utils";
+
+const SUPER_ADMIN_EMAIL = "igor.ccb.mts@gmail.com";
 
 interface UserWithRole {
   id: string;
@@ -58,12 +61,22 @@ interface UserWithRole {
   created_at: string;
 }
 
+function deriveNameFromEmail(email?: string | null) {
+  if (!email) return "";
+  const localPart = email.split("@")[0] ?? "";
+  return localPart
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 const Configuracoes = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { user } = useAuth();
-  const { activeGroup, isAdmin: isGroupAdmin } = useActiveGroup();
+  const { activeGroup, activeGroupId, isAdmin: isGroupAdmin } = useActiveGroup();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   
@@ -111,7 +124,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "group" | "notifications" | "data">("root");
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "notifications" | "data" | "about">("root");
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
@@ -133,17 +146,22 @@ const Configuracoes = () => {
     if (user) {
       loadUserPreferences();
       loadAccountInfo();
-      subscribeToOnlineUsers();
+      const cleanupPresence = subscribeToOnlineUsers();
+      return cleanupPresence;
     }
   }, [user]);
 
   const canManageRestricted = isAdmin || isGroupAdmin;
+  const currentAccountEmail = (accountEmail ?? user?.email ?? "").toLowerCase();
+  const isSuperAdmin = currentAccountEmail === SUPER_ADMIN_EMAIL;
 
   useEffect(() => {
     if (!isMobile) return;
     const section = new URLSearchParams(location.search).get("section");
-    if (section === "theme" || section === "users" || section === "group" || section === "notifications" || section === "data") {
+    if (section === "theme" || section === "users" || section === "notifications" || section === "data" || section === "about") {
       setMobileSection(section);
+    } else {
+      setMobileSection("root");
     }
   }, [isMobile, location.search]);
 
@@ -261,16 +279,27 @@ const Configuracoes = () => {
         console.error('Erro ao carregar perfil do usuário:', error);
       }
  
-      setAccountUsername(data?.username || user.user_metadata?.username || user.email?.split('@')[0] || "");
+      const metadataName =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.user_metadata?.username ||
+        "";
+      const emailName = deriveNameFromEmail(data?.email ?? user.email ?? "");
+      setAccountUsername(data?.username || metadataName || emailName);
       setAccountEmail(data?.email ?? user.email ?? null);
-      setAccountAvatarUrl((data as any)?.avatar_url ?? null);
+      setAccountAvatarUrl(
+        (data as any)?.avatar_url ??
+        user.user_metadata?.avatar_url ??
+        user.user_metadata?.picture ??
+        null,
+      );
     } catch (error) {
       console.error('Erro inesperado ao carregar perfil do usuário:', error);
     }
   };
 
   const subscribeToOnlineUsers = () => {
-    if (!user) return;
+    if (!user) return undefined;
 
     const channel = supabase.channel('online-users');
 
@@ -314,6 +343,10 @@ const Configuracoes = () => {
         });
       })
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
 
   const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -377,7 +410,7 @@ const Configuracoes = () => {
  
     const username = accountUsername.trim();
     if (!username) {
-      toast.error('Username é obrigatório');
+      toast.error('Nome de exibição é obrigatório');
       return;
     }
  
@@ -413,7 +446,7 @@ const Configuracoes = () => {
           const message = (authError as any).message as string | undefined;
  
           if (code === 'same_password' || message?.includes('New password should be different')) {
-            passwordMessage = 'Username atualizado, mas a nova senha deve ser diferente da atual.';
+            passwordMessage = 'Nome atualizado, mas a nova senha deve ser diferente da atual.';
           } else {
             throw authError;
           }
@@ -578,6 +611,11 @@ const Configuracoes = () => {
   };
 
   const handleImportMembers = async (file: File) => {
+    if (!activeGroupId) {
+      toast.error("Selecione um grupo antes de importar membros.");
+      return;
+    }
+
     setImporting(true);
     setImportSummary(null);
 
@@ -632,6 +670,7 @@ const Configuracoes = () => {
           const { error } = await supabase.from("membros").insert([
             {
               nome,
+              group_id: activeGroupId,
               faixa_etaria,
               data_nascimento,
               data_aniversario,
@@ -969,21 +1008,46 @@ const Configuracoes = () => {
 
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        <div className="max-w-md mx-auto px-3 py-4">
+      <div className="settings-mobile min-h-screen bg-background overflow-x-hidden">
+        <div
+          className={cn(
+            "mx-auto max-w-md space-y-3 overflow-x-hidden px-3 pt-3",
+            mobileSection === "root"
+              ? "h-[calc(100dvh-4.5rem)] overflow-hidden pb-3"
+              : "pb-28 scrollbar-none",
+          )}
+        >
           {mobileSection === "root" && (
-            <div className="space-y-3">
+            <div className="grid h-full grid-rows-[repeat(7,minmax(0,1fr))] gap-2.5">
               <Card
                 className="hover-scale cursor-pointer"
-                onClick={() => setMobileSection("theme")}
+                onClick={() => navigate("/configuracoes?section=users")}
               >
-                <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <CardTitle className="text-sm">Minha conta</CardTitle>
+                    <CardDescription className="line-clamp-2 text-xs">
+                      Foto, nome, e-mail e senha da sua conta.
+                    </CardDescription>
+                  </div>
+                  <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                </CardHeader>
+              </Card>
+
+              <Card
+                className="hover-scale cursor-pointer"
+                onClick={() => navigate("/configuracoes?section=theme")}
+              >
+                <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                     <Monitor className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
                     <CardTitle className="text-sm">Tema e personalização</CardTitle>
-                    <CardDescription className="text-xs">
+                    <CardDescription className="line-clamp-2 text-xs">
                       Cores, modo claro/escuro e aparência geral do app.
                     </CardDescription>
                   </div>
@@ -993,34 +1057,16 @@ const Configuracoes = () => {
 
               <Card
                 className="hover-scale cursor-pointer"
-                onClick={() => setMobileSection("users")}
+                onClick={() => navigate("/configuracoes?section=notifications")}
               >
-                <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
-                    <Shield className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <CardTitle className="text-sm">Usuários</CardTitle>
-                    <CardDescription className="text-xs">
-                      Minha conta e gerenciamento de acesso do app.
-                    </CardDescription>
-                  </div>
-                  <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
-                </CardHeader>
-              </Card>
-
-              <Card
-                className="hover-scale cursor-pointer"
-                onClick={() => setMobileSection("notifications")}
-              >
-                <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                     <Bell className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
                     <CardTitle className="text-sm">Notificações</CardTitle>
-                    <CardDescription className="text-xs">
-                      Gerencie alertas de aniversários, eventos, notas e solicitações.
+                    <CardDescription className="line-clamp-2 text-xs">
+                      Alertas de aniversários, eventos, notas e solicitações.
                     </CardDescription>
                   </div>
                   <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
@@ -1030,16 +1076,16 @@ const Configuracoes = () => {
               {isGroupAdmin && activeGroup && (
                 <Card
                   className="hover-scale cursor-pointer"
-                  onClick={() => setMobileSection("group")}
+                  onClick={() => navigate("/grupo/info")}
                 >
-                  <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                  <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                       <Shield className="h-4 w-4" />
                     </div>
                     <div className="flex-1 text-left">
-                      <CardTitle className="text-sm">Gerenciar grupo</CardTitle>
-                      <CardDescription className="text-xs">
-                        Senha do grupo e administração de membros.
+                      <CardTitle className="text-sm">Visualizar grupo</CardTitle>
+                      <CardDescription className="line-clamp-2 text-xs">
+                        Membros, administradores e informações do grupo.
                       </CardDescription>
                     </div>
                     <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
@@ -1050,15 +1096,15 @@ const Configuracoes = () => {
               {canManageRestricted && (
                 <Card
                   className="hover-scale cursor-pointer"
-                  onClick={() => setMobileSection("data")}
+                  onClick={() => navigate("/configuracoes?section=data")}
                 >
-                  <CardHeader className="flex flex-row items-center gap-3 py-3 px-4">
+                  <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
                       <FileSpreadsheet className="h-4 w-4" />
                     </div>
                     <div className="flex-1 text-left">
                       <CardTitle className="text-sm">Importação e backup</CardTitle>
-                      <CardDescription className="text-xs">
+                      <CardDescription className="line-clamp-2 text-xs">
                         Importar planilhas e gerenciar backups de dados.
                       </CardDescription>
                     </div>
@@ -1066,21 +1112,49 @@ const Configuracoes = () => {
                   </CardHeader>
                 </Card>
               )}
+
+              {isSuperAdmin && (
+                <Card
+                  className="hover-scale cursor-pointer border-primary/40 bg-primary/5"
+                  onClick={() => navigate("/configuracoes/super-admin")}
+                >
+                  <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
+                      <Crown className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <CardTitle className="text-sm">Super administração</CardTitle>
+                      <CardDescription className="line-clamp-2 text-xs">
+                        Controle seguro de usuários e vínculos do app.
+                      </CardDescription>
+                    </div>
+                    <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                  </CardHeader>
+                </Card>
+              )}
+
+              <Card
+                className="hover-scale cursor-pointer"
+                onClick={() => navigate("/configuracoes?section=about")}
+              >
+                <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground">
+                    <Info className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <CardTitle className="text-sm">Sobre nós</CardTitle>
+                    <CardDescription className="line-clamp-2 text-xs">
+                      Objetivo do Zelo e como o app ajuda a mocidade.
+                    </CardDescription>
+                  </div>
+                  <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
+                </CardHeader>
+              </Card>
             </div>
           )}
 
           {mobileSection === "theme" && (
             <div className="space-y-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-0 gap-1 text-xs mb-1"
-                onClick={() => setMobileSection("root")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar
-              </Button>
-
               {/* 1️⃣ Aparência do app */}
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3">
@@ -1192,38 +1266,11 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              {/* 3️⃣ Personalização da tela inicial (tablet e desktop) */}
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
-                  <CardTitle className="text-sm">Personalização da tela inicial</CardTitle>
-                  <CardDescription className="text-xs">
-                    Organização avançada disponível apenas em telas maiores.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pb-3 px-3 space-y-2">
-                  <div className="rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2.5">
-                    <p className="text-[11px] text-muted-foreground">
-                      Disponível apenas em tablets e computadores.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
             </div>
           )}
 
           {mobileSection === "users" && (
             <div className="space-y-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-0 gap-1 text-xs mb-1"
-                onClick={() => setMobileSection("root")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar
-              </Button>
-
               {/* Mesmos cards da aba "Usuários" no desktop */}
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3">
@@ -1232,35 +1279,36 @@ const Configuracoes = () => {
                     Minha conta
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Atualize seu username e, se necessário, a senha de acesso.
+                    Atualize sua foto, nome de exibição e senha de acesso.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 pb-3 px-3">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-14 w-14">
+                  <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                    <div className="flex items-center gap-3">
+                    <Avatar className="h-16 w-16 rounded-2xl">
                       {accountAvatarUrl ? (
-                        <AvatarImage src={accountAvatarUrl} alt="Foto de perfil" />
+                        <AvatarImage src={accountAvatarUrl} alt="Foto de perfil" className="rounded-2xl object-cover" />
                       ) : (
-                        <AvatarFallback>
+                        <AvatarFallback className="rounded-2xl text-lg">
                           {(accountUsername || "U").charAt(0).toUpperCase()}
                         </AvatarFallback>
                       )}
                     </Avatar>
-                    <div className="space-y-1">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="truncate text-sm font-semibold">{accountUsername || "Minha conta"}</p>
+                      <p className="truncate text-xs text-muted-foreground">{accountEmail}</p>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="gap-1.5 h-8 text-xs"
+                        className="mt-1 gap-1.5 h-8 text-xs"
                         disabled={avatarSaving}
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <Camera className="h-3.5 w-3.5" />
-                        {avatarSaving ? "Salvando foto..." : "Alterar foto de perfil"}
+                        {avatarSaving ? "Salvando..." : "Alterar foto"}
                       </Button>
-                      <p className="text-[11px] text-muted-foreground">
-                        Ajuste a imagem como na foto de perfil do WhatsApp.
-                      </p>
+                    </div>
                     </div>
                     <input
                       ref={fileInputRef}
@@ -1277,11 +1325,11 @@ const Configuracoes = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs">Username</Label>
+                    <Label className="text-xs">Nome de exibição</Label>
                     <Input
                       value={accountUsername}
                       onChange={(e) => setAccountUsername(e.target.value)}
-                      placeholder="Seu username"
+                      placeholder="Seu nome"
                       disabled={accountLoading}
                     />
                   </div>
@@ -1352,7 +1400,7 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              {canManageRestricted && (
+              {false && canManageRestricted && (
                 <>
                   <Card>
                     <CardHeader className="pb-3 pt-3 px-3">
@@ -1467,59 +1515,6 @@ const Configuracoes = () => {
                   </div>
                 </CardContent>
               </Card>
-
-
-              <Card>
-                <CardHeader className="pb-3 pt-3 px-3">
-                  <CardTitle className="text-sm">Usuários online (tempo real)</CardTitle>
-                  <CardDescription className="text-xs">
-                    Visualize quem está conectado agora, com horário de entrada e última atividade.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 pb-3 px-3">
-                  {users.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      Nenhum usuário com acesso configurado ainda.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {users.map((userItem) => {
-                        const presence = onlineUsers.find((o) => o.user_id === userItem.id);
-                        const isOnline = !!presence;
-                        const lastSeen = isOnline
-                          ? presence.last_active_at
-                          : userLastSeen[userItem.id] ?? null;
-
-                        return (
-                          <div
-                            key={userItem.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium text-sm truncate">
-                                {userItem.username || "(sem username)"}
-                              </span>
-                              <span className="text-xs text-muted-foreground break-all truncate">
-                                {userItem.email ?? "Email não disponível"}
-                              </span>
-                            </div>
-                            <div className="text-right text-xs text-muted-foreground">
-                              <div className={isOnline ? "text-primary" : "text-muted-foreground"}>
-                                {isOnline ? "Online agora" : "Offline"}
-                              </div>
-                              <div>
-                                {lastSeen
-                                  ? `Última atividade em ${new Date(lastSeen).toLocaleString("pt-BR")}`
-                                  : "Sem registros nesta sessão"}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
                 </>
               )}
             </div>
@@ -1527,52 +1522,41 @@ const Configuracoes = () => {
 
           {mobileSection === "notifications" && (
             <div className="space-y-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-0 gap-1 text-xs mb-1"
-                onClick={() => setMobileSection("root")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar
-              </Button>
-
               <NotificationSettingsSection compact />
             </div>
           )}
 
-          {mobileSection === "group" && isGroupAdmin && activeGroup && (
+          {mobileSection === "about" && (
             <div className="space-y-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-0 gap-1 text-xs mb-1"
-                onClick={() => setMobileSection("root")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar
-              </Button>
-
-              <GroupSettingsSection />
-
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3">
                   <CardTitle className="flex items-center gap-1.5 text-sm">
-                    <Shield className="h-4 w-4" />
-                    Administração do grupo
+                    <Info className="h-4 w-4" />
+                    Sobre nós
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Altere senha, remova membros e promova administradores.
+                    O Zelo foi criado para organizar o cuidado com a mocidade de forma simples, segura e colaborativa.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="pb-3 px-3">
-                  <Button
-                    type="button"
-                    className="w-full h-8 text-xs"
-                    onClick={() => navigate("/configuracoes/grupo-admin")}
-                  >
-                    Abrir painel de administração
-                  </Button>
+                <CardContent className="space-y-3 pb-3 px-3">
+                  <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                    <p className="text-sm font-semibold">Nosso objetivo</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Reunir membros, reuniões, visitas, notas, cargos e estatísticas em um só lugar para ajudar o grupo gestor a acompanhar melhor cada jovem.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                    <p className="text-sm font-semibold">Como o app ajuda</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      O app reduz retrabalho, protege informações por grupo gestor e facilita decisões com dados claros, histórico organizado e notificações úteis.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/10 p-3">
+                    <p className="text-sm font-semibold">Compromisso</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      A prioridade é manter uma experiência discreta, rápida e segura para que a tecnologia sirva ao cuidado, não atrapalhe a rotina.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -1580,16 +1564,6 @@ const Configuracoes = () => {
 
           {mobileSection === "data" && canManageRestricted && (
             <div className="space-y-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-0 gap-1 text-xs mb-1"
-                onClick={() => setMobileSection("root")}
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Voltar
-              </Button>
-
               <Card>
                 <CardHeader className="pb-3 pt-3 px-3">
                   <CardTitle className="flex items-center gap-1.5 text-sm">
@@ -1629,7 +1603,7 @@ const Configuracoes = () => {
                         e.target.value = "";
                       }}
                       disabled={importing}
-                      className="text-xs"
+                      className="w-full rounded-2xl border border-border/50 bg-muted/10 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-foreground"
                     />
                   </div>
 
@@ -1683,7 +1657,7 @@ const Configuracoes = () => {
                         e.target.value = "";
                       }}
                       disabled={backupImporting}
-                      className="text-xs"
+                      className="w-full rounded-2xl border border-border/50 bg-muted/10 px-3 py-2 text-xs text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-foreground"
                     />
                   </div>
 
