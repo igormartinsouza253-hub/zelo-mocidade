@@ -483,7 +483,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     };
 
     const handleDeleteSelected = async () => {
-      if (selectedIds.length === 0) return;
+      if (selectedIds.length === 0 || !activeGroupId) return;
       const ok = window.confirm(
         `Excluir ${selectedIds.length} reunião(ões)? Esta ação não pode ser desfeita.`,
       );
@@ -493,12 +493,14 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
         const { error: presencasError } = await supabase
           .from("presencas")
           .delete()
+          .eq("group_id", activeGroupId)
           .in("reuniao_id", selectedIds);
         if (presencasError) throw presencasError;
 
         const { error: reunioesError } = await supabase
           .from("reunioes")
           .delete()
+          .eq("group_id", activeGroupId)
           .in("id", selectedIds);
         if (reunioesError) throw reunioesError;
 
@@ -625,6 +627,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     selectionMode,
     selectedIds,
     selectedReuniao,
+    activeGroupId,
   ]);
 
   const loadReunioes = async () => {

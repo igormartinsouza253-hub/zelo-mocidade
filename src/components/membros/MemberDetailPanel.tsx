@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 interface MemberDetailProps {
   membro: {
@@ -42,11 +43,24 @@ interface Estatisticas {
 }
 
 export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailProps) {
+  const { activeGroupId } = useActiveGroup();
   const [estatisticas, setEstatisticas] = useState<Estatisticas | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (membro.ativo === false) return;
+    if (!activeGroupId) {
+      setEstatisticas({
+        totalReunioes: 0,
+        presencas: 0,
+        taxaGeralPorcentagem: 0,
+        taxaMensalPorcentagem: 0,
+        ultimasPresencas: [],
+        alertaAusencias: false,
+        historicoReunioes: [],
+      });
+      return;
+    }
 
     let isMounted = true;
 
@@ -54,12 +68,14 @@ export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailPro
       try {
         const { count: totalReunioes } = await supabase
           .from("reunioes")
-          .select("*", { count: "exact", head: true });
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", activeGroupId);
 
         const { data: presencasData, error: presencasError } = await supabase
           .from("presencas")
           .select("reuniao_id, reunioes(data)")
           .eq("membro_id", membro.id)
+          .eq("group_id", activeGroupId)
           .order("created_at", { ascending: false });
 
         if (presencasError) throw presencasError;
@@ -73,12 +89,14 @@ export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailPro
         const { count: reunioesMes } = await supabase
           .from("reunioes")
           .select("*", { count: "exact", head: true })
+          .eq("group_id", activeGroupId)
           .gte("data", umMesAtras.toISOString().split("T")[0]);
 
         const { count: presencasMes } = await supabase
           .from("presencas")
           .select("reuniao_id, reunioes!inner(data)", { count: "exact", head: true })
           .eq("membro_id", membro.id)
+          .eq("group_id", activeGroupId)
           .gte("reunioes.data", umMesAtras.toISOString().split("T")[0]);
 
         const taxaMensal = reunioesMes ? ((presencasMes || 0) / reunioesMes) * 100 : 0;
@@ -91,6 +109,7 @@ export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailPro
         const { data: ultimasReunioes } = await supabase
           .from("reunioes")
           .select("id, data")
+          .eq("group_id", activeGroupId)
           .order("data", { ascending: false })
           .limit(5);
 
@@ -103,6 +122,7 @@ export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailPro
               .from("presencas")
               .select("*", { count: "exact", head: true })
               .eq("membro_id", membro.id)
+              .eq("group_id", activeGroupId)
               .eq("reuniao_id", reuniao.id);
 
             const presente = (count || 0) > 0;
@@ -136,7 +156,7 @@ export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailPro
     return () => {
       isMounted = false;
     };
-  }, [membro.id]);
+  }, [activeGroupId, membro.id, membro.ativo]);
 
   const calcularIdade = (dataNascimento: string | null) => {
     if (!dataNascimento) return null;
@@ -261,6 +281,11 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
 
   const handleDelete = async () => {
     if (deleting) return;
+    if (!activeGroupId) {
+      toast.error("Selecione/entre em um grupo antes de excluir membros.");
+      return;
+    }
+
     const confirmed = window.confirm("Tem certeza que deseja excluir este membro?");
     if (!confirmed) return;
 
@@ -270,14 +295,16 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
       const { error: presencasError } = await supabase
         .from("presencas")
         .delete()
-        .eq("membro_id", membro.id);
+        .eq("membro_id", membro.id)
+        .eq("group_id", activeGroupId);
 
       if (presencasError) throw presencasError;
 
       const { error: membroError } = await supabase
         .from("membros")
         .delete()
-        .eq("id", membro.id);
+        .eq("id", membro.id)
+        .eq("group_id", activeGroupId);
 
       if (membroError) throw membroError;
 

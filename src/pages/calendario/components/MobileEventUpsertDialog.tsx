@@ -147,7 +147,11 @@ export function MobileEventUpsertDialog({
       };
 
       if (editingEventId) {
-        const { error } = await supabase.from("eventos").update(payload as any).eq("id", editingEventId);
+        const { error } = await supabase
+          .from("eventos")
+          .update(payload as any)
+          .eq("id", editingEventId)
+          .eq("group_id", groupId);
         if (error) throw error;
         toast.success("Evento atualizado.");
       } else {

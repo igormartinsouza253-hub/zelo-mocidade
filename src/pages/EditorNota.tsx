@@ -78,23 +78,21 @@ const TEXT_COLORS = [
 
 const FONT_FAMILIES = [
   { name: "Padrão", value: "inherit" },
-  { name: "Sans Serif", value: "ui-sans-serif, system-ui, sans-serif" },
-  { name: "Serif", value: "ui-serif, Georgia, serif" },
-  { name: "Mono", value: "ui-monospace, monospace" },
+  { name: "Poppins", value: "Poppins, ui-sans-serif, system-ui, sans-serif" },
 ];
 
 const NOTE_TEMPLATES = [
   {
     label: "Acompanhamento",
-    content: "<h2>Acompanhamento</h2><p><strong>Contexto:</strong> </p><p><strong>Pontos importantes:</strong> </p><p><strong>Proximo passo:</strong> </p>",
+    content: "<h2>Acompanhamento</h2><p><strong>Contexto:</strong> </p><p><strong>Pontos importantes:</strong> </p><p><strong>Próximo passo:</strong> </p>",
   },
   {
-    label: "Ata rapida",
-    content: "<h2>Ata da reuniao</h2><p><strong>Decisoes:</strong> </p><p><strong>Pendencias:</strong> </p><ul><li></li></ul>",
+    label: "Ata rápida",
+    content: "<h2>Ata da reunião</h2><p><strong>Decisões:</strong> </p><p><strong>Pendências:</strong> </p><ul><li></li></ul>",
   },
   {
     label: "Visita",
-    content: "<h2>Plano de visita</h2><p><strong>Objetivo:</strong> </p><p><strong>Observacoes:</strong> </p><p><strong>Retorno:</strong> </p>",
+    content: "<h2>Plano de visita</h2><p><strong>Objetivo:</strong> </p><p><strong>Observações:</strong> </p><p><strong>Retorno:</strong> </p>",
   },
 ];
 

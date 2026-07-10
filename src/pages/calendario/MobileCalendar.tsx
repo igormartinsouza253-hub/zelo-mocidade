@@ -536,6 +536,15 @@ export default function MobileCalendar() {
 
   useEffect(() => {
     const load = async () => {
+      if (!activeGroupId) {
+        setRawEventos([]);
+        setReunioes([]);
+        setVisitasRegistradas([]);
+        setMembros([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         // Mantém a mesma fonte de dados do desktop: eventos, reuniões, visitas e membros (aniversários).
@@ -545,28 +554,29 @@ export default function MobileCalendar() {
             .select(
               "id, user_id, tipo, titulo, descricao, local, data_inicio, data_fim, dia_inteiro, recorrencia, lembretes, membro_visitado_id, visita_id",
             )
+            .eq("group_id", activeGroupId)
             .gte("data_inicio", monthRange.start.toISOString())
             .lte("data_inicio", monthRange.end.toISOString())
             .order("data_inicio", { ascending: true }),
           supabase
             .from("reunioes")
             .select("id, data, tema, numero_visitas, recitativos_individuais")
+            .eq("group_id", activeGroupId)
             .gte("data", format(monthRange.start, "yyyy-MM-dd"))
             .lte("data", format(monthRange.end, "yyyy-MM-dd"))
             .order("data", { ascending: true }),
           supabase
             .from("visitas")
             .select("id, data_visita, motivo, observacoes, membro_visitado_id, is_past")
+            .eq("group_id", activeGroupId)
             .gte("data_visita", monthRange.start.toISOString())
             .lte("data_visita", monthRange.end.toISOString())
             .order("data_visita", { ascending: true }),
-          activeGroupId
-            ? supabase
-                .from("membros")
-                .select("id, nome, data_aniversario, data_nascimento")
-                .eq("group_id", activeGroupId)
-                .order("nome")
-            : Promise.resolve({ data: [], error: null } as any),
+          supabase
+            .from("membros")
+            .select("id, nome, data_aniversario, data_nascimento")
+            .eq("group_id", activeGroupId)
+            .order("nome"),
         ]);
 
         setRawEventos((eventosRes.data || []) as any);
@@ -875,6 +885,14 @@ export default function MobileCalendar() {
   const selectedDayParam = format(selectedDay, "yyyy-MM-dd");
 
   const loadPresenceCount = async (reuniaoId: string) => {
+    if (!activeGroupId) {
+      setPresenceByMeetingId((prev) => ({
+        ...prev,
+        [reuniaoId]: { loading: false, count: 0 },
+      }));
+      return;
+    }
+
     setPresenceByMeetingId((prev) => ({
       ...prev,
       [reuniaoId]: prev[reuniaoId] ?? { loading: true, count: 0 },
@@ -888,6 +906,7 @@ export default function MobileCalendar() {
     const { data, error } = await supabase
       .from("presencas")
       .select("membro_id")
+      .eq("group_id", activeGroupId)
       .eq("reuniao_id", reuniaoId);
 
     if (error) {
@@ -914,7 +933,7 @@ export default function MobileCalendar() {
       void loadPresenceCount(it.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedKey, upcomingItems]);
+  }, [activeGroupId, selectedKey, upcomingItems]);
 
   const requestCalendarNotifications = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {

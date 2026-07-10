@@ -766,7 +766,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
           inativado_motivo: "Inativado manualmente",
           inativado_observacao: null,
         })
-        .in("id", inactivateTargetIds);
+        .in("id", inactivateTargetIds)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
 
@@ -800,16 +801,20 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
     try {
       const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
-        supabase.from("presencas").delete().in("membro_id", inactivateTargetIds),
-        supabase.from("eventos").delete().in("membro_visitado_id", inactivateTargetIds),
-        supabase.from("visitas").delete().in("membro_visitado_id", inactivateTargetIds),
-        supabase.from("notas").delete().in("membro_id", inactivateTargetIds),
+        supabase.from("presencas").delete().in("membro_id", inactivateTargetIds).eq("group_id", activeGroupId),
+        supabase.from("eventos").delete().in("membro_visitado_id", inactivateTargetIds).eq("group_id", activeGroupId),
+        supabase.from("visitas").delete().in("membro_visitado_id", inactivateTargetIds).eq("group_id", activeGroupId),
+        supabase.from("notas").delete().in("membro_id", inactivateTargetIds).eq("group_id", activeGroupId),
       ]);
 
       const cleanupError = presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
       if (cleanupError) throw cleanupError;
 
-      const { error: membrosError } = await supabase.from("membros").delete().in("id", inactivateTargetIds);
+      const { error: membrosError } = await supabase
+        .from("membros")
+        .delete()
+        .in("id", inactivateTargetIds)
+        .eq("group_id", activeGroupId);
       if (membrosError) throw membrosError;
 
       toast.success(

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+﻿import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarPlus, Handshake, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { WidgetSize } from "../types";

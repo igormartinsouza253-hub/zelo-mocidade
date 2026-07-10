@@ -1,4 +1,4 @@
-import { CalendarCheck, Clock3, TrendingUp, Users } from "lucide-react";
+﻿import { CalendarCheck, Clock3, TrendingUp, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { WidgetSize } from "../types";
 
@@ -64,19 +64,19 @@ export const StatsWidget = ({
   ] as const;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-4 gap-3">
+    <div className="grid h-full min-h-0 grid-cols-4 gap-2 xl:gap-3">
       {stats.map((stat) => (
         <Card
           key={stat.label}
-          className="h-full min-h-0 overflow-hidden rounded-xl border-border/60 bg-card text-card-foreground shadow-[var(--shadow-card)]"
+          className="h-full min-h-0 overflow-hidden rounded-lg border-border/60 bg-card text-card-foreground shadow-[var(--shadow-card)] xl:rounded-xl"
         >
-          <CardContent className="flex h-full min-h-0 items-center gap-3 px-3 py-2">
-            <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.iconClass}`}>
+          <CardContent className="flex h-full min-h-0 items-center gap-2 px-2.5 py-2 xl:gap-3 xl:px-3">
+            <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg xl:h-10 xl:w-10 ${stat.iconClass}`}>
               <stat.icon className="h-[18px] w-[18px]" />
             </span>
             <div className="min-w-0">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-bold leading-none text-foreground">{stat.value}</span>
+                <span className="text-lg font-bold leading-none text-foreground xl:text-xl">{stat.value}</span>
                 {stat.label === "Última" && ultimaMes && (
                   <span className="text-[10px] font-semibold uppercase text-muted-foreground">{ultimaMes}</span>
                 )}

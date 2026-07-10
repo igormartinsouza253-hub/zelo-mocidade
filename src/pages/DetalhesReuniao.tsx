@@ -28,6 +28,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { MeetingDateInput } from "@/components/reunioes/MeetingDateInput";
 import { PrayerMemberPicker } from "@/components/reunioes/PrayerMemberPicker";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 // Lista de livros da Bíblia com seus capítulos
 const bibliaLivros: Record<string, number> = {
@@ -69,6 +70,7 @@ const DetalhesReuniao = () => {
   const { id } = useParams();
   const isMobile = useIsMobile();
   const { setConfig } = usePageHeader();
+  const { activeGroupId } = useActiveGroup();
   const formRef = useRef<HTMLFormElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -93,8 +95,9 @@ const DetalhesReuniao = () => {
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
 
   useEffect(() => {
+    if (!activeGroupId) return;
     void loadReuniao();
-  }, [id]);
+  }, [activeGroupId, id]);
 
   useEffect(() => {
     setConfig({
@@ -180,11 +183,14 @@ const DetalhesReuniao = () => {
   };
 
   const loadReuniao = async () => {
+    if (!activeGroupId) return;
+
     try {
       const { data: reuniao, error: reuniaoError } = await supabase
         .from("reunioes")
         .select("*")
         .eq("id", id)
+        .eq("group_id", activeGroupId)
         .single();
 
       if (reuniaoError) throw reuniaoError;
@@ -206,6 +212,7 @@ const DetalhesReuniao = () => {
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
         .select("membro_id, orou")
+        .eq("group_id", groupId)
         .eq("reuniao_id", id);
 
       if (presencasError) throw presencasError;
@@ -314,7 +321,8 @@ const DetalhesReuniao = () => {
           palavra_referencia: formData.palavra_referencia || null,
           // Não alteramos o campo antigo de orações aqui, para preservar dados anteriores.
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("group_id", reuniaoGroupId);
 
       if (reuniaoError) throw reuniaoError;
 
@@ -322,7 +330,8 @@ const DetalhesReuniao = () => {
       const { error: deletePresencasError } = await supabase
         .from("presencas")
         .delete()
-        .eq("reuniao_id", id);
+        .eq("reuniao_id", id)
+        .eq("group_id", reuniaoGroupId);
       if (deletePresencasError) throw deletePresencasError;
 
       // Adicionar novas presenças
@@ -362,10 +371,14 @@ const DetalhesReuniao = () => {
 
     try {
       // Primeiro deletar as presenças
-      await supabase.from("presencas").delete().eq("reuniao_id", id);
+      if (!reuniaoGroupId) {
+        throw new Error("missing_group_id");
+      }
+
+      await supabase.from("presencas").delete().eq("reuniao_id", id).eq("group_id", reuniaoGroupId);
 
       // Depois deletar a reunião
-      const { error } = await supabase.from("reunioes").delete().eq("id", id);
+      const { error } = await supabase.from("reunioes").delete().eq("id", id).eq("group_id", reuniaoGroupId);
 
       if (error) throw error;
 

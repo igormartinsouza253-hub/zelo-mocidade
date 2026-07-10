@@ -586,7 +586,7 @@ export default function Calendario() {
   useEffect(() => {
     void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     // carrega preferências quando o usuário estiver disponível
@@ -666,12 +666,18 @@ export default function Calendario() {
   };
 
   const loadEventos = async () => {
+    if (!activeGroupId) {
+      setRawEventos([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("eventos")
         .select(
           "id, user_id, tipo, titulo, descricao, local, data_inicio, data_fim, dia_inteiro, recorrencia, lembretes, membro_visitado_id, visita_id, created_at, updated_at",
         )
+        .eq("group_id", activeGroupId)
         .order("data_inicio", { ascending: true });
 
       if (error) throw error;
@@ -683,10 +689,16 @@ export default function Calendario() {
   };
 
   const loadMembros = async () => {
+    if (!activeGroupId) {
+      setMembros([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("membros")
         .select("id, nome, data_nascimento, data_aniversario, foto_url, telefone, status_telefone, faixa_etaria, cargos")
+        .eq("group_id", activeGroupId)
         .order("nome");
       if (error) throw error;
       setMembros((data || []) as any);
@@ -698,10 +710,16 @@ export default function Calendario() {
   };
 
   const loadReunioes = async () => {
+    if (!activeGroupId) {
+      setReunioes([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("reunioes")
         .select("id, data, tema, observacoes, numero_visitas, recitativos_individuais, quem_atendeu, palavra_referencia")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false });
       if (error) throw error;
       setReunioes((data || []) as any);
@@ -731,10 +749,16 @@ export default function Calendario() {
   }, [rawEventos]);
 
   const loadVisitasRegistradas = async () => {
+    if (!activeGroupId) {
+      setVisitasRegistradas([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("visitas")
         .select("id, data_visita, motivo, observacoes, membro_visitado_id, is_past")
+        .eq("group_id", activeGroupId)
         .order("data_visita", { ascending: false });
       if (error) throw error;
       setVisitasRegistradas(((data || []) as any).filter((v: any) => !!v.data_visita));
@@ -745,6 +769,14 @@ export default function Calendario() {
   };
 
   const loadMeetingStats = async (reuniaoId: string) => {
+    if (!activeGroupId) {
+      setMeetingStatsById((prev) => ({
+        ...prev,
+        [reuniaoId]: { loading: false, presencasCount: 0, faixas: {} },
+      }));
+      return;
+    }
+
     setMeetingStatsById((prev) => ({
       ...prev,
       [reuniaoId]: prev[reuniaoId] ?? { loading: true, presencasCount: 0, faixas: {} },
@@ -759,6 +791,7 @@ export default function Calendario() {
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
         .select("membro_id")
+        .eq("group_id", activeGroupId)
         .eq("reuniao_id", reuniaoId);
 
       if (presencasError) throw presencasError;
@@ -770,6 +803,7 @@ export default function Calendario() {
         const { data: membrosData, error: membrosError } = await supabase
           .from("membros")
           .select("id, faixa_etaria")
+          .eq("group_id", activeGroupId)
           .in("id", membroIds);
 
         // Se não tiver permissão de ler membros, ainda mostramos contagem total de presenças.
@@ -1294,6 +1328,11 @@ export default function Calendario() {
       return;
     }
 
+    if (!activeGroupId) {
+      toast.error("Selecione/entre em um grupo antes de salvar eventos.");
+      return;
+    }
+
     const payload = {
       user_id: user.id,
       group_id: activeGroupId,
@@ -1340,7 +1379,8 @@ export default function Calendario() {
             lembretes: payload.lembretes as any,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", selectedOccurrence.resource.baseId);
+          .eq("id", selectedOccurrence.resource.baseId)
+          .eq("group_id", activeGroupId);
         if (error) throw error;
         toast.success("Evento atualizado");
       }
@@ -1356,9 +1396,14 @@ export default function Calendario() {
 
   const handleDelete = async () => {
     if (!selectedOccurrence?.resource.baseId) return;
+    if (!activeGroupId) return;
     try {
       setLoading(true);
-      const { error } = await supabase.from("eventos").delete().eq("id", selectedOccurrence.resource.baseId);
+      const { error } = await supabase
+        .from("eventos")
+        .delete()
+        .eq("id", selectedOccurrence.resource.baseId)
+        .eq("group_id", activeGroupId);
       if (error) throw error;
       toast.success("Evento removido");
       setDialogOpen(false);
@@ -1461,6 +1506,7 @@ export default function Calendario() {
 
   const handleConfirmMove = async () => {
     if (!pendingMove) return;
+    if (!activeGroupId) return;
     try {
       setLoading(true);
       const { error } = await supabase
@@ -1471,7 +1517,8 @@ export default function Calendario() {
           dia_inteiro: pendingMove.allDay,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", pendingMove.baseId);
+        .eq("id", pendingMove.baseId)
+        .eq("group_id", activeGroupId);
       if (error) throw error;
       toast.success("Evento atualizado");
       await loadEventos();

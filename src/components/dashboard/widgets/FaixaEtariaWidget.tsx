@@ -3,6 +3,7 @@ import { Cell, Label, Pie, PieChart, ResponsiveContainer, Tooltip } from "rechar
 import type { WidgetSize } from "../types";
 import { WIDGET_HEADER_PADDING, widgetTitleClass } from "../widgetHeaderStyles";
 import { resolveHslFromCssVar } from "@/lib/resolve-color";
+import { useId } from "react";
 
 interface FaixaEtariaWidgetProps {
   size: WidgetSize;
@@ -12,6 +13,7 @@ interface FaixaEtariaWidgetProps {
     total: number;
   }[];
   legendPosition?: "side" | "bottom";
+  desktopDashboard?: boolean;
 }
 
 export const FaixaEtariaWidget = ({
@@ -19,7 +21,9 @@ export const FaixaEtariaWidget = ({
   compactMobile = false,
   porFaixaEtaria,
   legendPosition = "side",
+  desktopDashboard = false,
 }: FaixaEtariaWidgetProps) => {
+  const chartId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const FAIXA_COLORS: Record<string, string> = {
     Crianças: resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
     Meninos: resolveHslFromCssVar("--faixa-meninos", "138 62% 38%"),
@@ -34,18 +38,134 @@ export const FaixaEtariaWidget = ({
   const isLarge = size === "lg";
   const useBottomLegend = legendPosition === "bottom";
   const order = ["Moças", "Moços", "Meninas", "Meninos", "Crianças"];
+  const desktopOrder = ["Crianças", "Meninas", "Meninos", "Moças", "Moços"];
   const data = order
     .map((faixa) => porFaixaEtaria.find((item) => item.faixa === faixa) || { faixa, total: 0 })
     .filter((item) => (item.total ?? 0) > 0);
+  const desktopLegendData = desktopOrder.map((faixa) => porFaixaEtaria.find((item) => item.faixa === faixa) || { faixa, total: 0 });
+  const desktopChartData = desktopLegendData.filter((item) => (item.total ?? 0) > 0);
   const totalGeral = data.reduce((sum, item) => sum + item.total, 0);
+  const desktopTotalGeral = desktopLegendData.reduce((sum, item) => sum + item.total, 0);
   const maiorFaixa = data.reduce((current, item) => (item.total > current.total ? item : current), data[0]);
   const menorFaixa = data.reduce((current, item) => (item.total < current.total ? item : current), data[0]);
 
-  const innerRadius = compactMobile ? "52%" : isSmall ? "48%" : isLarge ? "52%" : "50%";
-  const outerRadius = compactMobile ? "72%" : isSmall ? "70%" : isLarge ? "70%" : "72%";
+  const innerRadius = compactMobile ? "52%" : isSmall ? "48%" : isLarge ? "54%" : "50%";
+  const outerRadius = compactMobile ? "72%" : isSmall ? "70%" : isLarge ? "78%" : "72%";
+  const colorToGradient = (color: string) =>
+    `linear-gradient(145deg, color-mix(in hsl, ${color} 92%, white 22%), ${color} 58%, color-mix(in hsl, ${color} 82%, black 18%))`;
+  const gradientId = (faixa: string) => `${chartId}-faixa-${faixa.replace(/[^a-zA-Z0-9]/g, "")}`;
+
+  if (desktopDashboard) {
+    return (
+      <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-primary/55 bg-card p-1.5 text-card-foreground shadow-[var(--shadow-card)]">
+        {desktopChartData.length === 0 ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-dashed border-primary/35 px-3 text-center text-sm font-medium text-muted-foreground">
+            Sem dados para exibir.
+          </div>
+        ) : (
+          <CardContent className="grid min-h-0 flex-1 grid-cols-[minmax(220px,0.92fr)_minmax(240px,1fr)] gap-4 p-0">
+            <section className="flex min-h-0 flex-col gap-2">
+              <div className="shrink-0 rounded-[13px] bg-primary px-3 py-3 text-primary-foreground">
+                <h3 className="truncate text-[16px] font-bold uppercase leading-none">Distribuição por faixa</h3>
+                <p className="mt-1 truncate text-[12px] font-medium leading-none opacity-95">Membros por faixa etária</p>
+              </div>
+
+              <div className="min-h-0 flex-1 rounded-[13px] border border-primary/55 bg-card px-3 py-5">
+                <div className="flex h-full min-h-0 flex-col justify-evenly gap-4">
+                  {desktopLegendData.map((item) => (
+                    <div key={item.faixa} className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className="h-6 w-2.5 shrink-0 rounded-full shadow-[0_4px_10px_hsl(var(--foreground)/0.14)]"
+                          style={{
+                            backgroundImage: colorToGradient(FAIXA_COLORS[item.faixa] || "hsl(var(--primary))"),
+                          }}
+                        />
+                        <span className="truncate text-[17px] font-medium leading-none text-foreground">{item.faixa}</span>
+                      </div>
+                      <span className="shrink-0 text-[21px] font-bold leading-none tabular-nums text-foreground">
+                        {String(item.total).padStart(2, "0")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="min-h-0 rounded-[13px] bg-card">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <defs>
+                    {desktopLegendData.map((item) => {
+                      const color = FAIXA_COLORS[item.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%");
+                      return (
+                        <linearGradient key={item.faixa} id={gradientId(item.faixa)} x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity="0.72" />
+                          <stop offset="42%" stopColor={color} stopOpacity="1" />
+                          <stop offset="100%" stopColor={color} stopOpacity="0.86" />
+                        </linearGradient>
+                      );
+                    })}
+                  </defs>
+                  <Pie
+                    data={desktopChartData}
+                    dataKey="total"
+                    nameKey="faixa"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="54%"
+                    outerRadius="76%"
+                    startAngle={90}
+                    endAngle={-270}
+                    paddingAngle={7}
+                    minAngle={4}
+                    labelLine={false}
+                    cornerRadius={12}
+                  >
+                    <Label
+                      position="center"
+                      content={({ viewBox }) => {
+                        if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null;
+                        return (
+                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan x={viewBox.cx} dy="-0.24em" className="fill-foreground text-[38px] font-bold">
+                              {desktopTotalGeral}
+                            </tspan>
+                            <tspan x={viewBox.cx} dy="1.7em" className="fill-muted-foreground text-[12px] font-semibold">
+                              pessoas
+                            </tspan>
+                          </text>
+                        );
+                      }}
+                    />
+                    {desktopChartData.map((entry) => (
+                      <Cell
+                        key={entry.faixa}
+                        fill={`url(#${gradientId(entry.faixa)})`}
+                        stroke="transparent"
+                        strokeWidth={0}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "var(--radius)",
+                    }}
+                    formatter={(value: any, name: any) => [value, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </section>
+          </CardContent>
+        )}
+      </Card>
+    );
+  }
 
   return (
-    <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/40 bg-card text-card-foreground shadow-[var(--shadow-card)] md:rounded-xl">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
       <CardHeader className={WIDGET_HEADER_PADDING[size]}>
         <CardTitle className={widgetTitleClass(size)}>Distribuição por faixa etária</CardTitle>
       </CardHeader>
@@ -56,7 +176,7 @@ export const FaixaEtariaWidget = ({
             Sem dados para exibir.
           </div>
         ) : (
-          <div className={compactMobile ? "flex h-full min-h-0 flex-col gap-2" : useBottomLegend ? "flex h-full min-h-0 flex-col gap-2" : "grid h-full min-h-0 grid-cols-[minmax(220px,0.78fr)_minmax(300px,1fr)] items-center gap-4"}>
+          <div className={compactMobile ? "flex h-full min-h-0 flex-col gap-2" : useBottomLegend ? "flex h-full min-h-0 flex-col gap-2" : "grid h-full min-h-0 grid-cols-[minmax(180px,0.95fr)_minmax(180px,1fr)] items-center gap-3"}>
             <div
               className={
                 compactMobile
@@ -66,9 +186,21 @@ export const FaixaEtariaWidget = ({
                   : "flex min-h-0 items-center justify-center self-stretch"
               }
             >
-              <div className={compactMobile ? "h-full max-h-[150px] w-full max-w-[230px]" : "h-full max-h-[230px] w-full max-w-[310px]"}>
+              <div className={compactMobile ? "h-full max-h-[150px] w-full max-w-[230px]" : isLarge && !useBottomLegend ? "h-full max-h-[260px] w-full max-w-[340px]" : "h-full max-h-[230px] w-full max-w-[310px]"}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
+                    <defs>
+                      {data.map((item) => {
+                        const color = FAIXA_COLORS[item.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%");
+                        return (
+                          <linearGradient key={item.faixa} id={gradientId(item.faixa)} x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity="0.7" />
+                            <stop offset="45%" stopColor={color} stopOpacity="1" />
+                            <stop offset="100%" stopColor={color} stopOpacity="0.84" />
+                          </linearGradient>
+                        );
+                      })}
+                    </defs>
                   <Pie
                     data={data}
                     dataKey="total"
@@ -103,7 +235,7 @@ export const FaixaEtariaWidget = ({
                     {data.map((entry) => (
                       <Cell
                         key={entry.faixa}
-                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                        fill={`url(#${gradientId(entry.faixa)})`}
                         stroke={compactMobile ? "hsl(var(--card))" : "hsl(var(--background))"}
                         strokeLinejoin="round"
                         strokeWidth={compactMobile ? 3 : 5}
@@ -129,11 +261,11 @@ export const FaixaEtariaWidget = ({
                   ? "grid min-h-0 grid-cols-2 gap-1.5 overflow-y-auto pr-1 scrollbar-none"
                   : useBottomLegend
                     ? "grid min-h-0 grid-cols-2 gap-1.5 overflow-y-auto pr-1 scrollbar-none"
-                  : "grid max-h-full min-w-0 grid-cols-2 gap-2 overflow-y-auto pr-1 text-xs scrollbar-none"
+                  : "grid max-h-full min-w-0 grid-cols-1 gap-2 overflow-y-auto pr-1 text-xs scrollbar-none"
               }
             >
               {!useBottomLegend && !compactMobile && (
-                <div className="col-span-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5">
+                <div className="rounded-2xl border border-border/40 bg-muted/20 px-3 py-1.5">
                   <p className="text-[10px] font-semibold uppercase text-muted-foreground">Resumo</p>
                   <div className="mt-1.5 space-y-1 text-[11px]">
                     <div className="flex items-center justify-between gap-2">
@@ -150,12 +282,14 @@ export const FaixaEtariaWidget = ({
               {data.map((item) => (
                 <div
                   key={item.faixa}
-                  className={compactMobile ? "flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-muted/20 px-2.5 py-1.5" : "flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5"}
+                  className={compactMobile ? "flex items-center justify-between gap-2 rounded-xl border border-border/40 bg-muted/20 px-2.5 py-1.5" : "flex items-center justify-between gap-3 rounded-2xl border border-border/40 bg-muted/20 px-3 py-1.5"}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: FAIXA_COLORS[item.faixa] || "hsl(var(--primary))" }}
+                      className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_3px_8px_hsl(var(--foreground)/0.14)]"
+                      style={{
+                        backgroundImage: colorToGradient(FAIXA_COLORS[item.faixa] || "hsl(var(--primary))"),
+                      }}
                     />
                     <span className="truncate text-[10px] font-medium text-foreground">{item.faixa}</span>
                   </div>

@@ -14,6 +14,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type NotificationRow = {
   id: string;
@@ -128,6 +129,7 @@ function SwipeNotificationItem({
 
 export function HomeNotificationsDrawer({ open, onOpenChange, userId }: Props) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
 
@@ -200,6 +202,69 @@ export function HomeNotificationsDrawer({ open, onOpenChange, userId }: Props) {
     toast.success("Notificação excluída.");
   };
 
+  const notificationsContent = (
+    <>
+      <div className="space-y-2 overflow-y-auto px-3 pb-3">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Carregando notificações...</p>
+        ) : notifications.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Você ainda não possui notificações.</p>
+        ) : (
+          notifications.map((item) => (
+            <SwipeNotificationItem
+              key={item.id}
+              item={item}
+              onOpen={handleOpenItem}
+              onDelete={handleDeleteItem}
+            />
+          ))
+        )}
+      </div>
+
+      {!loading && notifications.length > 0 ? (
+        <div className="border-t border-border/70 p-3">
+          <Button type="button" variant="outline" className="w-full" onClick={() => navigate("/configuracoes?section=notifications")}>
+            Ver central completa
+          </Button>
+        </div>
+      ) : null}
+    </>
+  );
+
+  if (!isMobile) {
+    if (!open) return null;
+
+    return (
+      <div className="fixed left-[7.5rem] top-20 z-50 w-[22rem] overflow-hidden rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-[var(--shadow-elevated)]">
+        <div className="flex items-start gap-3 border-b border-border/70 px-4 py-3">
+          <Bell className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">Notificações</h2>
+              {unreadCount > 0 ? (
+                <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                  {unreadCount} nova{unreadCount === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Clique para abrir. Arraste para excluir.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Fechar notificações"
+          >
+            Esc
+          </button>
+        </div>
+        <div className="max-h-[min(62vh,32rem)] overflow-y-auto scrollbar-none">
+          {notificationsContent}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[78vh]">
@@ -216,27 +281,8 @@ export function HomeNotificationsDrawer({ open, onOpenChange, userId }: Props) {
           <DrawerDescription>Toque para abrir. Arraste para o lado para excluir.</DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] space-y-2 overflow-y-auto">
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Carregando notificações...</p>
-          ) : notifications.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Você ainda não possui notificações.</p>
-          ) : (
-            notifications.map((item) => (
-              <SwipeNotificationItem
-                key={item.id}
-                item={item}
-                onOpen={handleOpenItem}
-                onDelete={handleDeleteItem}
-              />
-            ))
-          )}
-
-          {!loading && notifications.length > 0 ? (
-            <Button type="button" variant="outline" className="w-full mt-2" onClick={() => navigate("/configuracoes?section=notifications")}>
-              Ver central completa
-            </Button>
-          ) : null}
+        <div className="pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+          {notificationsContent}
         </div>
       </DrawerContent>
     </Drawer>

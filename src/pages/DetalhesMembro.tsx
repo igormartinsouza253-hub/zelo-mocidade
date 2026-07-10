@@ -208,11 +208,14 @@ const DetalhesMembro = () => {
   };
 
   const loadMembro = async () => {
+    if (!activeGroupId) return;
+
     try {
       const { data, error } = await supabase
         .from("membros")
         .select("*")
         .eq("id", id)
+        .eq("group_id", activeGroupId)
         .single();
 
       if (error) throw error;
@@ -238,11 +241,17 @@ const DetalhesMembro = () => {
   };
 
   const loadPresencas = async () => {
+    if (!activeGroupId) {
+      setTotalPresencas(0);
+      return;
+    }
+
     try {
       const { count, error } = await supabase
         .from("presencas")
         .select("*", { count: "exact", head: true })
-        .eq("membro_id", id);
+        .eq("membro_id", id)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
       setTotalPresencas(count || 0);
@@ -305,7 +314,8 @@ const DetalhesMembro = () => {
       const { error: updateError } = await supabase
         .from("membros")
         .update({ foto_url: publicUrl })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("group_id", activeGroupId);
 
       if (updateError) throw updateError;
 
@@ -380,7 +390,8 @@ const DetalhesMembro = () => {
           telefone: telefoneLimpo || null,
           status_telefone: formData.status_telefone || null,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
 
@@ -409,7 +420,8 @@ const DetalhesMembro = () => {
           inativado_motivo: "Inativado manualmente",
           inativado_observacao: null,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
 
@@ -446,17 +458,17 @@ const DetalhesMembro = () => {
     try {
       const memberId = id;
       const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
-        supabase.from("presencas").delete().eq("membro_id", memberId),
-        supabase.from("eventos").delete().eq("membro_visitado_id", memberId),
-        supabase.from("visitas").delete().eq("membro_visitado_id", memberId),
-        supabase.from("notas").delete().eq("membro_id", memberId),
+        supabase.from("presencas").delete().eq("membro_id", memberId).eq("group_id", activeGroupId),
+        supabase.from("eventos").delete().eq("membro_visitado_id", memberId).eq("group_id", activeGroupId),
+        supabase.from("visitas").delete().eq("membro_visitado_id", memberId).eq("group_id", activeGroupId),
+        supabase.from("notas").delete().eq("membro_id", memberId).eq("group_id", activeGroupId),
       ]);
 
       const cleanupError =
         presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
       if (cleanupError) throw cleanupError;
 
-      const { error } = await supabase.from("membros").delete().eq("id", memberId);
+      const { error } = await supabase.from("membros").delete().eq("id", memberId).eq("group_id", activeGroupId);
       if (error) throw error;
 
       toast.success("Membro excluído permanentemente.");

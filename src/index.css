@@ -39,10 +39,16 @@ All colors MUST be HSL.
     --radius: 0.6rem;
 
     --gradient-primary: linear-gradient(135deg, hsl(158 64% 52%), hsl(158 64% 42%));
+    --gradient-primary-rich: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 48%, hsl(var(--primary) / 0.88) 100%);
     --gradient-mobile: linear-gradient(135deg, hsl(248 84% 58%), hsl(263 90% 67%));
-    --shadow-soft: 0 1px 2px 0 hsl(220 13% 18% / 0.06), 0 8px 18px -14px hsl(220 13% 18% / 0.2);
-    --shadow-elevated: 0 2px 4px -2px hsl(220 13% 18% / 0.08), 0 16px 28px -20px hsl(220 13% 18% / 0.3);
-    --shadow-card: 0 1px 2px 0 hsl(220 13% 18% / 0.06), 0 10px 24px -20px hsl(220 13% 18% / 0.25);
+    --gradient-background: radial-gradient(circle at 8% 6%, hsl(var(--primary) / 0.16), transparent 34%), radial-gradient(circle at 88% 12%, hsl(var(--accent) / 0.24), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.42));
+    --gradient-surface: radial-gradient(circle at 12% 10%, hsl(var(--primary) / 0.08), transparent 32%), linear-gradient(145deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.58));
+    --gradient-muted: linear-gradient(135deg, hsl(var(--muted) / 0.82), hsl(var(--card) / 0.66));
+    --noise-opacity: 0;
+    --glass-blur: 10px;
+    --shadow-soft: 0 1px 2px 0 hsl(220 13% 18% / 0.08), 0 12px 28px -18px hsl(var(--primary) / 0.26);
+    --shadow-elevated: 0 8px 20px -18px hsl(220 13% 18% / 0.32), 0 20px 48px -30px hsl(var(--primary) / 0.38);
+    --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.62) inset, 0 1px 2px 0 hsl(220 13% 18% / 0.08), 0 16px 34px -24px hsl(var(--primary) / 0.34);
     --shadow-mobile: 0 8px 16px -4px hsl(248 84% 58% / 0.2);
  
      --sidebar-background: 0 0% 100%;
@@ -73,9 +79,9 @@ All colors MUST be HSL.
      --faixa-visitas: 30 90% 52%;
      --faixa-recitativos: 210 6% 50%;
 
-    --font-sans: 'Work Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-    --font-serif: 'Lora', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
-    --font-mono: 'Inconsolata', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    --font-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-serif: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-mono: 'Poppins', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
@@ -123,6 +129,10 @@ All colors MUST be HSL.
      --ring: 158 64% 52%;
  
      --shadow-card: 0 1px 2px 0 hsl(0 0% 0% / 0.22), 0 12px 26px -20px hsl(0 0% 0% / 0.55);
+     --gradient-background: radial-gradient(circle at 8% 6%, hsl(var(--primary) / 0.2), transparent 35%), radial-gradient(circle at 86% 10%, hsl(var(--accent) / 0.2), transparent 34%), linear-gradient(145deg, hsl(var(--background)), hsl(220 13% 6%));
+     --gradient-surface: radial-gradient(circle at 12% 10%, hsl(var(--primary) / 0.14), transparent 34%), linear-gradient(145deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.68));
+     --gradient-muted: linear-gradient(135deg, hsl(var(--muted) / 0.86), hsl(var(--card) / 0.72));
+     --noise-opacity: 0;
  
      --sidebar-background: 220 13% 12%;
      --sidebar-foreground: 0 0% 98%;
@@ -144,8 +154,11 @@ All colors MUST be HSL.
   }
 
   body {
+    font-family: var(--font-sans);
     color: hsl(var(--foreground));
     background-color: hsl(var(--background));
+    background-image: var(--gradient-background);
+    background-size: auto;
     overflow: hidden;
   }
 
@@ -182,6 +195,41 @@ All colors MUST be HSL.
     --primary-foreground: 0 0% 0%;
     --sidebar-primary-foreground: 0 0% 0%;
     --accent-foreground: 0 0% 0%;
+  }
+
+  html[data-theme-preset="azul"] {
+    --gradient-primary-rich: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(195 82% 58%) 46%, hsl(232 82% 62%) 100%);
+    --gradient-background: radial-gradient(circle at 12% 8%, hsl(207 84% 62% / 0.18), transparent 34%), radial-gradient(circle at 86% 10%, hsl(248 80% 68% / 0.16), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
+  }
+
+  html[data-theme-preset="laranja"] {
+    --gradient-primary-rich: linear-gradient(128deg, hsl(var(--primary)) 0%, hsl(18 94% 56%) 48%, hsl(44 98% 58%) 100%);
+    --gradient-background: radial-gradient(circle at 10% 6%, hsl(33 100% 56% / 0.16), transparent 34%), radial-gradient(circle at 88% 16%, hsl(345 84% 66% / 0.14), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
+  }
+
+  html[data-theme-preset="verde"] {
+    --gradient-primary-rich: linear-gradient(142deg, hsl(var(--primary)) 0%, hsl(168 72% 42%) 48%, hsl(96 68% 48%) 100%);
+    --gradient-background: radial-gradient(circle at 10% 8%, hsl(138 62% 44% / 0.16), transparent 34%), radial-gradient(circle at 88% 14%, hsl(176 70% 46% / 0.12), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
+  }
+
+  html[data-theme-preset="rosa"] {
+    --gradient-primary-rich: linear-gradient(132deg, hsl(var(--primary)) 0%, hsl(326 88% 58%) 45%, hsl(268 82% 66%) 100%);
+    --gradient-background: radial-gradient(circle at 12% 7%, hsl(335 90% 58% / 0.16), transparent 34%), radial-gradient(circle at 88% 12%, hsl(275 88% 68% / 0.14), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
+  }
+
+  html[data-theme-preset="roxo"] {
+    --gradient-primary-rich: linear-gradient(138deg, hsl(var(--primary)) 0%, hsl(270 90% 58%) 48%, hsl(214 88% 64%) 100%);
+    --gradient-background: radial-gradient(circle at 10% 8%, hsl(292 82% 52% / 0.16), transparent 34%), radial-gradient(circle at 86% 14%, hsl(220 86% 66% / 0.14), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
+  }
+
+  html[data-theme-preset="vermelho"] {
+    --gradient-primary-rich: linear-gradient(126deg, hsl(var(--primary)) 0%, hsl(348 86% 58%) 48%, hsl(24 94% 58%) 100%);
+    --gradient-background: radial-gradient(circle at 12% 8%, hsl(0 74% 58% / 0.15), transparent 34%), radial-gradient(circle at 88% 12%, hsl(28 94% 58% / 0.13), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
+  }
+
+  html[data-theme-preset="amarelo"] {
+    --gradient-primary-rich: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(42 100% 56%) 45%, hsl(28 96% 54%) 100%);
+    --gradient-background: radial-gradient(circle at 12% 8%, hsl(51 100% 56% / 0.16), transparent 34%), radial-gradient(circle at 88% 12%, hsl(34 98% 58% / 0.13), transparent 30%), linear-gradient(145deg, hsl(var(--background)), hsl(var(--muted) / 0.5));
   }
 }
 
@@ -337,6 +385,76 @@ All colors MUST be HSL.
 @media (max-height: 720px) {
   .member-detail-panel {
     gap: 0.25rem;
+  }
+}
+
+@layer utilities {
+  .bg-background {
+    background-color: hsl(var(--background));
+    background-image: none;
+  }
+
+  .bg-card,
+  .bg-popover {
+    background-color: hsl(var(--card));
+    background-image: none;
+  }
+
+  .bg-popover {
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.12);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.12);
+  }
+
+  .bg-primary {
+    background-color: hsl(var(--primary));
+    background-image: var(--gradient-primary-rich);
+    background-size: 150% 150%;
+  }
+
+  .border,
+  .border-border,
+  .border-input {
+    border-color: hsl(var(--border) / 0.72);
+  }
+
+  button,
+  .bg-primary {
+    transition:
+      transform 140ms ease,
+      box-shadow 220ms ease,
+      background-position 320ms ease,
+      color 160ms ease;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+  }
+
+  button:active {
+    transform: translateY(0) scale(0.99);
+  }
+
+  .bg-primary:hover,
+  button.bg-primary:hover {
+    background-position: 100% 0;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .text-primary {
+    color: hsl(var(--primary));
+    text-shadow: 0 1px 10px hsl(var(--primary) / 0.12);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

@@ -110,7 +110,7 @@ const getFrequencyStatus = (alertaAusencias: boolean, taxaMensalPorcentagem: num
 const VisualizarMembro = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { isAdmin } = useActiveGroup();
+  const { activeGroupId, isAdmin } = useActiveGroup();
   const [membro, setMembro] = useState<Membro | null>(null);
   const [estatisticas, setEstatisticas] = useState<Estatisticas>({
     totalReunioes: 0,
@@ -127,14 +127,16 @@ const VisualizarMembro = () => {
   const [profilePhotoOpen, setProfilePhotoOpen] = useState(false);
 
   useEffect(() => {
+    if (!activeGroupId) return;
     loadMembro();
-  }, [id]);
+  }, [activeGroupId, id]);
 
   useEffect(() => {
     if (!membro) return;
     if (membro.ativo === false) return;
+    if (!activeGroupId) return;
     loadEstatisticas();
-  }, [membro?.id, membro?.ativo]);
+  }, [activeGroupId, membro?.id, membro?.ativo]);
 
   const handleDelete = useCallback(() => {
     if (!membro) return;
@@ -155,7 +157,8 @@ const VisualizarMembro = () => {
           inativado_motivo: "Inativado manualmente",
           inativado_observacao: null,
         })
-        .eq("id", membro.id);
+        .eq("id", membro.id)
+        .eq("group_id", activeGroupId);
 
       if (error) throw error;
 
@@ -178,17 +181,17 @@ const VisualizarMembro = () => {
 
       const memberId = membro.id;
       const [presencasResult, eventosResult, visitasResult, notasResult] = await Promise.all([
-        supabase.from("presencas").delete().eq("membro_id", memberId),
-        supabase.from("eventos").delete().eq("membro_visitado_id", memberId),
-        supabase.from("visitas").delete().eq("membro_visitado_id", memberId),
-        supabase.from("notas").delete().eq("membro_id", memberId),
+        supabase.from("presencas").delete().eq("membro_id", memberId).eq("group_id", activeGroupId),
+        supabase.from("eventos").delete().eq("membro_visitado_id", memberId).eq("group_id", activeGroupId),
+        supabase.from("visitas").delete().eq("membro_visitado_id", memberId).eq("group_id", activeGroupId),
+        supabase.from("notas").delete().eq("membro_id", memberId).eq("group_id", activeGroupId),
       ]);
 
       const cleanupError =
         presencasResult.error ?? eventosResult.error ?? visitasResult.error ?? notasResult.error;
       if (cleanupError) throw cleanupError;
 
-      const { error: membroError } = await supabase.from("membros").delete().eq("id", memberId);
+      const { error: membroError } = await supabase.from("membros").delete().eq("id", memberId).eq("group_id", activeGroupId);
       if (membroError) throw membroError;
 
       toast.success("Membro excluído permanentemente.");
@@ -200,7 +203,7 @@ const VisualizarMembro = () => {
       setDeleting(false);
       setDeleteOpen(false);
     }
-  }, [isAdmin, membro, navigate]);
+  }, [activeGroupId, isAdmin, membro, navigate]);
 
   useEffect(() => {
     if (!membro) return;
@@ -250,6 +253,7 @@ const VisualizarMembro = () => {
         .from("membros")
         .select("*")
         .eq("id", id)
+        .eq("group_id", activeGroupId)
         .single();
 
       if (error) throw error;
@@ -273,15 +277,29 @@ const VisualizarMembro = () => {
   };
 
   const loadEstatisticas = async () => {
+    if (!activeGroupId) {
+      setEstatisticas({
+        totalReunioes: 0,
+        presencas: 0,
+        taxaGeralPorcentagem: 0,
+        taxaMensalPorcentagem: 0,
+        ultimasPresencas: [],
+        alertaAusencias: false,
+      });
+      return;
+    }
+
     try {
       const { count: totalReunioes } = await supabase
         .from("reunioes")
-        .select("*", { count: "exact", head: true });
+        .select("*", { count: "exact", head: true })
+        .eq("group_id", activeGroupId);
 
       const { data: presencasData, error: presencasError } = await supabase
         .from("presencas")
         .select("reuniao_id, reunioes(data)")
         .eq("membro_id", id)
+        .eq("group_id", activeGroupId)
         .order("created_at", { ascending: false });
 
       if (presencasError) throw presencasError;
@@ -295,12 +313,14 @@ const VisualizarMembro = () => {
       const { count: reunioesMes } = await supabase
         .from("reunioes")
         .select("*", { count: "exact", head: true })
+        .eq("group_id", activeGroupId)
         .gte("data", umMesAtras.toISOString().split("T")[0]);
 
       const { count: presencasMes } = await supabase
         .from("presencas")
         .select("reuniao_id, reunioes!inner(data)", { count: "exact", head: true })
         .eq("membro_id", id)
+        .eq("group_id", activeGroupId)
         .gte("reunioes.data", umMesAtras.toISOString().split("T")[0]);
 
       const taxaMensal = reunioesMes ? ((presencasMes || 0) / reunioesMes) * 100 : 0;
@@ -313,6 +333,7 @@ const VisualizarMembro = () => {
       const { data: ultimasReunioes } = await supabase
         .from("reunioes")
         .select("id, data")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false })
         .limit(4);
 
@@ -323,6 +344,7 @@ const VisualizarMembro = () => {
             .from("presencas")
             .select("*", { count: "exact", head: true })
             .eq("membro_id", id)
+            .eq("group_id", activeGroupId)
             .eq("reuniao_id", reuniao.id);
 
           if (count === 0) {

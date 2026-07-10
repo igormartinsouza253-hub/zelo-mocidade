@@ -61,7 +61,7 @@ export function MobileDashboardHome({
 
   // Altura estável por slide (evita “pulo” entre widgets no carrossel).
   // Ajustada para encaixar bem em 390x844 mantendo respiro para header/dock.
-  const slideHeightClass = "h-[320px]";
+  const slideHeightClass = "h-[334px]";
 
   const [api, setApi] = useState<CarouselApi | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -134,28 +134,28 @@ export function MobileDashboardHome({
 
         <section aria-label="Gráficos" className="w-full">
           <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
-            <div className="p-3">
+            <div className="px-2.5 pb-2.5 pt-3">
               <Carousel
                 setApi={(nextApi) => setApi(nextApi)}
                 opts={{ align: "start", loop: false }}
-                className="w-full max-w-full overflow-hidden"
+                className="w-full max-w-full"
               >
-                <CarouselContent>
-                  <CarouselItem>
-                    <div className={slideHeightClass + " w-full min-w-0"}>
+                <CarouselContent className="ml-0">
+                  <CarouselItem className="pl-0">
+                    <div className={slideHeightClass + " w-full min-w-0 px-1"}>
                       <ReunioesChartWidget size="md" reunioesRecentes={frequenciaData.reunioesRecentes} compactMobile />
                     </div>
                   </CarouselItem>
-                  <CarouselItem>
-                    <div className={slideHeightClass + " w-full min-w-0"}>
+                  <CarouselItem className="pl-0">
+                    <div className={slideHeightClass + " w-full min-w-0 px-1"}>
                       {/* sm no mobile evita a legenda e melhora o encaixe em 390px */}
                       <FaixaEtariaWidget size="sm" porFaixaEtaria={frequenciaData.porFaixaEtaria} compactMobile />
                     </div>
                   </CarouselItem>
-                  <CarouselItem>
-                    <div className={slideHeightClass + " w-full min-w-0"}>
+                  <CarouselItem className="pl-0">
+                    <div className={slideHeightClass + " w-full min-w-0 px-1"}>
                       <TopMembrosWidget
-                        size="md"
+                        size="sm"
                         top5Membros={frequenciaData.top5Membros}
                         showLeastFrequent={showLeastFrequent}
                         onToggleOrder={onToggleOrder}

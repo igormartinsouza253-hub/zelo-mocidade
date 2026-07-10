@@ -11,6 +11,7 @@ import { endOfMonth, format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { resolveHslFromCssVar } from "@/lib/resolve-color";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 interface Stats {
   mediaPorFaixa: { faixa: string; media: number; total: number; percentual: number }[];
@@ -44,6 +45,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   const navigate = useNavigate();
   const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
   const { setConfig } = usePageHeader();
+  const { activeGroupId } = useActiveGroup();
   const [stats, setStats] = useState<Stats>({
     mediaPorFaixa: [],
     mediaTotal: 0,
@@ -89,7 +91,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
     loadRecentMeetings();
     loadMainChartData();
     loadPrayerAndWordStats();
-  }, []);
+  }, [activeGroupId]);
 
   useEffect(() => {
     return () => setConfig(null);
@@ -99,7 +101,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
     if (avgStartPeriod && avgEndPeriod) {
       loadStats(avgStartPeriod, avgEndPeriod);
     }
-  }, [avgStartPeriod, avgEndPeriod]);
+  }, [activeGroupId, avgStartPeriod, avgEndPeriod]);
 
   useEffect(() => {
     applyFilters();
@@ -114,9 +116,15 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   }, [availableDates]);
 
   const loadRecentMeetings = async () => {
+    if (!activeGroupId) {
+      setRecentMeetings([]);
+      return;
+    }
+
     const { data: reunioes } = await supabase
       .from("reunioes")
       .select("id, data, tema, numero_visitas")
+      .eq("group_id", activeGroupId)
       .order("data", { ascending: false })
       .limit(5);
 
@@ -125,6 +133,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
         const { data: presencas } = await supabase
           .from("presencas")
           .select("id")
+          .eq("group_id", activeGroupId)
           .eq("reuniao_id", meeting.id);
 
         return {
@@ -138,10 +147,18 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   };
 
   const loadPrayerAndWordStats = async () => {
+    if (!activeGroupId) {
+      setPrayerStats({ totalOracoes: 0, mediaPorReuniao: 0, reunioesComPalavra: 0 });
+      setRecentWords([]);
+      setTopPrayerMembers([]);
+      return;
+    }
+
     try {
       const { data: reunioes } = await supabase
         .from("reunioes")
         .select("id, data, tema, palavra_referencia")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false })
         .limit(5000);
 
@@ -155,6 +172,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
       const { data: presencasOracao } = await supabase
         .from("presencas")
         .select("membro_id, membro_nome")
+        .eq("group_id", activeGroupId)
         .eq("orou", true)
         .limit(5000);
 
@@ -198,11 +216,17 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   };
 
   const loadStats = async (filterStart?: string, filterEnd?: string) => {
+    if (!activeGroupId) {
+      setStats({ mediaPorFaixa: [], mediaTotal: 0, mediaPorMes: [] });
+      return;
+    }
+
     try {
       // Get all meetings
       let query = supabase
         .from("reunioes")
         .select("id, data, numero_visitas, recitativos_individuais")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: false });
 
       // Apply filters if provided
@@ -227,12 +251,14 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
       // Get all attendance records
       const { data: todasPresencas } = await supabase
         .from("presencas")
-        .select("membro_id, reuniao_id");
+        .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId);
 
       // Get all members
       const { data: membros } = await supabase
         .from("membros")
-        .select("id, faixa_etaria");
+        .select("id, faixa_etaria")
+        .eq("group_id", activeGroupId);
 
       // Calculate total members by age group
       const totalMembrosPorFaixa: Record<string, number> = {};
@@ -320,11 +346,19 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   };
 
   const loadMainChartData = async () => {
+    if (!activeGroupId) {
+      setMainChartData([]);
+      setAllFaixas([]);
+      setAvailableDates([]);
+      return;
+    }
+
     try {
       // Get all meetings
       const { data: reunioes } = await supabase
         .from("reunioes")
         .select("id, data, numero_visitas, recitativos_individuais")
+        .eq("group_id", activeGroupId)
         .order("data", { ascending: true });
 
       if (!reunioes || reunioes.length === 0) return;
@@ -332,12 +366,14 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
       // Get all attendance records
       const { data: todasPresencas } = await supabase
         .from("presencas")
-        .select("membro_id, reuniao_id");
+        .select("membro_id, reuniao_id")
+        .eq("group_id", activeGroupId);
 
       // Get all members
       const { data: membros } = await supabase
         .from("membros")
-        .select("id, faixa_etaria");
+        .select("id, faixa_etaria")
+        .eq("group_id", activeGroupId);
 
       // Get unique faixas
       const faixasSet = new Set<string>();

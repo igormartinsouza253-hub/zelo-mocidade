@@ -1,7 +1,7 @@
 import React from "react";
 import { ModernSidebar } from "@/components/ModernSidebar";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
-import { useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Users,
@@ -20,13 +20,11 @@ import {
 } from "lucide-react";
 import {
   SidebarPreferencesProvider,
-  useSidebarPreferences,
 } from "@/hooks/useSidebarPreferences";
 import { DockPreferencesProvider } from "@/hooks/useDockPreferences";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ZeloLogo } from "@/components/ZeloLogo";
 import { ThemePresetId } from "@/lib/theme-presets";
@@ -513,9 +511,19 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   return (
     <>
-       <div className="flex h-screen w-full bg-background md:bg-background md:pl-20 overflow-hidden">
+       <div className="flex h-screen w-full bg-background md:bg-background md:pl-28 overflow-hidden">
         {/* Modern Sidebar - Desktop/Tablet only */}
-        {!isMobileMode && <ModernSidebar />}
+        {!isMobileMode && (
+          <ModernSidebar
+            user={user}
+            profile={profile}
+            activeGroupName={activeGroup?.name}
+            loadingGroup={loadingGroup}
+            unreadNotifications={unreadNotifications}
+            onOpenNotifications={() => setIsNotificationsDrawerOpen(true)}
+            onSignOut={handleSignOut}
+          />
+        )}
 
         {/* Main Content - respeita a margem da barra recolhida em telas grandes */}
          <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -594,18 +602,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                 </div>
               )}
 
-          {/* Desktop Top Header */}
-           {!isMobileMode && (
-             <DesktopHeader
-               currentRoute={currentRoute}
-               user={user}
-               profile={profile}
-               navigate={navigate}
-               handleSignOut={handleSignOut}
-               locationPathname={location.pathname}
-             />
-           )}
-
           {/* Main Content */}
           <main
             className={`flex-1 min-h-0 min-w-0 ${
@@ -622,7 +618,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                   : showMobileActionDock
                     ? "pb-3"
                     : "pb-3"
-            } md:px-6 md:pb-6 ${
+            } md:p-5 ${
               isMobileMode
                 ? location.pathname === "/visitas/nova"
                   ? "scrollbar-none"
@@ -647,26 +643,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
         {showMobileDock && <MobileBottomNav />}
       </div>
-
-      {/* Legenda global do grupo ativo (somente desktop/tablet) */}
-      {!isMobileMode && (
-        <div className="fixed left-3 bottom-20 md:left-4 md:bottom-4 z-40 pointer-events-none">
-          <div className="pointer-events-auto w-[70vw] max-w-xs rounded-xl border border-border/70 bg-card/80 backdrop-blur-md shadow-[var(--shadow-card)]">
-            <div className="px-3 py-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[11px] font-medium text-muted-foreground">Grupo</span>
-                <span className="text-[11px] font-semibold text-foreground/90 truncate">
-                  {loadingGroup
-                    ? "Carregando..."
-                    : activeGroup?.name
-                      ? activeGroup.name
-                      : "Nenhum"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {user?.id ? (
         <HomeNotificationsDrawer
@@ -759,196 +735,5 @@ function MobilePageActionDock({
         ) : null}
       </div>
     </div>
-  );
-}
-
-interface AccountMenuProps {
-  user: any;
-  navigate: NavigateFunction;
-  onSignOut: () => void;
-  profile: { username: string | null; email: string | null; avatar_url: string | null } | null;
-}
-
-function DesktopHeader({
-  currentRoute,
-  user,
-  profile,
-  navigate,
-  handleSignOut,
-  locationPathname,
-}: {
-  currentRoute: { title: string; icon: any };
-  user: any;
-  profile: { username: string | null; email: string | null; avatar_url: string | null } | null;
-  navigate: NavigateFunction;
-  handleSignOut: () => void;
-  locationPathname: string;
-}) {
-  const { config } = usePageHeader();
-  const showGlobalSearch = locationPathname === "/";
-
-  const defaultTitle = currentRoute.title.split(" - ")[0];
-  const effectiveTitle = config?.title ?? defaultTitle;
-  const EffectiveIcon = (config?.icon as any) ?? currentRoute.icon;
-
-  const showBackButton =
-    locationPathname !== "/" && (config?.showBackButton ?? true);
-
-  return (
-    <div className="hidden md:flex shrink-0 bg-background -ml-20 w-[calc(100%+5rem)] px-4 pt-2 pb-2">
-      <div className="flex w-full items-stretch gap-5">
-        <ZeloLogo
-          alt="Logo do app"
-          className="h-16 w-16 rounded-xl p-1.5"
-        />
-
-        <div className="flex min-h-16 flex-1 items-center gap-3 rounded-lg border border-border/70 bg-card/90 px-3 py-1.5 shadow-[var(--shadow-card)]">
-        {showBackButton && (
-          <button
-            type="button"
-            onClick={() => {
-              if (config?.backTo) {
-                navigate(config.backTo);
-              } else {
-                navigate(-1);
-              }
-            }}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card hover:bg-accent/60 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-        )}
-
-        <div className="flex-1 min-w-0 flex items-center gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {EffectiveIcon && (
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent border border-border/60 text-primary">
-                <EffectiveIcon className="h-4 w-4" />
-              </span>
-            )}
-
-            {/* Título único (substitui breadcrumbs) */}
-            <h1 className="text-sm md:text-base font-semibold text-foreground truncate">
-              {effectiveTitle}
-            </h1>
-          </div>
-
-          {(config?.primaryActions || config?.secondaryActions) && (
-            <div className="ml-auto flex items-center gap-2 flex-nowrap overflow-x-auto max-w-[52vw]">
-              {config?.secondaryActions}
-              {config?.primaryActions}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {showGlobalSearch && (
-            <div className="w-52 lg:w-64 xl:w-72">
-              <GlobalSearchBar />
-            </div>
-          )}
-
-          <AccountMenu
-            user={user}
-            navigate={navigate}
-            onSignOut={handleSignOut}
-            profile={profile}
-          />
-        </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AccountMenu({ user, navigate, onSignOut, profile }: AccountMenuProps) {
-  const { shortcuts } = useSidebarPreferences();
-  const hiddenShortcuts = shortcuts
-    .filter((s) => !s.visible)
-    .sort((a, b) => a.order - b.order);
-  const displayName =
-    profile?.username ||
-    user?.user_metadata?.full_name ||
-    user?.email?.split("@")[0] ||
-    "Minha conta";
-
-  const displayEmail = profile?.email || user?.email || "";
-
-  const fallbackInitial = (profile?.username || user?.email || "U")
-    .charAt(0)
-    .toUpperCase();
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center border border-border/70 shadow-[var(--shadow-card)] text-sm font-semibold text-foreground"
-        >
-          <Avatar className="h-8 w-8 rounded-md">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="rounded-md bg-accent text-foreground text-sm font-semibold">
-              {fallbackInitial}
-            </AvatarFallback>
-          </Avatar>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="bg-accent text-foreground text-sm font-semibold">
-              {fallbackInitial}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-foreground">
-              {displayName}
-            </span>
-            <span className="text-xs text-muted-foreground truncate">
-              {displayEmail}
-            </span>
-          </div>
-        </div>
-
-        <DropdownMenuSeparator />
-
-        {hiddenShortcuts.length > 0 && (
-          <>
-            {hiddenShortcuts.map((shortcut) => {
-              const Icon = shortcut.icon;
-              return (
-                <DropdownMenuItem
-                  key={shortcut.id}
-                  onClick={() => navigate(shortcut.path)}
-                  className="cursor-pointer"
-                >
-                  {Icon && <Icon className="mr-2 h-4 w-4" />}
-                  <span>{shortcut.label}</span>
-                </DropdownMenuItem>
-              );
-            })}
-
-            <DropdownMenuSeparator />
-          </>
-        )}
-
-        <DropdownMenuItem
-          onClick={() => navigate("/configuracoes")}
-          className="cursor-pointer"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Configurações</span>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={onSignOut}
-          className="cursor-pointer text-destructive focus:text-destructive"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Sair</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

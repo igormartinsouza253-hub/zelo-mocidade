@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useMemo, useRef, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,12 @@ interface ExpandableWidgetProps {
   title: string;
   children: ReactNode;
   renderExpanded: () => ReactNode;
+}
+
+const ExpandableWidgetContext = createContext<{ openExpanded: () => void } | null>(null);
+
+export function useExpandableWidget() {
+  return useContext(ExpandableWidgetContext);
 }
 
 export function ExpandableWidget({ title, children, renderExpanded }: ExpandableWidgetProps) {
@@ -35,9 +41,11 @@ export function ExpandableWidget({ title, children, renderExpanded }: Expandable
 
   return (
     <>
-      <div className="h-full min-h-0" onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd}>
-        {children}
-      </div>
+      <ExpandableWidgetContext.Provider value={{ openExpanded: onDoubleClick }}>
+        <div className="h-full min-h-0" onDoubleClick={onDoubleClick} onTouchEnd={onTouchEnd}>
+          {children}
+        </div>
+      </ExpandableWidgetContext.Provider>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-[min(92vw,1100px)] p-0 overflow-hidden">

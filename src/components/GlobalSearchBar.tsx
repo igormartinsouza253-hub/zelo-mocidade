@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 const RECENT_SEARCHES_KEY = "globalSearchRecent";
 const MAX_RECENT_SEARCHES = 10;
@@ -68,6 +69,7 @@ function stripHtml(html: string): string {
 }
 
 export function GlobalSearchBar() {
+  const { activeGroupId } = useActiveGroup();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -90,23 +92,32 @@ export function GlobalSearchBar() {
     }
 
     const pattern = `%${trimmed}%`;
+    if (!activeGroupId) {
+      setSuggestions(buildRecentSuggestions(trimmed));
+      setIsOpen(true);
+      setHighlightedIndex(-1);
+      return;
+    }
 
     try {
       const [membrosResp, reunioesResp, notasResp] = await Promise.all([
         supabase
           .from("membros")
           .select("id, nome")
+          .eq("group_id", activeGroupId)
           .ilike("nome", pattern)
           .limit(5),
         supabase
           .from("reunioes")
           .select("id, data, tema")
+          .eq("group_id", activeGroupId)
           .or(`tema.ilike.${pattern}`)
           .order("data", { ascending: false })
           .limit(5),
         supabase
           .from("notas")
           .select("id, conteudo, created_at")
+          .eq("group_id", activeGroupId)
           .ilike("conteudo", pattern)
           .order("created_at", { ascending: false })
           .limit(5),

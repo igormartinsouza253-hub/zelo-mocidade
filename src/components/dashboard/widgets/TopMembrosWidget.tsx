@@ -1,11 +1,10 @@
-import { useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+﻿import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { WidgetSize } from "../types";
+import { ChevronDown, ChevronUp } from "lucide-react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { WIDGET_HEADER_PADDING, widgetTitleClass } from "../widgetHeaderStyles";
+import { Card, CardContent } from "@/components/ui/card";
+import type { WidgetSize } from "../types";
 
 interface TopMembrosWidgetProps {
   size: WidgetSize;
@@ -21,6 +20,28 @@ interface TopMembrosWidgetProps {
   onPeriodChange: (value: "1m" | "3m" | "1y") => void;
 }
 
+const PERIOD_OPTIONS = [
+  { value: "1m" as const, label: "Último mês" },
+  { value: "3m" as const, label: "Últimos 3 meses" },
+  { value: "1y" as const, label: "Todo o período" },
+];
+
+const primaryTranslucentStyle = {
+  backgroundColor: "hsl(var(--primary) / 0.5)",
+  color: "hsl(var(--primary-foreground))",
+};
+
+const primarySolidStyle = {
+  backgroundColor: "hsl(var(--primary))",
+  color: "hsl(var(--primary-foreground))",
+};
+
+function getInitials(name: string) {
+  const firstName = name.trim().split(/\s+/)[0] || "?";
+  const letters = firstName.slice(0, 2);
+  return letters.charAt(0).toUpperCase() + letters.slice(1).toLowerCase();
+}
+
 export const TopMembrosWidget = ({
   size,
   top5Membros,
@@ -31,7 +52,9 @@ export const TopMembrosWidget = ({
 }: TopMembrosWidgetProps) => {
   const navigate = useNavigate();
   const navigateTimerRef = useRef<number | null>(null);
-  const displayedMembros = size === "sm" ? top5Membros.slice(0, 3) : top5Membros;
+  const [expanded, setExpanded] = useState(false);
+  const compact = size === "sm";
+  const displayedMembros = compact ? top5Membros.slice(0, 5) : top5Membros;
 
   const cancelScheduledNavigate = () => {
     if (navigateTimerRef.current) {
@@ -48,154 +71,135 @@ export const TopMembrosWidget = ({
     }, 240);
   };
 
+  const setOrder = (leastFrequent: boolean) => {
+    if (leastFrequent !== showLeastFrequent) {
+      onToggleOrder();
+    }
+  };
+
   useEffect(() => {
     return () => cancelScheduledNavigate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (size === "sm") {
-    return <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
-        <CardHeader className={WIDGET_HEADER_PADDING["sm"] + " flex flex-row items-center justify-between"}>
-          <CardTitle className={widgetTitleClass("sm")}>
-            {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
-          </CardTitle>
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onToggleOrder}>
-            <ArrowUpDown className="h-3 w-3" />
-          </Button>
-        </CardHeader>
-        <CardContent className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2 pb-2 pt-0.5 scrollbar-none">
+  return (
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-primary/55 bg-card p-1.5 text-card-foreground shadow-[var(--shadow-card)]">
+      <div className="shrink-0 overflow-hidden rounded-[13px] bg-primary p-1.5 text-primary-foreground">
+        <div className="flex min-h-8 items-center justify-between gap-2">
+          <div className="min-w-0 px-1.5 leading-none">
+            <h3 className="truncate text-[13px] font-bold uppercase">
+              {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
+            </h3>
+            <p className="mt-1 truncate text-[12px] font-medium opacity-95">Nas Reuniões</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-primary-foreground/18 text-primary-foreground transition-colors hover:bg-primary-foreground/25"
+            aria-label={expanded ? "Recolher filtros" : "Expandir filtros"}
+          >
+            {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </button>
+        </div>
+
+        {expanded && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="rounded-[10px] bg-primary-foreground/18 px-2 py-1.5">
+              <p className="text-[10px] font-bold uppercase leading-none">Período</p>
+              <div className="mt-1.5 space-y-1">
+                {PERIOD_OPTIONS.map((option) => (
+                  <label key={option.value} className="flex cursor-pointer items-center gap-1.5 text-[10px] font-medium leading-none">
+                    <input
+                      type="radio"
+                      name={`top-period-${size}`}
+                      value={option.value}
+                      checked={period === option.value}
+                      onChange={() => onPeriodChange(option.value)}
+                      className="h-3 w-3 accent-primary-foreground"
+                    />
+                    <span className="truncate">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[10px] bg-primary-foreground/18 px-2 py-1.5">
+              <p className="text-[10px] font-bold uppercase leading-none">Ordem</p>
+              <div className="mt-1.5 space-y-1">
+                <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-medium leading-none">
+                  <input
+                    type="radio"
+                    name={`top-order-${size}`}
+                    checked={showLeastFrequent}
+                    onChange={() => setOrder(true)}
+                    className="h-3 w-3 accent-primary-foreground"
+                  />
+                  <span className="truncate">Menos frequentes</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-medium leading-none">
+                  <input
+                    type="radio"
+                    name={`top-order-${size}`}
+                    checked={!showLeastFrequent}
+                    onChange={() => setOrder(false)}
+                    className="h-3 w-3 accent-primary-foreground"
+                  />
+                  <span className="truncate">Mais frequentes</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <CardContent className={compact ? "min-h-0 flex-1 px-1.5 pb-1.5 pt-1.5" : "min-h-0 flex-1 px-1.5 pb-1.5 pt-2"}>
+        <div className={compact ? "h-full min-h-0 space-y-1.5 overflow-y-auto pr-1 scrollbar-none" : "h-full min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-none"}>
           {top5Membros.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground">Nenhum dado disponível</p>
+            <p className="px-2 py-3 text-sm font-semibold text-muted-foreground">Nenhum dado disponível</p>
           ) : (
             displayedMembros.map((membro, index) => (
               <button
                 key={membro.id}
                 type="button"
-                className="flex w-full items-center justify-between rounded-2xl px-2 py-1.5 text-[11px] transition-colors hover:bg-accent/45"
+                className={compact ? "flex w-full items-center justify-between gap-2 rounded-2xl px-1.5 py-1 transition-colors hover:bg-accent/45" : "flex w-full items-center justify-between gap-2 rounded-2xl px-1.5 py-1.5 transition-colors hover:bg-accent/45"}
                 onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
                 onDoubleClick={cancelScheduledNavigate}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <div className="relative">
-                    <Avatar className="h-5 w-5 rounded-lg border border-border/50">
-                      <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
-                      <AvatarFallback className="rounded-xl">{membro.nome.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-primary text-[8px] font-bold text-primary-foreground flex items-center justify-center">
-                      {index + 1}
+                    {membro.foto_url ? (
+                      <Avatar className={compact ? "h-8 w-8 rounded-[10px]" : "h-10 w-10 rounded-[11px]"}>
+                        <AvatarImage className="rounded-[11px] object-cover" src={membro.foto_url} alt={membro.nome} />
+                        <AvatarFallback className="rounded-[11px] text-base font-semibold" style={primaryTranslucentStyle}>
+                          {getInitials(membro.nome)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div
+                        className={compact ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-base font-semibold" : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-base font-semibold"}
+                        style={primaryTranslucentStyle}
+                      >
+                        {getInitials(membro.nome)}
+                      </div>
+                    )}
+                    <div
+                      className={compact ? "absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none" : "absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[10px] font-bold leading-none"}
+                      style={primarySolidStyle}
+                    >
+                      {String(index + 1).padStart(2, "0")}
                     </div>
                   </div>
-                  <span className="truncate text-foreground" title={membro.nome}>
+
+                  <span className={compact ? "truncate text-sm font-semibold text-foreground" : "truncate text-[15px] font-semibold text-foreground"} title={membro.nome}>
                     {membro.nome}
                   </span>
                 </div>
-                <span className="inline-flex items-center justify-center min-w-[24px] px-1.5 rounded-full bg-muted text-[10px] text-muted-foreground">
+
+                <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-[9px] px-1.5 text-sm font-semibold" style={primaryTranslucentStyle}>
                   {membro.presencas}
                 </span>
               </button>
-            ))
-          )}
-        </CardContent>
-      </Card>;
-  }
-  if (size === "md") {
-    return <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
-        <CardHeader className={WIDGET_HEADER_PADDING["md"] + " flex flex-row items-center justify-between"}>
-          <CardTitle className={widgetTitleClass("md")}>
-            {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
-          </CardTitle>
-          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onToggleOrder}>
-            <ArrowUpDown className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-0 scrollbar-none">
-          <div className="h-full min-h-0 space-y-1.5 w-full overflow-y-auto pr-1 scrollbar-none">
-            {top5Membros.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum dado disponível</p> : displayedMembros.map((membro, index) => <div key={membro.id} className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-2.5 py-1.5 text-sm transition-colors hover:bg-accent/45" onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)} onDoubleClick={cancelScheduledNavigate}>
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="relative">
-                      <Avatar className="h-7 w-7 rounded-xl border border-border/50">
-                        <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
-                        <AvatarFallback className="rounded-xl">{membro.nome.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-                        {index + 1}
-                      </div>
-                    </div>
-                    <span className="font-medium text-foreground truncate">{membro.nome}</span>
-                  </div>
-                  <span className="inline-flex items-center justify-center min-w-[26px] px-1.5 rounded-full bg-muted text-[11px] text-muted-foreground">
-                    {membro.presencas}
-                  </span>
-                </div>)}
-          </div>
-        </CardContent>
-      </Card>;
-  }
-  return (
-    <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
-      <CardHeader className={WIDGET_HEADER_PADDING["lg"] + " flex-row flex items-center justify-between px-3"}>
-        <div className="flex min-w-0 flex-col">
-          <CardTitle className={widgetTitleClass("lg")}>
-            {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
-          </CardTitle>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <select
-            value={period}
-            onChange={(e) => onPeriodChange(e.target.value as "1m" | "3m" | "1y")}
-            className="h-8 rounded-lg border border-border bg-background px-2 text-[11px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="1m">Último mês</option>
-            <option value="3m">Últimos 3 meses</option>
-            <option value="1y">Todo período</option>
-          </select>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleOrder}
-            className="h-8 w-8 rounded-lg border border-border/70 text-muted-foreground hover:text-primary hover:border-primary/70"
-            aria-label="Inverter ordem"
-          >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 min-h-0 px-3 pb-3 pt-0.5">
-        <div className="h-full min-h-0 space-y-2 w-full overflow-y-auto scrollbar-none pr-1">
-          {top5Membros.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
-          ) : (
-            displayedMembros.map((membro, index) => (
-              <div
-                key={membro.id}
-                className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-2.5 py-2 transition-colors hover:bg-accent/45"
-                onClick={() => navigateWithDelay(`/membros/visualizar/${membro.id}`)}
-                onDoubleClick={cancelScheduledNavigate}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="relative">
-                    <Avatar className="h-8 w-8 rounded-xl border border-border/50">
-                      <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
-                      <AvatarFallback className="rounded-xl">{membro.nome.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-                      {index + 1}
-                    </div>
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span
-                      className="text-sm font-medium text-foreground truncate"
-                      title={membro.nome}
-                    >
-                      {membro.nome}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">Presenças em reuniões</span>
-                  </div>
-                </div>
-                <span className="inline-flex items-center justify-center min-w-[28px] px-1.5 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                  {membro.presencas}
-                </span>
-              </div>
             ))
           )}
         </div>

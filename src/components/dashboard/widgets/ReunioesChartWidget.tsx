@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
@@ -20,6 +20,13 @@ import { resolveHslFromCssVar } from "@/lib/resolve-color";
 interface ReunioesChartWidgetProps {
   size: WidgetSize;
   compactMobile?: boolean;
+  dashboardSummary?: {
+    totalMembros: number;
+    totalReunioes: number;
+    mediaPresenca: number;
+    ultimaReuniao: string;
+    percentualGeral: number;
+  };
   reunioesRecentes: {
     data: string;
     total: number;
@@ -36,8 +43,10 @@ interface ReunioesChartWidgetProps {
 export const ReunioesChartWidget = ({
   size,
   compactMobile = false,
+  dashboardSummary,
   reunioesRecentes,
 }: ReunioesChartWidgetProps) => {
+  const chartId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const SERIES_COLORS: Record<string, string> = {
     Crianças: resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
     Meninos: resolveHslFromCssVar("--faixa-meninos", "138 62% 38%"),
@@ -47,19 +56,21 @@ export const ReunioesChartWidget = ({
   };
 
   const VISITAS_COLOR = resolveHslFromCssVar("--faixa-visitas", "33 100% 45%");
-
-  
+  const colorToGradient = (color: string) =>
+    `linear-gradient(145deg, color-mix(in hsl, ${color} 90%, white 18%), ${color} 58%, color-mix(in hsl, ${color} 82%, black 18%))`;
+  const seriesGradientId = (key: string) => `${chartId}-serie-${key.replace(/[^a-zA-Z0-9]/g, "")}`;
 
   const navigate = useNavigate();
   const navigateTimerRef = useRef<number | null>(null);
 
   const isSmall = size === "sm";
   const isLarge = size === "lg";
+  const isDashboardPanel = !!dashboardSummary && !compactMobile;
 
   const headerPadding = WIDGET_HEADER_PADDING[size];
   const titleTextSize = size === "sm" ? "sm" : size === "lg" ? "lg" : "md";
 
-  const meetingsLimit = compactMobile ? 5 : isLarge ? 7 : isSmall ? 4 : 5;
+  const meetingsLimit = isDashboardPanel ? 6 : compactMobile ? 5 : isLarge ? 7 : isSmall ? 4 : 5;
   const meetings = useMemo(
     () => reunioesRecentes.slice(-meetingsLimit),
     [meetingsLimit, reunioesRecentes],
@@ -137,6 +148,7 @@ export const ReunioesChartWidget = ({
     : [];
 
   const totalSelecionado = selectedReuniao?.total ?? 0;
+  const clampedFrequency = Math.max(0, Math.min(100, dashboardSummary?.percentualGeral || 0));
 
   const scheduleNavigate = () => {
     if (!isLarge) return;
@@ -255,17 +267,291 @@ export const ReunioesChartWidget = ({
     setSelectedIndex(index);
   };
 
+  const padStat = (value: number) => (value < 100 ? String(value).padStart(2, "0") : String(value));
+
+  const parseMeetingDate = (raw: string) => {
+    if (!raw) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      const parsed = parseISO(raw);
+      return isValid(parsed) ? parsed : null;
+    }
+
+    const shortMatch = raw.match(/^(\d{2})[/-](\d{2})/);
+    if (shortMatch) {
+      const [, day, month] = shortMatch;
+      return new Date(new Date().getFullYear(), Number(month) - 1, Number(day));
+    }
+
+    return null;
+  };
+
+  const formatDashboardDate = (raw: string) => {
+    const parsed = parseMeetingDate(raw);
+
+    if (!parsed) {
+      return { day: "--", month: "SEM DATA", compact: "--" };
+    }
+
+    const day = String(parsed.getDate()).padStart(2, "0");
+    const month = parsed.toLocaleString("pt-BR", { month: "long" }).toUpperCase();
+
+    return {
+      day,
+      month,
+      compact: `${day} DE ${month}`,
+    };
+  };
+
+  const dashboardSlots = useMemo(() => {
+    const missing = Math.max(0, 6 - meetings.length);
+    return [
+      ...Array.from({ length: missing }, (_, index) => ({
+        key: `empty-${index}`,
+        meeting: null,
+        meetingIndex: -1,
+      })),
+      ...meetings.map((meeting, index) => ({
+        key: `${meeting.data}-${index}`,
+        meeting,
+        meetingIndex: index,
+      })),
+    ].slice(-6);
+  }, [meetings]);
+
+  const dashboardSegments = [
+    { key: "visitas", label: "Visitas", color: VISITAS_COLOR },
+    { key: "Moços", label: "Moços", color: SERIES_COLORS["Moços"] },
+    { key: "Moças", label: "Moças", color: SERIES_COLORS["Moças"] },
+    { key: "Meninos", label: "Meninos", color: SERIES_COLORS["Meninos"] },
+    { key: "Meninas", label: "Meninas", color: SERIES_COLORS["Meninas"] },
+    { key: "Crianças", label: "Crianças", color: SERIES_COLORS["Crianças"] },
+  ] as const;
+
+  const dashboardResumoItems = selectedReuniao
+    ? [
+        { key: "Crianças" as const, label: "Crianças", color: SERIES_COLORS["Crianças"], value: selectedReuniao.Crianças ?? 0 },
+        { key: "Meninas" as const, label: "Meninas", color: SERIES_COLORS["Meninas"], value: selectedReuniao.Meninas ?? 0 },
+        { key: "Meninos" as const, label: "Meninos", color: SERIES_COLORS["Meninos"], value: selectedReuniao.Meninos ?? 0 },
+        { key: "Moças" as const, label: "Moças", color: SERIES_COLORS["Moças"], value: selectedReuniao.Moças ?? 0 },
+        { key: "Moços" as const, label: "Moços", color: SERIES_COLORS["Moços"], value: selectedReuniao.Moços ?? 0 },
+        { key: "visitas" as const, label: "Visitas", color: VISITAS_COLOR, value: selectedReuniao.visitas ?? 0 },
+      ]
+    : [];
+
+  const maxDashboardStack = Math.max(
+    1,
+    ...dashboardSlots.map((slot) => {
+      if (!slot.meeting) return 0;
+      return dashboardSegments.reduce((sum, segment) => sum + Number(slot.meeting?.[segment.key] ?? 0), 0);
+    }),
+  );
+
+  const ultimaDashboard = dashboardSummary ? formatDashboardDate(dashboardSummary.ultimaReuniao) : null;
+  const selectedDashboardDate = selectedReuniao ? formatDashboardDate(selectedReuniao.data) : null;
+  const recitativosMedios = Math.round(
+    meetings.reduce((sum, meeting) => sum + Number(meeting.recitativos_individuais ?? 0), 0) / Math.max(1, meetings.length),
+  );
+  const frequencyTone =
+    clampedFrequency < 30
+      ? { label: "Frequência ruim", accent: "hsl(var(--destructive))", soft: "hsl(var(--destructive) / 0.14)" }
+      : clampedFrequency < 70
+        ? { label: "Frequência regular", accent: "hsl(38 92% 48%)", soft: "hsl(38 92% 48% / 0.15)" }
+        : { label: "Boa frequência", accent: "hsl(145 55% 40%)", soft: "hsl(145 55% 40% / 0.14)" };
+
+  if (isDashboardPanel && dashboardSummary) {
+    const summaryCards = [
+      { value: padStat(dashboardSummary.totalMembros), label: "Membros", helper: "Ativos" },
+      { value: padStat(dashboardSummary.totalReunioes), label: "Reuniões", helper: "Registradas" },
+      { value: padStat(recitativosMedios), label: "Recitativos", helper: "Média por reunião" },
+      { value: ultimaDashboard?.day ?? "--", label: ultimaDashboard?.month ?? "Última", helper: "Última reunião" },
+      { value: padStat(clampedFrequency), label: frequencyTone.label, helper: "Percentual de frequência", tone: frequencyTone },
+    ];
+
+    return (
+      <Card
+        className="flex h-full min-h-0 cursor-pointer flex-col overflow-hidden rounded-[18px] border border-primary/55 bg-card p-1.5 text-card-foreground shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-elevated)]"
+        onClick={scheduleNavigate}
+        onDoubleClick={cancelScheduledNavigate}
+      >
+        <div className="grid shrink-0 grid-cols-[minmax(178px,1.2fr)_repeat(5,minmax(120px,1fr))] gap-1">
+          <div className="flex min-w-0 flex-col justify-center rounded-[12px] bg-primary px-3 py-2 text-primary-foreground">
+            <h3 className="truncate text-sm font-extrabold uppercase leading-none">Gráfico de presença</h3>
+            <p className="mt-1 truncate text-[10px] font-bold leading-none opacity-95">
+              Últimas {meetings.length} reuniões registradas
+            </p>
+          </div>
+
+          {summaryCards.map((item) => {
+            const tone = item.tone;
+            return (
+              <div
+                key={`${item.label}-${item.helper}`}
+                className="flex min-w-0 items-center gap-2.5 rounded-[12px] border border-primary/70 bg-card px-2 py-1.5"
+                style={tone ? { borderColor: tone.accent, background: tone.soft } : undefined}
+              >
+                <span
+                  className="inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary px-1.5 text-lg font-extrabold leading-none text-primary-foreground tabular-nums"
+                  style={tone ? { background: tone.accent } : undefined}
+                >
+                  {item.value}
+                </span>
+                <span className="min-w-0 leading-none">
+                  <span className="block truncate text-[9px] font-extrabold uppercase text-foreground">{item.label}</span>
+                  <span className="mt-1 block truncate text-[8px] font-bold text-muted-foreground">{item.helper}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-1.5 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(230px,0.38fr)] gap-2">
+          <div className="flex min-h-0 flex-col rounded-[13px] bg-muted/35 px-3 pb-2 pt-3">
+            <div className="grid min-h-0 flex-1 grid-cols-6 items-end gap-3 px-2">
+              {dashboardSlots.map((slot) => {
+                const meeting = slot.meeting;
+                const isSelected = meeting && slot.meetingIndex === selectedIndex;
+                const stackTotal = meeting
+                  ? dashboardSegments.reduce((sum, segment) => sum + Number(meeting[segment.key] ?? 0), 0)
+                  : 0;
+                const barHeight = meeting ? Math.max(26, Math.round((stackTotal / maxDashboardStack) * 78)) : 44;
+
+                return (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    disabled={!meeting}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (meeting) handleSelectMeeting(slot.meetingIndex);
+                    }}
+                    className="flex h-full min-w-0 flex-col items-center justify-end gap-2 disabled:cursor-default"
+                    aria-label={meeting ? `Selecionar reunião ${formatDashboardDate(meeting.data).compact}` : "Reunião não registrada"}
+                  >
+                    <div
+                      className={`flex w-[clamp(2.35rem,4.8vw,3.05rem)] flex-col-reverse overflow-hidden rounded-[10px] shadow-sm transition-opacity ${
+                        meeting ? (isSelected ? "opacity-100" : "opacity-80") : "opacity-20"
+                      }`}
+                      style={{ height: `${barHeight}%` }}
+                    >
+                      {meeting ? (
+                        dashboardSegments.map((segment, segmentIndex) => {
+                          const value = Number(meeting[segment.key] ?? 0);
+                          const segmentHeight = stackTotal > 0 ? Math.max(value > 0 ? 7 : 0, (value / stackTotal) * 100) : 0;
+                          return (
+                            <span
+                              key={segment.key}
+                              className={
+                                segmentIndex === 0
+                                  ? "rounded-b-[10px]"
+                                  : segmentIndex === dashboardSegments.length - 1
+                                    ? "rounded-t-[10px]"
+                                    : ""
+                              }
+                              style={{
+                                height: `${segmentHeight}%`,
+                                backgroundImage: colorToGradient(segment.color),
+                              }}
+                            />
+                          );
+                        })
+                      ) : (
+                        <span className="h-full rounded-[10px] border border-dashed border-primary/45 bg-primary/25" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-2 grid shrink-0 grid-cols-6 gap-3 px-2">
+              {dashboardSlots.map((slot) => {
+                const date = slot.meeting ? formatDashboardDate(slot.meeting.data) : null;
+                const isSelected = slot.meeting && slot.meetingIndex === selectedIndex;
+
+                return (
+                  <button
+                    key={`${slot.key}-date`}
+                    type="button"
+                    disabled={!slot.meeting}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (slot.meeting) handleSelectMeeting(slot.meetingIndex);
+                    }}
+                    className={`flex h-10 min-w-0 flex-col items-center justify-center rounded-[11px] border px-1 text-center font-extrabold uppercase leading-none transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : slot.meeting
+                          ? "border-primary/70 bg-card text-primary hover:bg-primary/10"
+                          : "border-primary/25 bg-card/40 text-primary/35"
+                    }`}
+                  >
+                    <span className="text-[11px]">{date?.day ?? "--"} DE</span>
+                    <span className="mt-0.5 max-w-full truncate text-[clamp(8px,0.72vw,11px)]">{date?.month ?? "SEM DATA"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-[13px] border border-primary/55 bg-muted/30 p-2">
+            <div className="flex h-10 shrink-0 items-stretch justify-between gap-2 rounded-[10px] border border-primary/45 bg-card py-1 pl-3 pr-1">
+              <h4 className="flex min-w-0 items-center truncate text-sm font-extrabold uppercase text-primary">Resumo da reunião</h4>
+              <span className="inline-flex min-w-[3.6rem] shrink-0 items-center justify-center rounded-[9px] bg-primary px-2 text-center text-[10px] font-extrabold uppercase leading-none text-primary-foreground">
+                {selectedDashboardDate ? (
+                  <>
+                    {selectedDashboardDate.day} DE
+                    <br />
+                    {selectedDashboardDate.month}
+                  </>
+                ) : (
+                  "SEM DATA"
+                )}
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-3 scrollbar-none">
+              {dashboardResumoItems.length > 0 ? (
+                dashboardResumoItems.map((item) => (
+                  <div key={item.key} className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className="h-5 w-2.5 shrink-0 rounded-full shadow-[0_4px_10px_hsl(var(--foreground)/0.14)]"
+                        style={{ backgroundImage: colorToGradient(item.color) }}
+                      />
+                      <span className="truncate text-sm font-bold text-foreground">{item.label}</span>
+                    </div>
+                    <span className="text-base font-extrabold tabular-nums text-foreground">{padStat(item.value)}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm font-semibold text-muted-foreground">Nenhuma reunião selecionada.</p>
+              )}
+            </div>
+
+            <div className="flex h-10 shrink-0 items-center justify-between rounded-[10px] bg-primary px-3 text-primary-foreground">
+              <span className="text-sm font-extrabold uppercase">Total geral</span>
+              <span className="text-2xl font-extrabold leading-none tabular-nums">{totalSelecionado}</span>
+            </div>
+          </aside>
+        </div>
+      </Card>
+    );
+  };
+
   return (
     <Card
-      className={`h-full bg-card text-card-foreground border-border/40 shadow-[var(--shadow-card)] flex flex-col overflow-hidden ${
+      className={`h-full rounded-3xl bg-card text-card-foreground border-border/55 shadow-[var(--shadow-card)] flex flex-col overflow-hidden ${
         isLarge ? "cursor-pointer transition-shadow hover:shadow-[var(--shadow-elevated)]" : ""
       }`}
       onClick={scheduleNavigate}
       onDoubleClick={cancelScheduledNavigate}
     >
       <CardHeader className={`${headerPadding} md:px-4`}>
-        <div className="flex items-baseline justify-between gap-3">
-          <CardTitle className={widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className={widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
+          </div>
           <span className="text-[11px] font-medium text-muted-foreground">
             Últimas {meetings.length} reuniões
           </span>
@@ -274,7 +560,7 @@ export const ReunioesChartWidget = ({
 
       <CardContent className={compactMobile ? "min-h-0 flex-1 px-2 pb-2 pt-1" : isSmall ? "min-h-0 flex-1 px-2 pb-2 pt-1" : "min-h-0 flex-1 px-3 pb-3 pt-2"}>
         {meetings.length === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/10 px-4 text-center text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/10 px-4 text-center text-sm text-muted-foreground">
             Sem reuniões recentes para exibir.
           </div>
         ) : (
@@ -289,7 +575,7 @@ export const ReunioesChartWidget = ({
                   : "grid-cols-1"
             }`}
           >
-            <div className="min-h-0 rounded-xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
+            <div className="min-h-0 rounded-2xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
               <div className="h-full min-h-0">
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
@@ -302,6 +588,16 @@ export const ReunioesChartWidget = ({
                       if (typeof index === "number") handleSelectMeeting(index);
                     }}
                   >
+                    <defs>
+                      {[...Object.entries(SERIES_COLORS), ["visitas", VISITAS_COLOR] as const].map(([key, color]) => (
+                        <linearGradient key={key} id={seriesGradientId(key)} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={color} stopOpacity="0.78" />
+                          <stop offset="42%" stopColor={color} stopOpacity="1" />
+                          <stop offset="100%" stopColor={color} stopOpacity="0.88" />
+                        </linearGradient>
+                      ))}
+                    </defs>
+
                     <CartesianGrid
                       strokeDasharray="3 6"
                       stroke="hsl(var(--border) / 0.35)"
@@ -340,7 +636,7 @@ export const ReunioesChartWidget = ({
                       />
                     )}
 
-                    <Bar dataKey="Crianças" stackId="a" fill={SERIES_COLORS["Crianças"]} barSize={barSize} radius={[0, 0, 10, 10]}>
+                    <Bar dataKey="Crianças" stackId="a" fill={`url(#${seriesGradientId("Crianças")})`} barSize={barSize} radius={[0, 0, 10, 10]}>
                       {visibleMeetings.map((meeting: any, index) => (
                         <Cell
                           key={`criancas-${index}`}
@@ -352,14 +648,14 @@ export const ReunioesChartWidget = ({
                     </Bar>
 
                     {(["Meninas", "Meninos", "Moças", "Moços"] as const).map((faixa) => (
-                      <Bar key={faixa} dataKey={faixa} stackId="a" fill={SERIES_COLORS[faixa]} barSize={barSize} radius={[0, 0, 0, 0]}>
+                      <Bar key={faixa} dataKey={faixa} stackId="a" fill={`url(#${seriesGradientId(faixa)})`} barSize={barSize} radius={[0, 0, 0, 0]}>
                         {visibleMeetings.map((meeting: any, index) => (
                           <Cell key={`${faixa}-${index}`} fillOpacity={compactMobile ? 1 : (meeting.__meetingIndex ?? index) === selectedIndex ? 1 : 0.46} />
                         ))}
                       </Bar>
                     ))}
 
-                    <Bar dataKey="visitas" stackId="a" fill={VISITAS_COLOR} barSize={barSize} radius={[10, 10, 0, 0]}>
+                    <Bar dataKey="visitas" stackId="a" fill={`url(#${seriesGradientId("visitas")})`} barSize={barSize} radius={[10, 10, 0, 0]}>
                       {visibleMeetings.map((meeting: any, index) => (
                         <Cell key={`visitas-${index}`} fillOpacity={compactMobile ? 1 : (meeting.__meetingIndex ?? index) === selectedIndex ? 1 : 0.46} />
                       ))}
@@ -371,7 +667,7 @@ export const ReunioesChartWidget = ({
             </div>
 
             {(!compactMobile || compactExpandedIndex !== null) && (
-            <aside className={`min-h-0 overflow-hidden rounded-xl border border-border/50 bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] shadow-[var(--shadow-soft)] md:px-4 ${compactMobile ? "px-2.5 py-2" : "px-3 py-3"}`}>
+            <aside className={`min-h-0 overflow-hidden rounded-2xl border border-border/50 bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] shadow-[var(--shadow-soft)] md:px-4 ${compactMobile ? "px-2.5 py-2" : "px-3 py-3"}`}>
               {selectedReuniao && (
                 <div className="flex h-full min-h-0 flex-col">
                   <div className={compactMobile ? "flex shrink-0 items-start justify-between gap-2" : "shrink-0 space-y-1"}>
@@ -385,7 +681,10 @@ export const ReunioesChartWidget = ({
                     {resumoItems.map((item) => (
                       <div key={item.key} className="flex min-w-0 items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className={compactMobile ? "h-2 w-2 shrink-0 rounded-full" : "h-2.5 w-2.5 shrink-0 rounded-full"} style={{ backgroundColor: item.color }} />
+                          <span
+                            className={compactMobile ? "h-2 w-2 shrink-0 rounded-full shadow-[0_3px_8px_hsl(var(--foreground)/0.14)]" : "h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_3px_8px_hsl(var(--foreground)/0.14)]"}
+                            style={{ backgroundImage: colorToGradient(item.color) }}
+                          />
                           <span className={compactMobile ? "truncate text-[11px] font-medium opacity-90" : "truncate text-sm font-medium opacity-90"}>{item.label}</span>
                         </div>
                         <span className={compactMobile ? "shrink-0 text-xs font-bold tabular-nums" : "text-sm font-semibold tabular-nums"}>{item.value}</span>

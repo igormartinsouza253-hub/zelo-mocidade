@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { cn } from "@/lib/utils";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 interface Membro {
   id: string;
   nome: string;
@@ -73,6 +74,7 @@ const FAIXAS_ETARIAS = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
 const VisualizarReuniao = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { activeGroupId } = useActiveGroup();
   const [reuniao, setReuniao] = useState<ReuniaoData | null>(null);
   const [membrosPresentes, setMembrosPresentes] = useState<Membro[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -88,10 +90,10 @@ const VisualizarReuniao = () => {
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
 
   useEffect(() => {
-    if (id) {
+    if (id && activeGroupId) {
       loadReuniao();
     }
-  }, [id]);
+  }, [activeGroupId, id]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -105,11 +107,14 @@ const VisualizarReuniao = () => {
   }, [carouselApi]);
 
   const loadReuniao = async () => {
+    if (!activeGroupId) return;
+
     try {
       const { data: reuniaoData, error: reuniaoError } = await supabase
         .from("reunioes")
         .select("*")
         .eq("id", id)
+        .eq("group_id", activeGroupId)
         .single();
 
       if (reuniaoError) throw reuniaoError;
@@ -145,6 +150,7 @@ const VisualizarReuniao = () => {
       const { data: presencas, error: presencasError } = await supabase
         .from("presencas")
         .select("membro_id, membro_nome, membro_faixa_etaria, orou")
+        .eq("group_id", activeGroupId)
         .eq("reuniao_id", id);
 
       if (presencasError) throw presencasError;
@@ -167,6 +173,7 @@ const VisualizarReuniao = () => {
         const { data: membrosStatus, error: membrosStatusError } = await supabase
           .from("membros")
           .select("id, nome, faixa_etaria, foto_url, ativo")
+          .eq("group_id", activeGroupId)
           .in("id", membroIds);
 
         if (membrosStatusError) throw membrosStatusError;
@@ -216,7 +223,10 @@ const VisualizarReuniao = () => {
         setChartData(data);
 
         // Create bar chart data (mantém como está: total atual por faixa)
-        const { data: allMembros } = await supabase.from("membros").select("faixa_etaria");
+        const { data: allMembros } = await supabase
+          .from("membros")
+          .select("faixa_etaria")
+          .eq("group_id", activeGroupId);
 
         const faixasTotal: Record<string, number> = {};
         (allMembros || []).forEach((membro) => {
