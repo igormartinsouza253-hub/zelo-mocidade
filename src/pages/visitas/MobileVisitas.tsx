@@ -570,7 +570,7 @@ export default function MobileVisitas() {
     setConfig({
       title: "Visitas",
       icon: Handshake,
-      breadcrumbs: [{ label: "Inicio", href: "/" }, { label: "Visitas" }],
+      breadcrumbs: [{ label: "Início", href: "/" }, { label: "Visitas" }],
       showBackButton: true,
       backTo: "/",
       mobileSearch: {

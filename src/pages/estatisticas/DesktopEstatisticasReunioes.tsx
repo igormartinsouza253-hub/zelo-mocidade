@@ -666,7 +666,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
           {/* Principais Estatísticas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             {/* Média Total */}
-            <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+            <Card className="bg-primary/5">
               <CardHeader className="pb-2 md:pb-3">
                 <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Users className="h-4 w-4" />
@@ -682,7 +682,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
             {/* Mais e menos frequentes */}
             {stats.mediaPorFaixa.length > 0 && (
               <>
-                <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
+                <Card className="bg-green-500/5">
                   <CardHeader className="pb-2 md:pb-3">
                     <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
                       Mais Frequentes
@@ -698,7 +698,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5">
+                <Card className="bg-amber-500/5">
                   <CardHeader className="pb-2 md:pb-3">
                     <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
                       Menos Frequentes

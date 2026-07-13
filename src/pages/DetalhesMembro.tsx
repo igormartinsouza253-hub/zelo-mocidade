@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { ArrowLeft, Trash2, Camera, Users, CalendarDays } from "lucide-react";
+import { ArrowLeft, Trash2, Camera, Users, CalendarDays, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -34,6 +34,7 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DesktopMemberForm, MEMBER_NOTES_LIMIT } from "@/components/members/DesktopMemberForm";
 
 interface Cargo {
   id: string;
@@ -147,6 +148,13 @@ const DetalhesMembro = () => {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 121 }, (_, index) => String(currentYear - index));
   }, []);
+  const desktopCargos = useMemo(() => {
+    const availableNames = new Set(cargosDisponiveis.map((cargo) => cargo.nome));
+    const legacy = formData.cargos
+      .filter((cargo) => !availableNames.has(cargo))
+      .map((nome) => ({ id: `legacy-${nome}`, nome }));
+    return [...legacy, ...cargosDisponiveis];
+  }, [cargosDisponiveis, formData.cargos]);
 
   useEffect(() => {
     setConfig({
@@ -161,6 +169,17 @@ const DetalhesMembro = () => {
           aria-label="Excluir membro"
         >
           <Trash2 className="h-4 w-4 text-destructive" />
+        </button>
+      ),
+      desktopTopbarActions: (
+        <button
+          type="button"
+          onClick={() => setShowDeleteDialog(true)}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-destructive transition-colors hover:bg-destructive hover:text-destructive-foreground"
+          aria-label="Excluir membro"
+          title="Excluir membro"
+        >
+          <Trash2 className="h-4 w-4" />
         </button>
       ),
     });
@@ -260,8 +279,7 @@ const DetalhesMembro = () => {
     }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processPhotoFile = (file: File) => {
     if (!file) return;
 
     // Validar tipo de arquivo
@@ -283,6 +301,11 @@ const DetalhesMembro = () => {
       setTempImageSrc(reader.result as string);
       setShowCropDialog(true);
     };
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processPhotoFile(file);
   };
 
   const handleCropComplete = async (croppedImageBlob: Blob) => {
@@ -493,9 +516,39 @@ const DetalhesMembro = () => {
 
   return (
     <>
-      <div className="flex h-full w-full justify-center overflow-y-auto bg-background pb-[calc(env(safe-area-inset-bottom)+12rem)] scrollbar-none md:pb-32 md:scrollbar-thin">
-        <div className="w-full max-w-2xl px-3 py-3 md:px-4 md:py-6 space-y-4 md:space-y-6">
-          <div className="hidden md:flex items-center gap-2 md:gap-4 mb-2 md:mb-4">
+      <DesktopMemberForm
+        mode="edit"
+        value={formData}
+        birthInput={birthInput}
+        photoUrl={formData.foto_url}
+        cargos={desktopCargos}
+        cargosLoading={cargosLoading}
+        saving={loading}
+        uploadingPhoto={uploadingPhoto}
+        onChange={(patch) => {
+          if (patch.telefone !== undefined) {
+            setFormData((prev) => ({ ...prev, telefone: formatBrazilPhone(patch.telefone ?? "") }));
+            return;
+          }
+          setFormData((prev) => ({ ...prev, ...patch }));
+        }}
+        onBirthChange={updateBirthInput}
+        onOpenDate={() => setShowDateDialog(true)}
+        onToggleCargo={toggleCargo}
+        onPhotoFile={processPhotoFile}
+        onEditCrop={() => {
+          if (formData.foto_url) {
+            setTempImageSrc(formData.foto_url);
+            setShowCropDialog(true);
+          }
+        }}
+        onCancel={() => navigate(-1)}
+        onSubmit={handleSubmit}
+      />
+
+      <div className="member-form-page flex h-full w-full justify-center overflow-y-auto bg-background pb-[calc(env(safe-area-inset-bottom)+12rem)] scrollbar-none md:hidden">
+        <div className="member-form-shell member-edit-shell w-full max-w-2xl px-3 py-3 md:h-full md:max-w-none md:px-5 md:py-4 space-y-4">
+          <div className="member-form-title hidden md:flex items-center gap-2 md:gap-4 mb-2">
             <Button
               variant="outline"
               size="icon"
@@ -515,7 +568,7 @@ const DetalhesMembro = () => {
             </Button>
           </div>
 
-          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+          <Card className="member-edit-photo overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
             <CardContent className="px-4 pb-5 pt-4 md:px-6 md:pb-6 md:pt-6">
               <div className="rounded-3xl border border-border/55 bg-background/55 p-3">
                 <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto do perfil</Label>
@@ -574,13 +627,13 @@ const DetalhesMembro = () => {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+          <Card className="member-form-card member-edit-form-card overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
             <CardHeader className="px-4 pb-2 pt-4 md:px-6 md:pb-4 md:pt-6">
               <CardTitle>Informações do Membro</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-5 md:px-6">
-              <form id="member-upsert-form" onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
+            <CardContent className="member-form-content px-4 pb-5 md:px-5">
+              <form id="member-upsert-form" onSubmit={handleSubmit} className="member-upsert-grid member-edit-grid space-y-4">
+                <div className="member-form-name space-y-2">
                   <Label htmlFor="nome">Nome Completo</Label>
                   <Input
                     id="nome"
@@ -593,7 +646,7 @@ const DetalhesMembro = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="member-form-birth space-y-2">
                   <Label htmlFor="birth_input">Nascimento ou aniversário</Label>
                   <div className="flex gap-2">
                     <Input
@@ -620,7 +673,7 @@ const DetalhesMembro = () => {
                   </p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="member-form-phone space-y-2">
                   <Label htmlFor="telefone">Telefone (opcional)</Label>
                   <Input
                     id="telefone"
@@ -635,7 +688,7 @@ const DetalhesMembro = () => {
                 </div>
 
                 {formData.telefone && (
-                  <div className="space-y-2">
+                  <div className="member-form-phone-owner space-y-2">
                     <Label htmlFor="status_telefone">Telefone é de</Label>
                     <Select
                       value={formData.status_telefone}
@@ -655,9 +708,9 @@ const DetalhesMembro = () => {
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div className="member-form-roles space-y-2">
                   <Label>Cargos (selecione um ou mais)</Label>
-                  <div className="space-y-2 rounded-3xl border border-border/55 bg-background/55 p-3">
+                  <div className="member-form-cargos-list space-y-2 rounded-3xl border border-border/55 bg-background/55 p-3">
                     {cargosLoading ? (
                       <>
                         <div className="flex items-center space-x-2">
@@ -676,7 +729,23 @@ const DetalhesMembro = () => {
                         </div>
                       </>
                     ) : (
-                      cargosDisponiveis.map((cargo) => (
+                      <>
+                        {formData.cargos
+                          .filter((cargoNome) => !cargosDisponiveis.some((cargo) => cargo.nome === cargoNome))
+                          .map((cargoNome) => (
+                            <div key={`legacy-${cargoNome}`} className="flex items-center space-x-2 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-2 py-1.5">
+                              <Checkbox
+                                id={`legacy-${cargoNome}`}
+                                checked
+                                onCheckedChange={() => toggleCargo(cargoNome)}
+                              />
+                              <label htmlFor={`legacy-${cargoNome}`} className="min-w-0 cursor-pointer text-sm font-medium leading-none">
+                                {cargoNome}
+                                <span className="ml-2 text-xs font-normal text-muted-foreground">Cargo excluído — desmarque para remover</span>
+                              </label>
+                            </div>
+                          ))}
+                        {cargosDisponiveis.map((cargo) => (
                         <div key={cargo.id} className="flex items-center space-x-2 rounded-2xl px-2 py-1.5 transition-colors hover:bg-accent/25">
                           <Checkbox
                             id={cargo.id}
@@ -690,13 +759,37 @@ const DetalhesMembro = () => {
                             {cargo.nome}
                           </label>
                         </div>
-                      ))
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="member-form-age-group space-y-2">
                   <Label htmlFor="faixa_etaria">Faixa Etária</Label>
+                  <div className="member-age-options hidden md:grid" role="radiogroup" aria-label="Faixa etária">
+                    {faixasEtarias.map((faixa) => {
+                      const selected = formData.faixa_etaria === faixa;
+                      return (
+                        <button
+                          key={faixa}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setFormData({ ...formData, faixa_etaria: faixa })}
+                          className={`member-age-option ${selected ? "is-selected" : ""}`}
+                        >
+                          <span className="member-age-option-check" aria-hidden="true">
+                            {selected && <Check className="h-3.5 w-3.5" />}
+                          </span>
+                          <span className="min-w-0 text-left">
+                            <strong>{faixa}</strong>
+                            <small>{faixa === "Crianças" ? "Infância" : faixa === "Meninos" || faixa === "Meninas" ? "Infantojuvenil" : "Juventude"}</small>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <Select
                     required
                     value={formData.faixa_etaria}
@@ -704,7 +797,7 @@ const DetalhesMembro = () => {
                       setFormData({ ...formData, faixa_etaria: value })
                     }
                   >
-                    <SelectTrigger className="h-12 rounded-2xl border-border/60 bg-background/70">
+                    <SelectTrigger className="h-12 rounded-2xl border-border/60 bg-background/70 md:hidden">
                       <SelectValue placeholder="Selecione a faixa etária" />
                     </SelectTrigger>
                     <SelectContent>
@@ -717,13 +810,14 @@ const DetalhesMembro = () => {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
+                <div className="member-form-notes space-y-2">
                   <Label htmlFor="observacoes">Observações (opcional)</Label>
                   <Textarea
                     id="observacoes"
                     value={formData.observacoes}
+                    maxLength={MEMBER_NOTES_LIMIT}
                     onChange={(e) =>
-                      setFormData({ ...formData, observacoes: e.target.value })
+                      setFormData({ ...formData, observacoes: e.target.value.slice(0, MEMBER_NOTES_LIMIT) })
                     }
                     placeholder="Observações sobre o membro"
                     rows={3}
@@ -732,7 +826,7 @@ const DetalhesMembro = () => {
                 </div>
 
                 {/* ações no mobile ficam no footer fixo */}
-                <div className="hidden md:flex gap-3 pt-4">
+                <div className="member-form-actions hidden md:flex gap-3 pt-2">
                   <Button
                     type="button"
                     variant="outline"

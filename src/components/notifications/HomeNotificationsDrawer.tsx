@@ -235,7 +235,7 @@ export function HomeNotificationsDrawer({ open, onOpenChange, userId }: Props) {
     if (!open) return null;
 
     return (
-      <div className="fixed left-[7.5rem] top-20 z-50 w-[22rem] overflow-hidden rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-[var(--shadow-elevated)]">
+      <div className="fixed right-[18px] top-[62px] z-50 w-[22rem] overflow-hidden rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-[var(--shadow-elevated)]">
         <div className="flex items-start gap-3 border-b border-border/70 px-4 py-3">
           <Bell className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">

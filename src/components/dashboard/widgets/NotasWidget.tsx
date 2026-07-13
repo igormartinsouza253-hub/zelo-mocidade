@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import type { WidgetSize } from "../types";
@@ -16,6 +17,7 @@ interface NotasWidgetProps {
   size: WidgetSize;
   notas: Nota[];
   onDelete: (id: string) => void;
+  desktopDashboard?: boolean;
 }
 
 const decodeEntities = (value: string) => {
@@ -68,10 +70,11 @@ const formatNoteDate = (dateString: string) => {
   return `${day} de ${month.charAt(0).toUpperCase()}${month.slice(1)}`;
 };
 
-export const NotasWidget = ({ size, notas }: NotasWidgetProps) => {
+export const NotasWidget = ({ size, notas, desktopDashboard = false }: NotasWidgetProps) => {
   const navigate = useNavigate();
   const navigateTimerRef = useRef<number | null>(null);
   const compact = size === "sm";
+  const [activeNote, setActiveNote] = useState(0);
 
   const cancelScheduledNavigate = () => {
     if (navigateTimerRef.current) {
@@ -96,14 +99,27 @@ export const NotasWidget = ({ size, notas }: NotasWidgetProps) => {
   const notasOrdenadas = [...notas].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
-  const notasVisiveis = compact ? notasOrdenadas.slice(0, 1) : notasOrdenadas;
+  const safeActiveNote = Math.min(activeNote, Math.max(0, notasOrdenadas.length - 1));
+  const notasVisiveis = desktopDashboard
+    ? notasOrdenadas.slice(safeActiveNote, safeActiveNote + 1)
+    : compact
+      ? notasOrdenadas.slice(0, 1)
+      : notasOrdenadas;
+
+  useEffect(() => {
+    if (!desktopDashboard || notasOrdenadas.length <= 1) return;
+    const interval = window.setInterval(() => {
+      setActiveNote((current) => (current + 1) % notasOrdenadas.length);
+    }, 6500);
+    return () => window.clearInterval(interval);
+  }, [desktopDashboard, notasOrdenadas.length]);
 
   return (
     <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-primary/55 bg-card p-1.5 text-card-foreground shadow-[var(--shadow-card)]">
       <div className="shrink-0 rounded-[13px] bg-primary p-1.5 text-primary-foreground">
         <div className="flex min-h-8 items-center justify-between gap-2">
           <div className="min-w-0 px-1.5 leading-none">
-            <h3 className={compact ? "truncate text-[12px] font-bold uppercase" : "truncate text-[16px] font-bold uppercase"}>
+            <h3 className={compact ? "truncate text-[12px] font-bold" : "truncate text-[16px] font-bold"}>
               Notas rápidas
             </h3>
             <p className={compact ? "mt-1 truncate text-[10px] font-medium opacity-95" : "mt-1 truncate text-[12px] font-medium opacity-95"}>
@@ -112,7 +128,7 @@ export const NotasWidget = ({ size, notas }: NotasWidgetProps) => {
           </div>
           <button
             type="button"
-            className={compact ? "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-primary-foreground/18 text-primary-foreground transition-colors hover:bg-primary-foreground/25" : "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary-foreground/18 text-primary-foreground transition-colors hover:bg-primary-foreground/25"}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-primary-foreground/18 text-primary-foreground transition-colors hover:bg-primary-foreground/25"
             onClick={(event) => {
               event.stopPropagation();
               navigate("/notas/nova");
@@ -130,7 +146,7 @@ export const NotasWidget = ({ size, notas }: NotasWidgetProps) => {
             Nenhuma nota cadastrada
           </div>
         ) : (
-          <div className={compact ? "h-full min-h-0 overflow-y-auto pr-1 scrollbar-none" : "h-full min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-none"}>
+          <div className={desktopDashboard ? "flex h-full min-h-0 flex-col" : compact ? "h-full min-h-0 overflow-y-auto pr-1 scrollbar-none" : "h-full min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-none"}>
             {notasVisiveis.map((nota) => {
               const { title, preview } = getNoteParts(nota.conteudo);
 
@@ -138,7 +154,7 @@ export const NotasWidget = ({ size, notas }: NotasWidgetProps) => {
                 <button
                   key={nota.id}
                   type="button"
-                  className={compact ? "flex w-full flex-col rounded-[13px] border border-primary/55 bg-card px-2.5 py-2 text-left transition-colors hover:bg-accent/35" : "flex w-full flex-col rounded-[13px] border border-primary/55 bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent/35"}
+                  className={desktopDashboard ? "flex min-h-0 flex-1 flex-col rounded-[13px] border border-primary/55 bg-card px-3 py-3 text-left transition-colors hover:bg-accent/35" : compact ? "flex w-full flex-col rounded-[13px] border border-primary/55 bg-card px-2.5 py-2 text-left transition-colors hover:bg-accent/35" : "flex w-full flex-col rounded-[13px] border border-primary/55 bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent/35"}
                   onClick={() => navigateWithDelay(`/notas/editar/${nota.id}`)}
                   onDoubleClick={cancelScheduledNavigate}
                 >
@@ -150,13 +166,20 @@ export const NotasWidget = ({ size, notas }: NotasWidgetProps) => {
                       {formatNoteDate(nota.created_at)}
                     </span>
                   </div>
-                  <p className={compact ? "mt-1 line-clamp-3 text-[11px] font-semibold leading-snug text-muted-foreground" : "mt-1 line-clamp-3 text-[13px] font-semibold leading-snug text-muted-foreground"}>
+                  <p className={desktopDashboard ? "mt-2 line-clamp-[8] text-[13px] font-medium leading-relaxed text-muted-foreground" : compact ? "mt-1 line-clamp-3 text-[11px] font-semibold leading-snug text-muted-foreground" : "mt-1 line-clamp-3 text-[13px] font-semibold leading-snug text-muted-foreground"}>
                     {preview}
                   </p>
                 </button>
               );
             })}
-            {!compact && notasVisiveis.length < 2 ? (
+            {desktopDashboard && notasOrdenadas.length > 1 ? (
+              <div className="mt-2 flex h-7 shrink-0 items-center justify-center gap-2">
+                <button type="button" className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-secondary" onClick={() => setActiveNote((safeActiveNote - 1 + notasOrdenadas.length) % notasOrdenadas.length)} aria-label="Nota anterior"><ChevronLeft className="h-4 w-4" /></button>
+                <div className="flex items-center gap-1.5">{notasOrdenadas.map((nota, index) => <button key={nota.id} type="button" onClick={() => setActiveNote(index)} className={`h-1.5 rounded-full transition-all ${index === safeActiveNote ? "w-5 bg-foreground" : "w-2.5 bg-muted-foreground/45"}`} aria-label={`Exibir nota ${index + 1}`} />)}</div>
+                <button type="button" className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-secondary" onClick={() => setActiveNote((safeActiveNote + 1) % notasOrdenadas.length)} aria-label="Próxima nota"><ChevronRight className="h-4 w-4" /></button>
+              </div>
+            ) : null}
+            {!desktopDashboard && !compact && notasVisiveis.length < 2 ? (
               <button
                 type="button"
                 className="flex min-h-[4.5rem] w-full flex-col items-start justify-center rounded-[13px] border border-dashed border-primary/35 bg-primary/5 px-3 py-2.5 text-left text-primary transition-colors hover:bg-primary/10"

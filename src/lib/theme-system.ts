@@ -79,16 +79,16 @@ export const PALETTES: Record<PaletteId, ThemedPalette> = {
   }),
   olive: createPalette({
     light: {
-      primary: "88 35% 45%",
-      primaryContainer: "88 40% 94%",
-      secondary: "88 20% 90%",
-      accent: "46 85% 55%",
-      background: "60 20% 98%",
-      surface: "0 0% 100%",
-      surfaceAlt: "60 14% 95%",
-      border: "60 10% 86%",
-      textPrimary: "210 15% 15%",
-      textSecondary: "210 10% 40%",
+      primary: "48 30% 34%",
+      primaryContainer: "45 30% 92%",
+      secondary: "42 12% 88%",
+      accent: "48 36% 72%",
+      background: "42 24% 96%",
+      surface: "42 20% 99%",
+      surfaceAlt: "42 14% 92%",
+      border: "45 10% 76%",
+      textPrimary: "60 5% 15%",
+      textSecondary: "48 5% 39%",
       success: "123 35% 42%",
       warning: "46 85% 55%",
       error: "0 70% 50%",
@@ -100,16 +100,16 @@ export const PALETTES: Record<PaletteId, ThemedPalette> = {
       chartMuted: "88 14% 78%",
     },
     dark: {
-      primary: "88 35% 60%",
-      primaryContainer: "88 20% 20%",
-      secondary: "88 16% 18%",
-      accent: "46 85% 60%",
-      background: "210 15% 8%",
-      surface: "210 15% 13%",
-      surfaceAlt: "210 14% 18%",
-      border: "210 12% 26%",
-      textPrimary: "0 0% 98%",
-      textSecondary: "210 10% 72%",
+      primary: "48 35% 77%",
+      primaryContainer: "60 4% 20%",
+      secondary: "60 3% 29%",
+      accent: "48 27% 66%",
+      background: "75 5% 12%",
+      surface: "60 4% 17%",
+      surfaceAlt: "60 3% 22%",
+      border: "60 3% 32%",
+      textPrimary: "48 25% 91%",
+      textSecondary: "48 8% 70%",
       success: "123 35% 55%",
       warning: "46 85% 60%",
       error: "0 70% 58%",
@@ -303,7 +303,8 @@ export function applySemanticTheme(
 
   const adjustedPrimary = adjustLightness(theme.primary, primaryLightnessAdjust);
   setVar("--primary", adjustedPrimary);
-  setVar("--primary-foreground", "0 0% 100%");
+  const primaryForeground = palette === "olive" && mode === "dark" ? "60 5% 15%" : "0 0% 100%";
+  setVar("--primary-foreground", primaryForeground);
 
   // Background helpers to allow tinted app shells
   setVar("--primary-bg", adjustedPrimary);
@@ -329,7 +330,7 @@ export function applySemanticTheme(
   setVar("--sidebar-background", theme.surface);
   setVar("--sidebar-foreground", theme.textPrimary);
   setVar("--sidebar-primary", theme.primary);
-  setVar("--sidebar-primary-foreground", "0 0% 100%");
+  setVar("--sidebar-primary-foreground", primaryForeground);
   setVar("--sidebar-accent", theme.surfaceAlt);
   setVar("--sidebar-accent-foreground", theme.primary);
   setVar("--sidebar-border", adjustLightness(theme.border, borderContrastAdjust));

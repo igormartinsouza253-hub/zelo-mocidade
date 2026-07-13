@@ -34,29 +34,29 @@ type FieldErrors = {
 };
 
 const passwordPolicyMessage =
-  "A senha precisa ter no minimo 8 caracteres, com letra maiuscula, letra minuscula e numero.";
+  "A senha precisa ter no mínimo 8 caracteres, com letra maiúscula, letra minúscula e número.";
 
 const strongPasswordSchema = z
   .string()
   .min(8, passwordPolicyMessage)
-  .max(100, "A senha deve ter no maximo 100 caracteres.")
+  .max(100, "A senha deve ter no máximo 100 caracteres.")
   .regex(/[a-z]/, passwordPolicyMessage)
   .regex(/[A-Z]/, passwordPolicyMessage)
   .regex(/[0-9]/, passwordPolicyMessage);
 
 const loginSchema = z.object({
-  identifier: z.string().trim().min(1, "Informe seu email ou nome de usuario.").max(255),
-  password: z.string().min(1, "Informe sua senha.").max(100, "A senha deve ter no maximo 100 caracteres."),
+  identifier: z.string().trim().min(1, "Informe seu email ou nome de usuário.").max(255),
+  password: z.string().min(1, "Informe sua senha.").max(100, "A senha deve ter no máximo 100 caracteres."),
 });
 
 const signupSchema = z.object({
-  email: z.string().trim().min(1, "Informe seu email.").email("Digite um email valido.").max(255),
+  email: z.string().trim().min(1, "Informe seu email.").email("Digite um email válido.").max(255),
   username: z
     .string()
     .trim()
-    .min(USERNAME_MIN_LENGTH, `O nome de usuario precisa ter pelo menos ${USERNAME_MIN_LENGTH} caracteres.`)
-    .max(USERNAME_MAX_LENGTH, `O nome de usuario deve ter no maximo ${USERNAME_MAX_LENGTH} caracteres.`)
-    .regex(/^[a-z0-9._-]+$/, "Use apenas letras, numeros, ponto, traco ou underline no nome de usuario."),
+    .min(USERNAME_MIN_LENGTH, `O nome de usuário precisa ter pelo menos ${USERNAME_MIN_LENGTH} caracteres.`)
+    .max(USERNAME_MAX_LENGTH, `O nome de usuário deve ter no máximo ${USERNAME_MAX_LENGTH} caracteres.`)
+    .regex(/^[a-z0-9._-]+$/, "Use apenas letras, números, ponto, traço ou underline no nome de usuário."),
   password: strongPasswordSchema,
 });
 
@@ -97,15 +97,15 @@ function getAuthErrorMessage(error: AuthError) {
   const message = error.message.toLowerCase();
 
   if (message.includes("invalid login credentials")) {
-    return "Email, nome de usuario ou senha incorretos. Confira os dados ou use 'Esqueci minha senha'.";
+    return "Email, nome de usuário ou senha incorretos. Confira os dados ou use 'Esqueci minha senha'.";
   }
 
   if (message.includes("email not confirmed")) {
-    return "Seu email ainda nao foi confirmado. Abra o email de confirmacao enviado pelo Supabase e tente novamente.";
+    return "Seu email ainda não foi confirmado. Abra o email de confirmação enviado pelo Supabase e tente novamente.";
   }
 
   if (message.includes("user already registered") || message.includes("already registered")) {
-    return "Este email ja esta cadastrado. Entre com ele ou use outro email.";
+    return "Este email já está cadastrado. Entre com ele ou use outro email.";
   }
 
   if (message.includes("weak password") || message.includes("password")) {
@@ -117,10 +117,10 @@ function getAuthErrorMessage(error: AuthError) {
   }
 
   if (message.includes("signup disabled")) {
-    return "O cadastro esta desativado no Supabase. Ative novos cadastros nas configuracoes de autenticacao.";
+    return "O cadastro está desativado no Supabase. Ative novos cadastros nas configurações de autenticação.";
   }
 
-  return "Nao foi possivel concluir agora. Verifique sua conexao e tente novamente.";
+  return "Não foi possível concluir agora. Verifique sua conexão e tente novamente.";
 }
 
 async function bootstrapCurrentUser() {
@@ -138,7 +138,7 @@ async function bootstrapCurrentUser() {
   });
 
   if (error) {
-    console.warn("[Auth] Nao foi possivel preparar acesso base do usuario:", error);
+    console.warn("[Auth] Não foi possível preparar acesso base do usuário:", error);
   }
 }
 
@@ -153,7 +153,7 @@ async function getPostAuthDestination(userId: string) {
 
   const { data, error } = await supabase.rpc("get_my_group_context" as any);
   if (error) {
-    console.warn("[Auth] Nao foi possivel checar grupos do usuario:", error);
+    console.warn("[Auth] Não foi possível checar grupos do usuário:", error);
     return "/grupo";
   }
 
@@ -169,7 +169,7 @@ async function isUsernameAvailable(username: string) {
 
   const status = (error as any)?.context?.status;
   if (error && status !== 404) {
-    console.warn("[Auth] Nao foi possivel verificar username antes do cadastro:", error);
+    console.warn("[Auth] Não foi possível verificar username antes do cadastro:", error);
   }
 
   return true;
@@ -208,10 +208,10 @@ const Auth = () => {
   }, [isForgot, isReset, isSignup]);
 
   const description = useMemo(() => {
-    if (isSignup) return "Cadastre-se para comecar a usar o sistema.";
-    if (isForgot) return "Informe o email da conta para receber o link de recuperacao.";
+    if (isSignup) return "Cadastre-se para começar a usar o sistema.";
+    if (isForgot) return "Informe o email da conta para receber o link de recuperação.";
     if (isReset) return "Defina uma nova senha para sua conta.";
-    return "Entre com seu email ou nome de usuario para acessar o sistema.";
+    return "Entre com seu email ou nome de usuário para acessar o sistema.";
   }, [isForgot, isReset, isSignup]);
 
   useEffect(() => {
@@ -272,7 +272,7 @@ const Auth = () => {
 
     const normalizedIdentifier = normalizeUsername(trimmedIdentifier);
     if (!normalizedIdentifier) {
-      throw new Error("Informe um nome de usuario valido.");
+      throw new Error("Informe um nome de usuário válido.");
     }
 
     const { data: resolved, error } = await supabase.functions.invoke("resolve-username", {
@@ -280,7 +280,7 @@ const Auth = () => {
     });
 
     if (error || !resolved || typeof resolved.email !== "string") {
-      throw new Error("Usuario nao encontrado. Confira o nome ou entre com o email.");
+      throw new Error("Usuário não encontrado. Confira o nome ou entre com o email.");
     }
 
     return resolved.email;
@@ -325,7 +325,7 @@ const Auth = () => {
     try {
       loginEmail = await resolveLoginEmail(identifier);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel localizar este usuario.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível localizar este usuário.");
       setIsLoading(false);
       return;
     }
@@ -380,8 +380,8 @@ const Auth = () => {
 
     const usernameAvailable = await isUsernameAvailable(normalizedUsername);
     if (!usernameAvailable) {
-      setFieldErrors((prev) => ({ ...prev, username: "Este nome de usuario ja esta em uso." }));
-      toast.error("Este nome de usuario ja esta em uso. Escolha outro.");
+      setFieldErrors((prev) => ({ ...prev, username: "Este nome de usuário já está em uso." }));
+      toast.error("Este nome de usuário já está em uso. Escolha outro.");
       setIsLoading(false);
       return;
     }
@@ -435,8 +435,8 @@ const Auth = () => {
     const rawIdentifier = resetEmail.trim() || identifier.trim();
 
     if (!rawIdentifier) {
-      setFieldErrors({ resetEmail: "Informe o email ou nome de usuario da conta." });
-      toast.error("Informe o email ou nome de usuario da conta.");
+      setFieldErrors({ resetEmail: "Informe o email ou nome de usuário da conta." });
+      toast.error("Informe o email ou nome de usuário da conta.");
       return;
     }
 
@@ -454,9 +454,9 @@ const Auth = () => {
 
       setMode("login");
       setIdentifier(targetEmail);
-      toast.success("Enviamos um link de recuperacao para seu email.");
+      toast.success("Enviamos um link de recuperação para seu email.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel enviar o email de recuperacao.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o email de recuperação.");
     } finally {
       setIsLoading(false);
     }
@@ -473,8 +473,8 @@ const Auth = () => {
     }
 
     if (resetPassword !== confirmResetPassword) {
-      setFieldErrors({ resetPassword: "As senhas nao coincidem." });
-      toast.error("As senhas nao coincidem.");
+      setFieldErrors({ resetPassword: "As senhas não coincidem." });
+      toast.error("As senhas não coincidem.");
       return;
     }
 
@@ -505,15 +505,15 @@ const Auth = () => {
       if (isForgot) await handleSendPasswordReset();
       if (isReset) await handleUpdateRecoveredPassword();
     } catch (error) {
-      console.error("[Auth] Erro na autenticacao:", error);
-      toast.error("Nao foi possivel concluir agora. Verifique sua conexao e tente novamente.");
+      console.error("[Auth] Erro na autenticação:", error);
+      toast.error("Não foi possível concluir agora. Verifique sua conexão e tente novamente.");
       setIsLoading(false);
     }
   };
 
   const handleSavedAccountClick = (account: SavedAccount) => {
     setMode("login");
-    setIdentifier(account.username || account.email);
+    setIdentifier(account.email);
     setPassword("");
     setEmailConfirmationNotice(null);
   };
@@ -524,7 +524,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-center text-2xl font-bold">{title}</CardTitle>
@@ -557,12 +557,10 @@ const Auth = () => {
                         <UserRound className="h-4 w-4" />
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
-                          {account.username || account.email}
+                        <span className="block truncate text-sm font-medium">{account.email}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {account.username ? `@${account.username}` : "Conta salva"}
                         </span>
-                        {account.username && (
-                          <span className="block truncate text-xs text-muted-foreground">{account.email}</span>
-                        )}
                       </span>
                     </button>
                     <button
@@ -583,7 +581,7 @@ const Auth = () => {
             {(isLogin || isForgot) && (
               <div className="space-y-2">
                 <Label htmlFor={isForgot ? "resetEmail" : "identifier"}>
-                  {isForgot ? "Email ou nome de usuario" : "Email ou nome de usuario"}
+                  {isForgot ? "Email ou nome de usuário" : "Email ou nome de usuário"}
                 </Label>
                 <Input
                   id={isForgot ? "resetEmail" : "identifier"}
@@ -611,7 +609,7 @@ const Auth = () => {
             {isSignup && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="username">Nome de usuario</Label>
+                  <Label htmlFor="username">Nome de usuário</Label>
                   <Input
                     id="username"
                     type="text"
@@ -629,7 +627,7 @@ const Auth = () => {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Pode digitar com espacos; o app ajusta para o formato aceito.
+                    Pode digitar com espaços; o app ajusta para o formato aceito.
                   </p>
                   {fieldErrors.username && <p className="text-sm text-destructive">{fieldErrors.username}</p>}
                 </div>
@@ -701,7 +699,7 @@ const Auth = () => {
                 </div>
                 {isSignup && (
                   <p className="text-xs text-muted-foreground">
-                    Minimo 8 caracteres, com maiuscula, minuscula e numero.
+                    Mínimo 8 caracteres, com maiúscula, minúscula e número.
                   </p>
                 )}
                 {isSignup && fieldErrors.password && (
@@ -738,7 +736,7 @@ const Auth = () => {
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Minimo 8 caracteres, com maiuscula, minuscula e numero.
+                    Mínimo 8 caracteres, com maiúscula, minúscula e número.
                   </p>
                   {fieldErrors.resetPassword && (
                     <p className="text-sm text-destructive">{fieldErrors.resetPassword}</p>
@@ -797,7 +795,7 @@ const Auth = () => {
                 className="text-primary hover:underline"
                 disabled={isLoading}
               >
-                {isLogin ? "Nao tem uma conta? Cadastre-se" : "Ja tem uma conta? Faca login"}
+                {isLogin ? "Não tem uma conta? Cadastre-se" : "Já tem uma conta? Faça login"}
               </button>
             )}
           </div>

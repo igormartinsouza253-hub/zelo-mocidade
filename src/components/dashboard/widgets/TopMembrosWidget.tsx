@@ -87,7 +87,7 @@ export const TopMembrosWidget = ({
       <div className="shrink-0 overflow-hidden rounded-[13px] bg-primary p-1.5 text-primary-foreground">
         <div className="flex min-h-8 items-center justify-between gap-2">
           <div className="min-w-0 px-1.5 leading-none">
-            <h3 className="truncate text-[13px] font-bold uppercase">
+            <h3 className="truncate text-[15px] font-bold">
               {showLeastFrequent ? "Menos frequentes" : "Mais frequentes"}
             </h3>
             <p className="mt-1 truncate text-[12px] font-medium opacity-95">Nas Reuniões</p>
@@ -96,7 +96,7 @@ export const TopMembrosWidget = ({
           <button
             type="button"
             onClick={() => setExpanded((current) => !current)}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-primary-foreground/18 text-primary-foreground transition-colors hover:bg-primary-foreground/25"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-primary-foreground/18 text-primary-foreground transition-colors hover:bg-primary-foreground/25"
             aria-label={expanded ? "Recolher filtros" : "Expandir filtros"}
           >
             {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}

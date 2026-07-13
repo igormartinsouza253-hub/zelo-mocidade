@@ -64,8 +64,8 @@ export function MobileStatsGrid({
   ] as const;
 
   return (
-    <section aria-label="Estatísticas" className="w-full">
-      <div className="grid grid-cols-2 gap-2">
+    <section aria-label="Estatísticas" className="w-full md:col-span-2">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {items.map((item) => (
           <Card
             key={item.label}

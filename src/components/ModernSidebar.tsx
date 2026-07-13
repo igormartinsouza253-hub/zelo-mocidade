@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Award,
@@ -11,6 +11,7 @@ import {
   Home,
   LogOut,
   MapPin,
+  MoreHorizontal,
   Plus,
   Settings,
   StickyNote,
@@ -28,9 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { ZeloLogo } from "@/components/ZeloLogo";
-import { usePageHeader } from "@/components/layout/PageHeaderContext";
-import { useSidebarPreferences } from "@/hooks/useSidebarPreferences";
 import { cn } from "@/lib/utils";
+import type { SidebarShortcut } from "@/types/sidebar";
 
 const SIDEBAR_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   home: Home,
@@ -57,14 +57,27 @@ type SidebarAction = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
-  primary?: boolean;
 };
 
 const QUICK_ACTIONS: SidebarAction[] = [
   { label: "Novo membro", icon: UserPlus, path: "/membros/novo" },
-  { label: "Nova reunião", icon: CalendarPlus, path: "/reunioes/nova", primary: true },
+  { label: "Nova reunião", icon: CalendarPlus, path: "/reunioes/nova" },
   { label: "Nova visita", icon: Handshake, path: "/visitas/nova" },
   { label: "Novo evento", icon: Plus, path: "/calendario?new=1" },
+];
+
+const PRIMARY_SHORTCUTS: SidebarShortcut[] = [
+  { id: "home", label: "Início", icon: Home, path: "/", visible: true, order: 1 },
+  { id: "members", label: "Membros", icon: Users, path: "/membros", visible: true, order: 2 },
+  { id: "meetings", label: "Reuniões", icon: Handshake, path: "/reunioes", visible: true, order: 3 },
+  { id: "birthdays", label: "Agenda", icon: CalendarDays, path: "/calendario", visible: true, order: 4 },
+  { id: "stats", label: "Estatísticas", icon: BarChart3, path: "/estatisticas", visible: true, order: 5 },
+];
+
+const SECONDARY_SHORTCUTS: SidebarShortcut[] = [
+  { id: "roles", label: "Cargos", icon: Award, path: "/cargos", visible: false, order: 6 },
+  { id: "notes", label: "Notas", icon: StickyNote, path: "/notas", visible: false, order: 7 },
+  { id: "visits", label: "Visitas", icon: MapPin, path: "/visitas", visible: false, order: 8 },
 ];
 
 export function ModernSidebar({
@@ -77,10 +90,10 @@ export function ModernSidebar({
   onSignOut,
 }: ModernSidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [lockedExpanded, setLockedExpanded] = useState<boolean | null>(null);
   const expandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { shortcuts } = useSidebarPreferences();
-  const { config } = usePageHeader();
+  const pointerInsideRef = useRef(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -91,15 +104,9 @@ export function ModernSidebar({
     };
   }, []);
 
-  const visibleShortcuts = useMemo(
-    () => shortcuts.filter((s) => s.visible).sort((a, b) => a.order - b.order),
-    [shortcuts],
-  );
-
-  const hiddenShortcuts = useMemo(
-    () => shortcuts.filter((s) => !s.visible).sort((a, b) => a.order - b.order),
-    [shortcuts],
-  );
+  const visibleShortcuts = PRIMARY_SHORTCUTS;
+  const hiddenShortcuts = SECONDARY_SHORTCUTS;
+  const sidebarExpanded = lockedExpanded ?? isExpanded;
 
   const isActive = (path: string) => {
     const [pathname] = path.split("?");
@@ -121,6 +128,9 @@ export function ModernSidebar({
   };
 
   const handleMouseEnter = () => {
+    pointerInsideRef.current = true;
+    if (lockedExpanded !== null) return;
+
     if (collapseTimeoutRef.current) {
       window.clearTimeout(collapseTimeoutRef.current);
       collapseTimeoutRef.current = null;
@@ -129,10 +139,13 @@ export function ModernSidebar({
     expandTimeoutRef.current = window.setTimeout(() => {
       setIsExpanded(true);
       expandTimeoutRef.current = null;
-    }, 360);
+    }, 220);
   };
 
   const handleMouseLeave = () => {
+    pointerInsideRef.current = false;
+    if (lockedExpanded !== null) return;
+
     if (expandTimeoutRef.current) {
       window.clearTimeout(expandTimeoutRef.current);
       expandTimeoutRef.current = null;
@@ -141,7 +154,36 @@ export function ModernSidebar({
     collapseTimeoutRef.current = window.setTimeout(() => {
       setIsExpanded(false);
       collapseTimeoutRef.current = null;
-    }, 780);
+    }, 520);
+  };
+
+  const clearSidebarTimers = () => {
+    if (expandTimeoutRef.current) {
+      window.clearTimeout(expandTimeoutRef.current);
+      expandTimeoutRef.current = null;
+    }
+
+    if (collapseTimeoutRef.current) {
+      window.clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
+  };
+
+  const handlePopupOpenChange = (open: boolean) => {
+    if (open) {
+      clearSidebarTimers();
+      setLockedExpanded((current) => current ?? isExpanded);
+      return;
+    }
+
+    setLockedExpanded(null);
+
+    if (!pointerInsideRef.current) {
+      collapseTimeoutRef.current = window.setTimeout(() => {
+        setIsExpanded(false);
+        collapseTimeoutRef.current = null;
+      }, 180);
+    }
   };
 
   return (
@@ -149,26 +191,26 @@ export function ModernSidebar({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        "fixed bottom-4 left-4 top-4 z-40 hidden rounded-2xl border border-sidebar-border/80 bg-sidebar-background/95 text-sidebar-foreground shadow-[var(--shadow-elevated)] backdrop-blur-md transition-[width] duration-300 ease-in-out md:flex md:flex-col",
-        isExpanded ? "w-72" : "w-24",
+        "fixed bottom-4 left-4 top-4 z-40 hidden rounded-2xl border border-sidebar-border/80 bg-sidebar-background/95 text-sidebar-foreground shadow-[var(--shadow-elevated)] backdrop-blur-md transition-[width,box-shadow] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] will-change-[width] md:flex md:flex-col",
+        sidebarExpanded ? "w-72" : "w-20",
       )}
     >
       <div className="flex h-full min-h-0 flex-col px-3 py-3">
-        <div className={cn("flex items-center gap-3", isExpanded ? "justify-start" : "justify-center")}>
+        <div className={cn("flex items-center gap-3", sidebarExpanded ? "justify-start" : "justify-center")}>
           <button
             type="button"
             onClick={() => navigateTo("/")}
             className={cn(
               "flex items-center justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              isExpanded ? "shrink-0" : "h-14 w-full",
+              sidebarExpanded ? "shrink-0" : "h-12 w-full",
             )}
             aria-label="Ir para o início"
             title="Início"
           >
-            <ZeloLogo className={cn(isExpanded ? "h-12 w-12" : "h-11 w-11", "rounded-2xl p-1")} />
+            <ZeloLogo compact className={cn(sidebarExpanded ? "h-12 w-12" : "h-10 w-10", "rounded-2xl p-1")} />
           </button>
 
-          {isExpanded && (
+          {sidebarExpanded && (
             <div className="min-w-0 flex-1 animate-fade-in">
               <p className="truncate text-sm font-bold leading-tight text-foreground">Zelo</p>
               <p className="truncate text-[11px] font-medium text-muted-foreground">{groupLabel}</p>
@@ -176,14 +218,14 @@ export function ModernSidebar({
           )}
         </div>
 
-        {isExpanded && (
+        {sidebarExpanded && (
           <div className="mt-3 animate-fade-in [&_form>div]:rounded-xl [&_form>div]:px-2 [&_form>div]:py-1 [&_form>div>div]:py-0.5 [&_input]:h-7 [&_input]:text-xs">
             <GlobalSearchBar />
           </div>
         )}
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
-          <SidebarSection title="Atalhos" expanded={isExpanded} subtle signal={visibleShortcuts.length > 5}>
+          <SidebarSection title="Navegação" expanded={sidebarExpanded} signal={false}>
             {visibleShortcuts.map((shortcut) => {
               const Icon = SIDEBAR_ICON_MAP[shortcut.id] ?? shortcut.icon;
               return (
@@ -191,58 +233,44 @@ export function ModernSidebar({
                   key={shortcut.id}
                   icon={Icon}
                   label={shortcut.label}
-                  expanded={isExpanded}
+                  expanded={sidebarExpanded}
                   active={isActive(shortcut.path)}
                   onClick={() => navigateTo(shortcut.path)}
                 />
               );
             })}
-          </SidebarSection>
 
-          <SidebarSection title="Ações rápidas" expanded={isExpanded} grouped signal={QUICK_ACTIONS.length > 3}>
-            {QUICK_ACTIONS.map((action) => (
-              <SidebarButton
-                key={action.path}
-                icon={action.icon}
-                label={action.label}
-                expanded={isExpanded}
-                active={isActive(action.path)}
-                primary={action.primary}
-                onClick={() => navigateTo(action.path)}
+            {hiddenShortcuts.length > 0 && (
+              <MoreShortcutsMenu
+                shortcuts={hiddenShortcuts}
+                expanded={sidebarExpanded}
+                navigateTo={navigateTo}
+                onOpenChange={handlePopupOpenChange}
               />
-            ))}
+            )}
           </SidebarSection>
 
-          {isExpanded && (config?.primaryActions || config?.secondaryActions) && (
-            <section className="min-h-0 animate-fade-in overflow-hidden rounded-2xl border border-border/45 bg-background/55 p-2">
-              <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                Página
-              </p>
-              <div className="flex max-h-28 flex-col gap-2 overflow-y-auto pr-1 scrollbar-none [&_button]:w-full [&_button]:justify-start">
-                {config?.secondaryActions}
-                {config?.primaryActions}
-              </div>
-            </section>
-          )}
+          <CreateMenu expanded={sidebarExpanded} navigateTo={navigateTo} onOpenChange={handlePopupOpenChange} />
         </div>
+
         <div className="mt-3 space-y-2 border-t border-sidebar-border/60 pt-3">
           <SidebarButton
             icon={Bell}
             label="Notificações"
-            expanded={isExpanded}
+            expanded={sidebarExpanded}
             onClick={onOpenNotifications}
             badge={unreadNotifications}
           />
 
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={handlePopupOpenChange}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 className={cn(
                   "flex items-center gap-3 rounded-xl text-left transition-colors hover:bg-accent",
-                  isExpanded
+                  sidebarExpanded
                     ? "w-full border border-sidebar-border/70 bg-background/70 p-2"
-                    : "h-14 w-full justify-center rounded-2xl p-0",
+                    : "h-12 w-full justify-center p-0",
                 )}
                 aria-label="Conta"
                 title="Conta"
@@ -253,7 +281,7 @@ export function ModernSidebar({
                     {fallbackInitial}
                   </AvatarFallback>
                 </Avatar>
-                {isExpanded && (
+                {sidebarExpanded && (
                   <div className="min-w-0 flex-1 animate-fade-in">
                     <p className="truncate text-xs font-semibold text-foreground">{displayName}</p>
                     <p className="truncate text-[10px] text-muted-foreground">{displayEmail || groupLabel}</p>
@@ -276,22 +304,6 @@ export function ModernSidebar({
               </div>
 
               <DropdownMenuSeparator />
-
-              {hiddenShortcuts.map((shortcut) => {
-                const Icon = shortcut.icon;
-                return (
-                  <DropdownMenuItem
-                    key={shortcut.id}
-                    onClick={() => navigateTo(shortcut.path)}
-                    className="cursor-pointer"
-                  >
-                    {Icon && <Icon className="mr-2 h-4 w-4" />}
-                    <span>{shortcut.label}</span>
-                  </DropdownMenuItem>
-                );
-              })}
-
-              {hiddenShortcuts.length > 0 && <DropdownMenuSeparator />}
 
               <DropdownMenuItem onClick={() => navigateTo("/grupo/info")} className="cursor-pointer">
                 <Users className="mr-2 h-4 w-4" />
@@ -317,32 +329,16 @@ export function ModernSidebar({
 function SidebarSection({
   title,
   expanded,
-  className,
-  grouped = false,
-  subtle = false,
   signal = false,
   children,
 }: {
   title: string;
   expanded: boolean;
-  className?: string;
-  grouped?: boolean;
-  subtle?: boolean;
   signal?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section
-      className={cn(
-        "relative min-h-0",
-        expanded
-          ? "overflow-hidden rounded-2xl border p-2"
-          : "overflow-visible rounded-2xl border px-2 py-2",
-        grouped && "border-primary/25 bg-primary/10 shadow-[var(--shadow-soft)]",
-        subtle && "border-border/45 bg-background/45",
-        className,
-      )}
-    >
+    <section className="relative min-h-0">
       {expanded && (
         <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
           {title}
@@ -350,8 +346,8 @@ function SidebarSection({
       )}
       <div
         className={cn(
-          "space-y-2 overflow-y-auto scrollbar-none",
-          expanded ? "max-h-[min(31vh,15.5rem)] pr-1" : "max-h-[min(42vh,22rem)]",
+          "space-y-1.5 overflow-y-auto scrollbar-none",
+          expanded ? "max-h-[min(46vh,24rem)] pr-1" : "max-h-[min(52vh,27rem)]",
         )}
       >
         {children}
@@ -365,12 +361,102 @@ function SidebarSection({
   );
 }
 
+function CreateMenu({
+  expanded,
+  navigateTo,
+  onOpenChange,
+}: {
+  expanded: boolean;
+  navigateTo: (path: string) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "group flex items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-[var(--shadow-soft)] transition-colors hover:bg-primary/90",
+            expanded ? "h-11 w-full gap-3 px-3" : "mx-auto h-12 w-12 justify-center px-0",
+          )}
+          aria-label="Criar"
+          title="Criar"
+        >
+          <Plus className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110" />
+          {expanded && <span className="min-w-0 flex-1 truncate text-left animate-fade-in">Criar</span>}
+          {expanded && <MoreHorizontal className="h-4 w-4 shrink-0 opacity-80" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="right" className="w-56">
+        {QUICK_ACTIONS.map((action) => {
+          const Icon = action.icon;
+          return (
+            <DropdownMenuItem
+              key={action.path}
+              onClick={() => navigateTo(action.path)}
+              className="cursor-pointer"
+            >
+              <Icon className="mr-2 h-4 w-4" />
+              {action.label}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MoreShortcutsMenu({
+  shortcuts,
+  expanded,
+  navigateTo,
+  onOpenChange,
+}: {
+  shortcuts: SidebarShortcut[];
+  expanded: boolean;
+  navigateTo: (path: string) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "group relative flex items-center gap-3 rounded-xl border border-transparent text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-sidebar-border/70 hover:bg-accent hover:text-foreground",
+            expanded ? "h-11 w-full px-3" : "mx-auto h-11 w-11 justify-center px-0",
+          )}
+          aria-label="Mais atalhos"
+          title="Mais atalhos"
+        >
+          <MoreHorizontal className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110" />
+          {expanded && <span className="min-w-0 flex-1 truncate text-left animate-fade-in">Mais</span>}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="right" className="w-56">
+        {shortcuts.map((shortcut) => {
+          const Icon = SIDEBAR_ICON_MAP[shortcut.id] ?? shortcut.icon;
+          return (
+            <DropdownMenuItem
+              key={shortcut.id}
+              onClick={() => navigateTo(shortcut.path)}
+              className="cursor-pointer"
+            >
+              {Icon && <Icon className="mr-2 h-4 w-4" />}
+              <span>{shortcut.label}</span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function SidebarButton({
   icon: Icon,
   label,
   expanded,
   active = false,
-  primary = false,
   badge,
   onClick,
 }: {
@@ -378,7 +464,6 @@ function SidebarButton({
   label: string;
   expanded: boolean;
   active?: boolean;
-  primary?: boolean;
   badge?: number;
   onClick: () => void;
 }) {
@@ -392,13 +477,14 @@ function SidebarButton({
         "group relative flex items-center gap-3 rounded-xl border border-transparent text-sm font-semibold transition-all duration-200",
         expanded ? "h-11 w-full px-3" : "mx-auto h-11 w-11 justify-center px-0",
         active
-          ? "border-primary/40 bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"
-          : primary
-            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
-            : "text-sidebar-foreground hover:border-sidebar-border/70 hover:bg-accent",
+          ? "border-primary/35 bg-primary/15 text-primary"
+          : "text-sidebar-foreground hover:border-sidebar-border/70 hover:bg-accent",
       )}
       title={label}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
     >
+      {active && expanded && <span className="absolute left-0 h-5 w-1 rounded-r-full bg-primary" />}
       <Icon className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110" />
       {expanded && <span className="min-w-0 flex-1 truncate text-left animate-fade-in">{label}</span>}
       {showBadge && (

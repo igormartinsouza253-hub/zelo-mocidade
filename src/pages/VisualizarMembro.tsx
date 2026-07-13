@@ -29,6 +29,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MemberInformationCard } from "@/components/membros/MemberInformationCard";
+import { MemberFrequencyCard } from "@/components/membros/MemberFrequencyCard";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MemberInsightsCarousel } from "@/components/membros/MemberInsightsCarousel";
 
 interface Membro {
   id: string;
@@ -55,14 +59,18 @@ interface Estatisticas {
   taxaMensalPorcentagem: number;
   ultimasPresencas: string[];
   alertaAusencias: boolean;
+  tendenciaMensal: { label: string; taxa: number }[];
+  sequenciaRecente: { data: string; presente: boolean }[];
+  maiorSequencia: number;
+  primeiraPresenca: string | null;
 }
 
 const getFirstName = (nome: string) => nome.trim().split(/\s+/)[0] || "Membro";
 
 const getNameSizeClass = (nome: string) => {
-  if (nome.length > 34) return "text-lg";
-  if (nome.length > 24) return "text-xl";
-  return "text-2xl";
+  if (nome.length > 34) return "text-lg md:text-2xl";
+  if (nome.length > 24) return "text-xl md:text-3xl";
+  return "text-2xl md:text-4xl";
 };
 
 const formatPhoneBR = (telefone: string | null) => {
@@ -119,8 +127,13 @@ const VisualizarMembro = () => {
     taxaMensalPorcentagem: 0,
     ultimasPresencas: [],
     alertaAusencias: false,
+    tendenciaMensal: [],
+    sequenciaRecente: [],
+    maiorSequencia: 0,
+    primeiraPresenca: null,
   });
   const { setConfig } = usePageHeader();
+  const isMobile = useIsMobile();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
@@ -208,23 +221,52 @@ const VisualizarMembro = () => {
   useEffect(() => {
     if (!membro) return;
     const firstName = getFirstName(membro.nome);
-
     setConfig({
-      title: firstName,
+      title: isMobile ? firstName : "Informações do membro",
       icon: Users,
       breadcrumbs: [
         { label: "Início", href: "/" },
         { label: "Membros", href: "/membros" },
-        { label: firstName },
+        { label: membro.nome },
       ],
       showBackButton: true,
       backTo: "/membros",
-      secondaryActions: (
+      primaryActions: !isMobile ? (
+        <Button type="button" onClick={() => navigate(`/membros/editar/${membro.id}`)} className="gap-2">
+          <Edit className="h-4 w-4" />
+          Editar informações
+        </Button>
+      ) : undefined,
+      secondaryActions: !isMobile ? (
+        <>
+          <Button type="button" variant="outline" onClick={() => navigate("/membros")} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Voltar aos membros
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
+                aria-label="Ações do membro"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir ou inativar membro
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      ) : (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card transition-colors hover:bg-accent/60"
               aria-label="Ações do membro"
             >
               <MoreVertical className="h-4 w-4" />
@@ -232,11 +274,11 @@ const VisualizarMembro = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/membros/editar/${membro.id}`)}>
-              <Edit className="h-4 w-4 mr-2" />
+              <Edit className="mr-2 h-4 w-4" />
               Editar
             </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="mr-2 h-4 w-4" />
               Remover membro
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -245,7 +287,7 @@ const VisualizarMembro = () => {
     });
 
     return () => setConfig(null);
-  }, [membro, navigate, setConfig, handleDelete]);
+  }, [membro, navigate, setConfig, handleDelete, isMobile]);
 
   const loadMembro = async () => {
     try {
@@ -258,22 +300,62 @@ const VisualizarMembro = () => {
 
       if (error) throw error;
       setMembro(data);
-
-      if (data?.created_by_user_id) {
-        const { data: creatorProfile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", data.created_by_user_id)
-          .maybeSingle();
-        setCreatedByName(creatorProfile?.username ?? null);
-      } else {
-        setCreatedByName(null);
-      }
+      await resolveCreatorName(data?.created_by_user_id ?? null);
     } catch (error) {
       console.error("Erro ao carregar membro:", error);
       toast.error("Erro ao carregar dados do membro");
       navigate("/membros");
     }
+  };
+
+  const resolveCreatorName = async (creatorId: string | null) => {
+    if (!activeGroupId) {
+      setCreatedByName(null);
+      return;
+    }
+
+    const idsToResolve = new Set<string>();
+    if (creatorId) idsToResolve.add(creatorId);
+
+    const { data: groupData } = await supabase
+      .from("groups")
+      .select("created_by")
+      .eq("id", activeGroupId)
+      .maybeSingle();
+
+    const groupOwnerId = (groupData as { created_by?: string | null } | null)?.created_by ?? null;
+    if (!creatorId && groupOwnerId) idsToResolve.add(groupOwnerId);
+
+    if (!creatorId && !groupOwnerId) {
+      const { data: adminRows } = await supabase
+        .from("group_members")
+        .select("user_id")
+        .eq("group_id", activeGroupId)
+        .eq("role", "admin")
+        .limit(1);
+
+      const adminId = (adminRows as Array<{ user_id?: string | null }> | null)?.[0]?.user_id ?? null;
+      if (adminId) idsToResolve.add(adminId);
+    }
+
+    if (!idsToResolve.size) {
+      setCreatedByName("Administrador do grupo");
+      return;
+    }
+
+    const ids = Array.from(idsToResolve);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username, email")
+      .in("id", ids);
+
+    const profileById = new Map((profiles as Array<{ id: string; username?: string | null; email?: string | null }> | null ?? []).map((profile) => [profile.id, profile]));
+    const preferredId = creatorId ?? groupOwnerId ?? ids[0];
+    const profile = preferredId ? profileById.get(preferredId) : null;
+    const fallbackProfile = profile ?? profileById.values().next().value;
+    const label = fallbackProfile?.username || fallbackProfile?.email || "Administrador do grupo";
+
+    setCreatedByName(label);
   };
 
   const loadEstatisticas = async () => {
@@ -285,6 +367,10 @@ const VisualizarMembro = () => {
         taxaMensalPorcentagem: 0,
         ultimasPresencas: [],
         alertaAusencias: false,
+        tendenciaMensal: [],
+        sequenciaRecente: [],
+        maiorSequencia: 0,
+        primeiraPresenca: null,
       });
       return;
     }
@@ -330,30 +416,58 @@ const VisualizarMembro = () => {
         .map((p: any) => p.reunioes?.data)
         .filter(Boolean);
 
-      const { data: ultimasReunioes } = await supabase
+      const seisMesesAtras = new Date();
+      seisMesesAtras.setMonth(seisMesesAtras.getMonth() - 5, 1);
+      const { data: reunioesPeriodo } = await supabase
         .from("reunioes")
         .select("id, data")
         .eq("group_id", activeGroupId)
-        .order("data", { ascending: false })
-        .limit(4);
+        .gte("data", seisMesesAtras.toISOString().split("T")[0])
+        .order("data", { ascending: true });
 
+      const presencasDatas = new Set(
+        (presencasData || []).map((presenca: any) => presenca.reunioes?.data).filter(Boolean),
+      );
+      const reunioesOrdenadas = reunioesPeriodo || [];
+      const sequenciaRecente = reunioesOrdenadas
+        .slice(-8)
+        .reverse()
+        .map((reuniao) => ({ data: reuniao.data, presente: presencasDatas.has(reuniao.data) }));
       let ausenciasConsecutivas = 0;
-      if (ultimasReunioes) {
-        for (const reuniao of ultimasReunioes) {
-          const { count } = await supabase
-            .from("presencas")
-            .select("*", { count: "exact", head: true })
-            .eq("membro_id", id)
-            .eq("group_id", activeGroupId)
-            .eq("reuniao_id", reuniao.id);
+      for (const reuniao of sequenciaRecente) {
+        if (!reuniao.presente) ausenciasConsecutivas++;
+        else break;
+      }
 
-          if (count === 0) {
-            ausenciasConsecutivas++;
-          } else {
-            break;
-          }
+      let maiorSequencia = 0;
+      let sequenciaAtual = 0;
+      for (const reuniao of reunioesOrdenadas) {
+        if (presencasDatas.has(reuniao.data)) {
+          sequenciaAtual++;
+          maiorSequencia = Math.max(maiorSequencia, sequenciaAtual);
+        } else {
+          sequenciaAtual = 0;
         }
       }
+
+      const tendenciaMensal = Array.from({ length: 6 }, (_, indice) => {
+        const dataMes = new Date();
+        dataMes.setDate(1);
+        dataMes.setMonth(dataMes.getMonth() - (5 - indice));
+        const ano = dataMes.getFullYear();
+        const mes = dataMes.getMonth();
+        const reunioesDoMes = reunioesOrdenadas.filter((reuniao) => {
+          const data = parseISO(reuniao.data);
+          return data.getFullYear() === ano && data.getMonth() === mes;
+        });
+        const presencasDoMes = reunioesDoMes.filter((reuniao) => presencasDatas.has(reuniao.data)).length;
+        return {
+          label: format(dataMes, "MMM", { locale: ptBR }).replace(".", ""),
+          taxa: reunioesDoMes.length ? Math.round((presencasDoMes / reunioesDoMes.length) * 100) : 0,
+        };
+      });
+
+      const primeiraPresenca = (presencasData || []).at(-1)?.reunioes?.data || null;
 
       setEstatisticas({
         totalReunioes: totalReunioes || 0,
@@ -362,6 +476,10 @@ const VisualizarMembro = () => {
         taxaMensalPorcentagem: Math.round(taxaMensal),
         ultimasPresencas,
         alertaAusencias: ausenciasConsecutivas > 3,
+        tendenciaMensal,
+        sequenciaRecente,
+        maiorSequencia,
+        primeiraPresenca,
       });
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
@@ -552,172 +670,83 @@ const VisualizarMembro = () => {
 
   return (
     <>
-      <div className="flex h-full w-full justify-center overflow-y-auto bg-background pb-[calc(env(safe-area-inset-bottom)+12rem)] scrollbar-none md:pb-32 md:scrollbar-thin">
-        <div className="w-full max-w-2xl space-y-4 px-3 py-3 md:px-4 md:py-8">
-          {/* Cabeçalho principal agora é controlado pelo layout */}
+      <div className="h-full w-full overflow-y-auto bg-background pb-[calc(env(safe-area-inset-bottom)+12rem)] scrollbar-none md:overflow-hidden md:pb-0">
+        <div className="member-dashboard mx-auto w-full max-w-2xl space-y-4 px-3 py-3 md:grid md:h-full md:max-w-none md:grid-cols-[minmax(280px,0.92fr)_minmax(320px,1fr)] md:items-stretch md:gap-4 md:space-y-0 md:px-5 md:py-5 xl:grid-cols-[minmax(380px,1.12fr)_minmax(360px,1fr)_minmax(420px,1.18fr)] xl:gap-5">
+          <section className="flex min-h-0 flex-col gap-4">
+            <Card className="member-dashboard-profile h-full min-h-0 overflow-hidden rounded-[20px] border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
+              <CardContent className="member-dashboard-profile-content p-4 md:flex md:h-full md:min-h-0 md:flex-col md:justify-between md:gap-5">
+                <div className="flex items-center gap-3 md:block md:min-h-0">
+                  <Avatar
+                    data-member-dashboard-avatar
+                    className={`h-[5.875rem] w-[5.875rem] shrink-0 rounded-2xl border border-border/60 bg-primary/10 md:aspect-square md:rounded-[18px] ${membro.foto_url ? "cursor-zoom-in" : ""}`}
+                    onClick={() => membro.foto_url && setProfilePhotoOpen(true)}
+                  >
+                    <AvatarImage className="rounded-2xl object-cover md:rounded-[18px]" src={membro.foto_url || ""} alt={membro.nome} />
+                    <AvatarFallback className="rounded-2xl bg-primary/10 text-2xl font-semibold text-primary md:rounded-[18px] md:text-5xl">
+                      {membro.nome.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
-          {/* Topo: Nome (esq) + Foto (dir) */}
-          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Avatar
-                  className={`h-[5.875rem] w-[5.875rem] shrink-0 rounded-2xl border border-border/60 bg-primary/10 ${membro.foto_url ? "cursor-zoom-in" : ""}`}
-                  onClick={() => membro.foto_url && setProfilePhotoOpen(true)}
-                >
-                  <AvatarImage className="rounded-2xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
-                  <AvatarFallback className="rounded-2xl bg-primary/10 text-2xl font-semibold text-primary">
-                    {membro.nome.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className="min-w-0 flex-1">
-                  <h1 className={`${getNameSizeClass(membro.nome)} break-words font-bold leading-tight text-foreground`}>
-                    {membro.nome}
-                  </h1>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Badge className="rounded-full bg-primary/15 px-2.5 py-1 text-primary hover:bg-primary/15">
-                      {membro.faixa_etaria}
-                    </Badge>
-                    <Badge variant="outline" className="rounded-full border-border/60 px-2.5 py-1">
-                      {idade !== null ? `${idade} anos` : "Idade não informada"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Bloco abaixo: informações do membro */}
-          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
-            <CardHeader className="px-4 pb-2 pt-4">
-              <CardTitle className="text-base">Informações</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 px-4 pb-4">
-              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                <div className="flex items-start gap-3">
-                  <Phone className="mt-0.5 h-4 w-4 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Telefone</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{formatPhoneBR(membro.telefone)}</p>
-                    {phoneOwner && <p className="text-xs text-muted-foreground">Telefone de {phoneOwner}</p>}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                <div className="flex items-start gap-3">
-                  <Briefcase className="mt-0.5 h-4 w-4 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Cargo</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {cargos.length ? (
-                        cargos.map((cargo) => (
-                          <Badge key={cargo} variant="outline" className="rounded-full border-border/60 bg-background/70">
-                            {cargo}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Nenhum cargo informado</span>
-                      )}
+                  <div className="min-w-0 flex-1 md:mt-5 md:flex-none">
+                    <h1 className={`${getNameSizeClass(membro.nome)} max-w-[12ch] break-words font-bold leading-[1.04] text-foreground md:max-w-[13ch]`}>
+                      {membro.nome}
+                    </h1>
+                    <div className="mt-2 flex flex-wrap gap-2 md:mt-3">
+                      <Badge className="rounded-full bg-primary/15 px-2.5 py-1 text-primary hover:bg-primary/15">
+                        {membro.faixa_etaria}
+                      </Badge>
+                      <Badge variant="outline" className="rounded-full border-border/60 px-2.5 py-1">
+                        {idade !== null ? `${idade} anos` : "Idade não informada"}
+                      </Badge>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                <div className="flex items-start gap-3">
-                  <CalendarDays className="mt-0.5 h-4 w-4 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Aniversário</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{dataAniversarioTexto || "Não informado"}</p>
-                  </div>
-                </div>
-              </div>
+                <p className="hidden rounded-2xl border border-border/45 bg-background/45 px-3 py-2 text-xs text-muted-foreground md:block">
+                  Criado por <span className="font-semibold text-foreground">{creatorLabel}</span>
+                </p>
+              </CardContent>
+            </Card>
+          </section>
 
-              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                <div className="flex items-start gap-3">
-                  <MessageSquare className="mt-0.5 h-4 w-4 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Observações</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-foreground">
-                      {membro.observacoes?.trim() || "Sem observações"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <section className="flex min-h-0 flex-col gap-4">
+            <MemberInformationCard
+              className="flex min-h-0 flex-[1.08] flex-col rounded-[20px]"
+              telefone={membro.telefone}
+              phoneOwner={phoneOwner}
+              cargos={cargos}
+              aniversario={dataAniversarioTexto}
+              observacoes={membro.observacoes}
+            />
 
-          {/* Logo abaixo: estatísticas de frequência */}
-          <Card
-            className={`overflow-hidden rounded-3xl shadow-[var(--shadow-card)] ${
-              frequenciaCritica
-                ? "border-destructive/55 bg-destructive/10"
-                : "border-border/55 bg-card/90"
-            }`}
-          >
-            <CardHeader className="px-4 pb-2 pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-base">Frequência</CardTitle>
-                <Badge
-                  variant={frequenciaStatus.variant}
-                  className={`rounded-full ${frequenciaStatus.badgeClassName}`}
-                >
-                  {frequenciaStatus.label}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 px-4 pb-4">
-              {frequenciaCritica && (
-                <div className="flex gap-3 rounded-2xl border border-destructive/45 bg-destructive/10 p-3 text-destructive">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-                  <p className="text-sm font-semibold">
-                    Atenção: este jovem faltou a mais de 3 reuniões seguidas. Vale fazer um acompanhamento próximo.
-                  </p>
-                </div>
-              )}
+            <MemberFrequencyCard
+              className="flex min-h-0 flex-[0.92] flex-col rounded-[20px]"
+              presencas={estatisticas.presencas}
+              totalReunioes={estatisticas.totalReunioes}
+              taxaGeralPorcentagem={estatisticas.taxaGeralPorcentagem}
+              taxaMensalPorcentagem={estatisticas.taxaMensalPorcentagem}
+              ultimasPresencas={estatisticas.ultimasPresencas}
+              alertaAusencias={estatisticas.alertaAusencias}
+              formatarData={formatarData}
+            />
+          </section>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                  <CheckCircle2 className="mb-2 h-4 w-4 text-primary" />
-                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.presencas}</p>
-                  <p className="text-xs text-muted-foreground">Presenças</p>
-                </div>
-                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                  <BarChart3 className="mb-2 h-4 w-4 text-primary" />
-                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.totalReunioes}</p>
-                  <p className="text-xs text-muted-foreground">Reuniões</p>
-                </div>
-                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                  <Percent className="mb-2 h-4 w-4 text-primary" />
-                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.taxaGeralPorcentagem}%</p>
-                  <p className="text-xs text-muted-foreground">Geral</p>
-                </div>
-                <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                  <Percent className="mb-2 h-4 w-4 text-primary" />
-                  <p className="text-2xl font-bold tabular-nums text-foreground">{estatisticas.taxaMensalPorcentagem}%</p>
-                  <p className="text-xs text-muted-foreground">30 dias</p>
-                </div>
-              </div>
+          <section className="flex min-h-0 flex-col md:col-span-2 xl:col-span-1">
+            <MemberInsightsCarousel
+              className="hidden min-h-0 rounded-[20px] md:flex md:h-full md:flex-1 md:flex-col"
+              nome={membro.nome}
+              presencas={estatisticas.presencas}
+              taxaMensal={estatisticas.taxaMensalPorcentagem}
+              tendenciaMensal={estatisticas.tendenciaMensal}
+              sequenciaRecente={estatisticas.sequenciaRecente}
+              maiorSequencia={estatisticas.maiorSequencia}
+              primeiraPresenca={estatisticas.primeiraPresenca}
+              alertaAusencias={estatisticas.alertaAusencias}
+              formatarData={formatarData}
+            />
+          </section>
 
-              <div className="rounded-2xl border border-border/55 bg-background/55 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Últimas presenças</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {estatisticas.ultimasPresencas.length ? (
-                    estatisticas.ultimasPresencas.map((data) => (
-                      <Badge key={data} variant="outline" className="rounded-full border-border/60 bg-background/70">
-                        {formatarData(data)}
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Nenhuma presença registrada</span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <p className="px-1 text-xs text-muted-foreground">
+          <p className="px-1 text-xs text-muted-foreground md:hidden">
             Criado por <span className="font-medium text-foreground">{creatorLabel}</span>
           </p>
 

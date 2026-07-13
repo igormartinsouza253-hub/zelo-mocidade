@@ -4,14 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, BarChart3, Calendar, IdCard, Pencil, Phone, Trash2 } from "lucide-react";
+import { IdCard, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { MemberInformationCard } from "@/components/membros/MemberInformationCard";
+import { MemberFrequencyCard } from "@/components/membros/MemberFrequencyCard";
 
 interface MemberDetailProps {
   membro: {
@@ -23,13 +23,16 @@ interface MemberDetailProps {
     faixa_etaria: string;
     foto_url: string | null;
     telefone?: string | null;
+    status_telefone?: string | null;
     ativo?: boolean;
     inativado_em?: string | null;
     inativado_motivo?: string | null;
     inativado_observacao?: string | null;
+    observacoes?: string | null;
   };
-  onEdit?: (id: string) => void;
   onDeleted?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onViewHistory?: (id: string) => void;
 }
 
 interface Estatisticas {
@@ -42,7 +45,7 @@ interface Estatisticas {
   historicoReunioes: { data: string; presente: boolean }[];
 }
 
-export function MemberDetailPanel({ membro, onEdit, onDeleted }: MemberDetailProps) {
+export function MemberDetailPanel({ membro, onDeleted, onEdit, onViewHistory }: MemberDetailProps) {
   const { activeGroupId } = useActiveGroup();
   const [estatisticas, setEstatisticas] = useState<Estatisticas | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -271,14 +274,6 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
   };
 };
 
-  const handleEdit = () => {
-    if (onEdit) {
-      onEdit(membro.id);
-    } else {
-      toast.info("Em breve: editar membro diretamente daqui.");
-    }
-  };
-
   const handleDelete = async () => {
     if (deleting) return;
     if (!activeGroupId) {
@@ -333,26 +328,13 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
 
     return (
       <div className="h-full min-h-0 flex flex-col gap-3 md:gap-4 lg:gap-5 animate-slide-in-right member-detail-panel overflow-hidden">
-        <div className="flex items-center justify-between text-[11px] md:text-xs text-muted-foreground mb-0.5 md:mb-1">
-          <p>
-            <span>Membros</span>
-            <span className="mx-1">›</span>
-            <span className="font-medium text-foreground truncate inline-block max-w-[180px] sm:max-w-xs">
-              {membro.nome}
-            </span>
-          </p>
-          <div className="flex items-center gap-1.5">
-            <Badge variant="destructive" className="rounded-full">Inativo</Badge>
-          </div>
-        </div>
-
-        <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 backdrop-blur-sm flex-shrink-0">
+        <Card className="flex-shrink-0 rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
           <CardContent className="pt-3.5 md:pt-4 pb-3.5 md:pb-4 flex items-center gap-3 md:gap-4">
             <div className="relative">
-              <div className="rounded-full p-1.5 bg-accent/60 border border-border/80">
-                <Avatar className="h-16 w-16 md:h-20 md:w-20">
-                  <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xl md:text-2xl">
+              <div className="rounded-2xl border border-border/70 bg-accent/50 p-1">
+                <Avatar className="h-16 w-16 rounded-xl md:h-20 md:w-20">
+                  <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
+                  <AvatarFallback className="rounded-xl bg-primary/10 text-xl text-primary md:text-2xl">
                     {membro.nome.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -369,7 +351,7 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
         </Card>
 
         <div className="grid gap-3 flex-1 min-h-0 overflow-y-auto pr-1 md:pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30">
-          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90">
+          <Card className="rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs md:text-sm">Motivo</CardTitle>
             </CardHeader>
@@ -378,7 +360,7 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
             </CardContent>
           </Card>
 
-          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90">
+          <Card className="rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs md:text-sm">Observação</CardTitle>
             </CardHeader>
@@ -387,7 +369,7 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
             </CardContent>
           </Card>
 
-          <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90">
+          <Card className="rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)]">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs md:text-sm">Data</CardTitle>
             </CardHeader>
@@ -402,44 +384,13 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 md:gap-4 lg:gap-5 animate-slide-in-right member-detail-panel overflow-hidden">
-      <div className="flex items-center justify-between text-[11px] md:text-xs text-muted-foreground mb-0.5 md:mb-1">
-        <p>
-          <span>Membros</span>
-          <span className="mx-1">›</span>
-          <span className="font-medium text-foreground truncate inline-block max-w-[180px] sm:max-w-xs">
-            {membro.nome}
-          </span>
-        </p>
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={handleEdit}
-            aria-label="Editar membro"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={handleDelete}
-            aria-label="Excluir membro"
-            disabled={deleting}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 backdrop-blur-sm flex-shrink-0">
+      <Card className="flex-shrink-0 rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
         <CardContent className="pt-3.5 md:pt-4 pb-3.5 md:pb-4 flex items-center gap-3 md:gap-4">
           <div className="relative">
-            <div className="rounded-full p-1.5 bg-accent/60 border border-border/80">
-              <Avatar className="h-16 w-16 md:h-20 md:w-20">
-                <AvatarImage src={membro.foto_url || ""} alt={membro.nome} />
-                <AvatarFallback className="bg-primary/10 text-primary text-xl md:text-2xl">
+            <div className="rounded-2xl border border-border/70 bg-accent/50 p-1">
+              <Avatar className="h-20 w-20 rounded-xl md:h-24 md:w-24">
+                <AvatarImage className="rounded-xl object-cover" src={membro.foto_url || ""} alt={membro.nome} />
+                <AvatarFallback className="rounded-xl bg-primary/10 text-xl text-primary md:text-2xl">
                   {membro.nome.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -447,183 +398,85 @@ const getFrequenciaStatus = (percentual: number, contexto: "geral" | "mensal" = 
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-xl md:text-2xl font-semibold truncate">{membro.nome}</h2>
-            {idade && (
-              <p className="text-muted-foreground mt-0.5 md:mt-1 text-sm md:text-base">{idade} anos</p>
-            )}
             <div className="mt-2.5 md:mt-3 flex flex-wrap gap-1.5 md:gap-2">
+              {idade !== null && (
+                <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-[11px] md:px-3 md:py-1 md:text-xs">
+                  {idade} anos
+                </Badge>
+              )}
+              <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-[11px] capitalize md:px-3 md:py-1 md:text-xs">
+                {membro.faixa_etaria}
+              </Badge>
               {(membro.cargos ?? []).map((cargo) => (
                 <Badge key={cargo} variant="secondary" className="rounded-full px-2.5 py-0.5 text-[11px] md:px-3 md:py-1 md:text-xs">
                   {cargo}
                 </Badge>
               ))}
-              <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[11px] md:px-3 md:py-1 md:text-xs">
-                {membro.faixa_etaria}
-              </Badge>
+              <Badge variant="outline" className="rounded-full border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] text-emerald-700 md:px-3 md:py-1 md:text-xs dark:text-emerald-300">Ativo</Badge>
             </div>
+          </div>
+          <div className="member-card-actions flex shrink-0 items-start justify-end gap-1.5 self-start">
+            <button
+              type="button"
+              className="member-card-action"
+              aria-label="Ver perfil completo"
+              title="Ver perfil completo"
+              onClick={() => onViewHistory?.(membro.id)}
+            >
+              <IdCard className="h-4 w-4" />
+              <span className="member-card-action-label">Perfil</span>
+            </button>
+            <button
+              type="button"
+              className="member-card-action"
+              aria-label="Editar membro"
+              title="Editar membro"
+              onClick={() => onEdit?.(membro.id)}
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="member-card-action-label">Editar</span>
+            </button>
+            <button
+              type="button"
+              className="member-card-action member-card-action-danger"
+              aria-label="Excluir membro"
+              title="Excluir membro"
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="member-card-action-label">Excluir</span>
+            </button>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-rows-2 gap-3 md:gap-4 xl:gap-5 flex-1 min-h-0 auto-rows-fr overflow-y-auto pr-1 md:pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30">
-        <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 order-1">
-          <CardHeader className="pb-1.5 md:pb-2 flex items-center gap-1.5">
-            <IdCard className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-xs md:text-sm">Informações Pessoais</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5 md:space-y-2 text-[11px] md:text-xs">
-            <div className="flex justify-between gap-2">
-              <span className="text-muted-foreground">Faixa etária</span>
-              <span className="font-medium text-right">{membro.faixa_etaria}</span>
-            </div>
-            {dataAniversarioTexto && (
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Data de aniversário</span>
-                <span className="font-medium text-right">{dataAniversarioTexto}</span>
-              </div>
-            )}
-            {membro.telefone && (
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Phone className="h-3 w-3" /> Telefone
-                </span>
-                <span className="font-medium text-right break-all max-w-[9rem] md:max-w-none">{membro.telefone}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 md:gap-4 xl:gap-5 flex-1 min-h-0 overflow-y-auto pr-1 md:pr-2 pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30">
+        <MemberInformationCard
+          className="order-1"
+          telefone={membro.telefone}
+          statusTelefone={membro.status_telefone}
+          cargos={membro.cargos}
+          aniversario={dataAniversarioTexto}
+          observacoes={membro.observacoes}
+        />
 
-        <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 md:row-span-2 order-2">
-          <CardHeader className="pb-1.5 md:pb-2 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-xs md:text-sm">Estatísticas de Frequência</CardTitle>
-            </div>
-            {estatisticas?.alertaAusencias && (
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            )}
-          </CardHeader>
-          <CardContent className="space-y-2.5 md:space-y-3">
-            {estatisticas ? (
-              <div className="space-y-2.5 md:space-y-3 text-[11px] md:text-xs">
-                <div>
-                  <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                    <p className="text-muted-foreground">Taxa geral</p>
-                    <span className="font-semibold text-foreground">
-                      {estatisticas.taxaGeralPorcentagem}%
-                    </span>
-                  </div>
-                  <Progress value={estatisticas.taxaGeralPorcentagem} className="h-2" />
-                  {(() => {
-                    const status = getFrequenciaStatus(estatisticas.taxaGeralPorcentagem, "geral");
-                    return (
-                      <>
-                        <p className={cn("mt-0.5 md:mt-1 text-[10px] md:text-[11px]", status.toneClass)}>
-                          {status.label}
-                        </p>
-                        <p className="text-[10px] md:text-[11px] text-muted-foreground mt-0.5">
-                          {status.message}
-                        </p>
-                      </>
-                    );
-                  })()}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-0.5 md:mb-1">
-                    <p className="text-muted-foreground">Últimos 30 dias</p>
-                    <span className="font-semibold text-foreground">
-                      {estatisticas.taxaMensalPorcentagem}%
-                    </span>
-                  </div>
-                  <Progress value={estatisticas.taxaMensalPorcentagem} className="h-2" />
-                  {(() => {
-                    const status = getFrequenciaStatus(estatisticas.taxaMensalPorcentagem, "mensal");
-                    return (
-                      <>
-                        <p className={cn("mt-0.5 md:mt-1 text-[10px] md:text-[11px]", status.toneClass)}>
-                          {status.label}
-                        </p>
-                        <p className="text-[10px] md:text-[11px] text-muted-foreground mt-0.5">
-                          {status.message}
-                        </p>
-                      </>
-                    );
-                  })()}
-                </div>
-
-                <div className="rounded-lg bg-secondary/60 px-2.5 md:px-3 py-1.5 md:py-2 flex items-center justify-between">
-                  <div>
-                    <p className="text-muted-foreground">Presenças registradas</p>
-                    <p className="text-base md:text-lg font-semibold text-primary">
-                      {estatisticas.presencas}
-                    </p>
-                  </div>
-                  <p className="text-[10px] md:text-[11px] text-muted-foreground text-right">
-                    em {estatisticas.totalReunioes} reuniões
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-3/4 rounded-full" />
-                <Skeleton className="h-2.5 w-full rounded-full" />
-                <Skeleton className="h-2.5 w-5/6 rounded-full" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-[var(--shadow-soft)] border-border/60 bg-card/90 order-3">
-          <CardHeader className="pb-1.5 md:pb-2 flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-xs md:text-sm">Histórico de Presença</CardTitle>
-          </CardHeader>
-          <CardContent className="text-[11px] md:text-xs">
-            {estatisticas?.historicoReunioes?.length ? (
-              <div className="space-y-2 max-h-48 md:max-h-56 overflow-y-auto pr-1 scrollbar-thin">
-                {estatisticas.historicoReunioes.map((item, index) => (
-                  <div
-                    key={`${item.data}-${index}`}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg px-2.5 md:px-3 py-1.5 md:py-2 bg-secondary/60 border-l-2",
-                      item.presente ? "border-primary" : "border-destructive/70",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Reunião</span>
-                      <span className="font-medium">{formatarData(item.data)}</span>
-                    </div>
-                    <span
-                      className={cn(
-                        "text-[10px] md:text-[11px] font-medium",
-                        item.presente ? "text-primary" : "text-destructive",
-                      )}
-                    >
-                      {item.presente ? "Presente" : "Ausente"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-center py-3 md:py-4 gap-1.5 md:gap-2">
-                <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-secondary flex items-center justify-center">
-                  <Calendar className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                </div>
-                <p className="text-[11px] md:text-xs text-muted-foreground max-w-xs">
-                  Este membro ainda não possui registros de presença.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-0.5 md:mt-1"
-                  onClick={() => toast.info("Em breve: registrar primeira presença.")}
-                >
-                  Registrar primeira presença
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {estatisticas ? (
+          <MemberFrequencyCard
+            className="order-2"
+            presencas={estatisticas.presencas}
+            totalReunioes={estatisticas.totalReunioes}
+            taxaGeralPorcentagem={estatisticas.taxaGeralPorcentagem}
+            taxaMensalPorcentagem={estatisticas.taxaMensalPorcentagem}
+            ultimasPresencas={estatisticas.ultimasPresencas}
+            alertaAusencias={estatisticas.alertaAusencias}
+            formatarData={formatarData}
+          />
+        ) : (
+          <Card className="order-2 rounded-3xl border-border/55 bg-card/90 p-4 shadow-[var(--shadow-card)]">
+            <Skeleton className="h-full min-h-64 w-full rounded-2xl" />
+          </Card>
+        )}
       </div>
     </div>
   );

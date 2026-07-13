@@ -436,9 +436,9 @@ export default function Notas() {
   );
 
   const FiltersControls = (
-    <div className="flex flex-wrap gap-2 text-xs md:text-sm">
+    <div className="grid w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2 md:text-sm">
       <Select value={filtroVinculo} onValueChange={(v) => setFiltroVinculo(v as any)}>
-        <SelectTrigger className="h-8 w-[140px]">
+        <SelectTrigger className="h-9 w-full rounded-xl">
           <SelectValue placeholder="Vínculo" />
         </SelectTrigger>
         <SelectContent>
@@ -450,7 +450,7 @@ export default function Notas() {
       </Select>
 
       <Select value={filtroMembro} onValueChange={setFiltroMembro} disabled={membrosDisponiveis.length === 0}>
-        <SelectTrigger className="h-8 w-[170px]">
+        <SelectTrigger className="h-9 w-full rounded-xl">
           <SelectValue placeholder="Membro" />
         </SelectTrigger>
         <SelectContent>
@@ -464,7 +464,7 @@ export default function Notas() {
       </Select>
 
       <Select value={filtroReuniao} onValueChange={setFiltroReuniao} disabled={reunioesDisponiveis.length === 0}>
-        <SelectTrigger className="h-8 w-[190px]">
+        <SelectTrigger className="h-9 w-full rounded-xl">
           <SelectValue placeholder="Reunião" />
         </SelectTrigger>
         <SelectContent>
@@ -478,7 +478,7 @@ export default function Notas() {
       </Select>
 
       <Select value={filtroTag} onValueChange={setFiltroTag} disabled={tagsDisponiveis.length === 0}>
-        <SelectTrigger className="h-8 w-[150px]">
+        <SelectTrigger className="h-9 w-full rounded-xl">
           <SelectValue placeholder="Etiqueta" />
         </SelectTrigger>
         <SelectContent>
@@ -510,8 +510,7 @@ export default function Notas() {
             onClick: () => navigate("/notas/nova"),
           }
         : undefined,
-      mobileSearch: isMobile
-        ? {
+      mobileSearch: {
             value: buscaNotas,
             onChange: setBuscaNotas,
             placeholder: "Buscar notas...",
@@ -525,8 +524,8 @@ export default function Notas() {
                 </PopoverTrigger>
                 <PopoverContent
                   align="end"
-                  sideOffset={18}
-                  className="w-[calc(100vw-2rem)] max-w-[22rem] rounded-3xl border-border/60 bg-background/98 p-3 shadow-[var(--shadow-card)] backdrop-blur-xl"
+                  sideOffset={10}
+                  className={isMobile ? "w-[calc(100vw-2rem)] max-w-[22rem] rounded-3xl border-border/60 bg-background/98 p-3 shadow-[var(--shadow-card)] backdrop-blur-xl" : "w-[22rem] rounded-2xl border-border/70 bg-popover p-4 shadow-[var(--shadow-elevated)]"}
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -542,8 +541,7 @@ export default function Notas() {
                 </PopoverContent>
               </Popover>
             ),
-          }
-        : undefined,
+          },
       primaryActions: !isMobile ? (
         <Button
           size="sm"

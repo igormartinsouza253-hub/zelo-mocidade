@@ -416,7 +416,7 @@ export default function MobileCalendar() {
     setConfig({
       title: "Agenda",
       icon: CalendarDays,
-      breadcrumbs: [{ label: "Inicio", href: "/" }, { label: "Agenda" }],
+      breadcrumbs: [{ label: "Início", href: "/" }, { label: "Agenda" }],
       showBackButton: true,
       backTo: "/",
       mobileSearch: {
@@ -1174,7 +1174,7 @@ export default function MobileCalendar() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-black text-foreground">Criar algo nesse dia</div>
-                  <div className="text-xs font-medium text-muted-foreground">Reuniao, visita ou evento</div>
+                  <div className="text-xs font-medium text-muted-foreground">Reunião, visita ou evento</div>
                 </div>
               </button>
             ) : (

@@ -53,11 +53,6 @@ import { toast } from "sonner";
 import { MemberDetailPanel } from "@/components/membros/MemberDetailPanel";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 
@@ -78,6 +73,7 @@ interface Membro {
   status_telefone?: string | null;
   presencas?: number;
   taxaMensalPorcentagem?: number;
+  presencasTrimestre?: number;
   alertaAusencias?: boolean;
 }
 
@@ -186,7 +182,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
   useEffect(() => {
     setConfig({
-      title: "Membros",
+      title: `Membros · ${membros.length}`,
       icon: Users,
       breadcrumbs: [
         { label: "Início", href: "/" },
@@ -194,8 +190,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
       ],
       showBackButton: true,
       backTo: "/",
-      mobileSearch: isMobile
-        ? {
+      mobileSearch: {
             value: search,
             onChange: setSearch,
             placeholder: "Buscar...",
@@ -213,7 +208,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                 <DropdownMenuContent
                   align="end"
                   sideOffset={18}
-                  className="w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
+                  className={isMobile ? "w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94" : "w-80 rounded-2xl border border-border/70 bg-popover p-3 text-popover-foreground shadow-[var(--shadow-elevated)]"}
                 >
                   <div className="px-2 py-2 space-y-2">
                     <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
@@ -264,6 +259,33 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                         </span>
                       )}
                     </button>
+
+                    <div className="max-h-52 space-y-3 overflow-y-auto rounded-2xl border border-border/60 p-2.5">
+                      {cargosDisponiveis.length > 0 ? (
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold">Cargos</Label>
+                          {cargosDisponiveis.map((cargo) => (
+                            <label key={cargo.id} className="flex cursor-pointer items-center gap-2 text-xs">
+                              <Checkbox checked={selectedCargos.includes(cargo.nome)} onCheckedChange={() => toggleCargo(cargo.nome)} />
+                              <span>{cargo.nome}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Faixa etária</Label>
+                        {faixasEtarias.map((faixa) => (
+                          <label key={faixa} className="flex cursor-pointer items-center gap-2 text-xs">
+                            <Checkbox checked={selectedFaixas.includes(faixa)} onCheckedChange={() => toggleFaixa(faixa)} />
+                            <span>{faixa}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <label className="flex cursor-pointer items-center gap-2 text-xs">
+                        <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(Boolean(checked))} />
+                        <span>Mostrar inativos</span>
+                      </label>
+                    </div>
                   </div>
 
                   <DropdownMenuSeparator />
@@ -279,8 +301,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                 </DropdownMenuContent>
               </DropdownMenu>
             ),
-          }
-        : undefined,
+          },
       mobilePrimaryAction: isMobile
         ? {
             label: "Novo membro",
@@ -301,43 +322,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
         </Button>
       ) : null,
       secondaryActions: !isMobile ? (
-        <>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           <Input
             placeholder="Buscar membro..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-[220px] text-sm"
+            className="h-10 min-w-[180px] flex-1 text-sm xl:min-w-[320px]"
           />
-
-          <Select
-            value={sortBy}
-            onValueChange={(value) => setSortBy(value as SortOption)}
-          >
-            <SelectTrigger className="h-9 w-[170px] text-sm">
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Ordenar por" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nome">Nome</SelectItem>
-              <SelectItem value="idade">Idade</SelectItem>
-              <SelectItem value="frequencia">Frequencia</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            onClick={toggleSortDirection}
-            title={sortDirection === "asc" ? "Ordem crescente" : "Ordem decrescente"}
-          >
-            {sortDirection === "asc" ? (
-              <ArrowUp className="h-4 w-4" />
-            ) : (
-              <ArrowDown className="h-4 w-4" />
-            )}
-          </Button>
 
           <Popover>
             <PopoverTrigger asChild>
@@ -345,10 +336,10 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 gap-2 whitespace-nowrap"
+                className="h-10 gap-2 whitespace-nowrap"
               >
-                <Filter className="h-4 w-4" />
-                Filtros
+                <ArrowUpDown className="h-4 w-4" />
+                Ordenar e filtrar
                 {(selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
                   <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
                     {selectedCargos.length + selectedFaixas.length + (showInactive ? 1 : 0)}
@@ -358,6 +349,25 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Ordenação</Label>
+                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                    <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Ordenar por" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nome">Nome</SelectItem>
+                        <SelectItem value="idade">Idade</SelectItem>
+                        <SelectItem value="frequencia">Frequência</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={toggleSortDirection} title={sortDirection === "asc" ? "Ordem crescente" : "Ordem decrescente"}>
+                      {sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="border-t border-border/60" />
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold text-sm">Filtros</h4>
                   {(selectedCargos.length > 0 || selectedFaixas.length > 0) && (
@@ -445,6 +455,12 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {selectedMembro && (
+                <DropdownMenuItem onClick={() => navigate(`/membros/editar/${selectedMembro.id}`)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar membro
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => {
                   setSelectionMode((prev) => !prev);
@@ -463,7 +479,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </>
+        </div>
       ) : null,
     });
 
@@ -481,6 +497,8 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     selectionMode,
     selectedIds,
     deleting,
+    membros.length,
+    selectedMembro,
   ]);
 
   const loadCargos = async () => {
@@ -520,6 +538,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
       const umMesAtras = new Date();
       umMesAtras.setDate(umMesAtras.getDate() - 30);
       const desde = umMesAtras.toISOString().split("T")[0];
+      const tresMesesAtras = new Date();
+      tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
+      const desdeTrimestre = tresMesesAtras.toISOString().split("T")[0];
 
       const [{ count: reunioesMes }, { data: ultimasReunioes }] = await Promise.all([
         supabase
@@ -537,7 +558,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
       const membrosComPresencas = await Promise.all(
         (membrosData || []).map(async (membro) => {
-          const [{ count }, { count: presencasMes }] = await Promise.all([
+          const [{ count }, { count: presencasMes }, { count: presencasTrimestre }] = await Promise.all([
             supabase
               .from("presencas")
               .select("*", { count: "exact", head: true })
@@ -549,6 +570,12 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               .eq("group_id", activeGroupId)
               .eq("membro_id", membro.id)
               .gte("reunioes.data", desde),
+            supabase
+              .from("presencas")
+              .select("reuniao_id, reunioes!inner(data)", { count: "exact", head: true })
+              .eq("group_id", activeGroupId)
+              .eq("membro_id", membro.id)
+              .gte("reunioes.data", desdeTrimestre),
           ]);
 
           let ausenciasConsecutivas = 0;
@@ -573,6 +600,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
             ...membro,
             presencas: count || 0,
             taxaMensalPorcentagem: reunioesMes ? Math.round(((presencasMes || 0) / reunioesMes) * 100) : 0,
+            presencasTrimestre: presencasTrimestre || 0,
             alertaAusencias: ausenciasConsecutivas > 3,
           };
         }),
@@ -686,7 +714,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
           return direction * (idadeA - idadeB);
         });
       case "frequencia":
-        return sorted.sort((a, b) => direction * ((a.presencas || 0) - (b.presencas || 0)));
+        return sorted.sort((a, b) => direction * ((a.presencasTrimestre || 0) - (b.presencasTrimestre || 0)));
       default:
         return sorted;
     }
@@ -750,6 +778,15 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const openInactivateDialog = (ids: string[]) => {
     setInactivateTargetIds(ids);
     setInactivateDialogOpen(true);
+  };
+
+  const getMemberSummaryParts = (membro: Membro) => {
+    const idade = calcularIdade(membro.data_nascimento);
+    return [
+      idade ? `${idade} anos` : null,
+      membro.cargos?.[0] || null,
+      membro.faixa_etaria,
+    ].filter(Boolean) as string[];
   };
 
   const handleConfirmInactivate = async () => {
@@ -916,34 +953,38 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
               ))}
             </div>
           ) : !isMobile && selectedMembro ? (
-            <ResizablePanelGroup
-              direction="horizontal"
-              className="flex-1 min-h-0 gap-4 md:gap-6 transition-all duration-300 ease-in-out md:pl-1"
-            >
+            <div className="grid h-full min-h-0 grid-cols-[minmax(360px,440px)_minmax(0,1fr)] gap-5 md:pl-1 xl:grid-cols-[440px_minmax(0,1fr)]">
               {/* Lista à esquerda (modo compacto quando há membro selecionado) */}
-              <ResizablePanel defaultSize={35} minSize={24}>
-                <div className="md:border-r md:border-border/60 md:pr-4 md:pt-1 h-full overflow-hidden transition-all duration-300 ease-in-out">
+                <div className="h-full min-w-0 overflow-hidden md:pt-1">
                 <div
                   className={cn(
-                    "space-y-2 md:space-y-3 h-full overflow-y-auto pr-1 md:pr-2 pb-16 md:pb-4 animate-fade-in",
+                    "space-y-2 md:space-y-3 h-full overflow-y-auto px-1 md:pr-2 pb-16 md:pb-4 animate-fade-in",
                     "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/30",
-                    "md:translate-x-[-4px]",
                   )}
                 >
                     {filteredMembros.map((membro) => (
                       <div
                         key={membro.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={selectedMembro?.id === membro.id}
                         className={cn(
-                          "cursor-pointer border transition-all",
+                          "group relative cursor-pointer overflow-hidden border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                           isMobile
                             ? "rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm hover:border-primary/35 active:bg-accent/25"
-                            : "rounded-3xl border-border/50 bg-card shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elevated)]",
-                          selectedMembro?.id === membro.id && "border-primary bg-primary/10",
+                            : "rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] hover:border-primary/30 hover:shadow-[var(--shadow-elevated)]",
+                          selectedMembro?.id === membro.id && "border-2 border-primary bg-primary/[0.07] shadow-[var(--shadow-soft)]",
                         )}
                         onClick={() => {
-                          setSelectedMembro(membro);
+                          setSelectedMembro((atual) => (atual?.id === membro.id ? null : membro));
                         }}
                         onDoubleClick={() => navigate(`/membros/visualizar/${membro.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedMembro((atual) => (atual?.id === membro.id ? null : membro));
+                          }
+                        }}
                       >
                         <div
                           className={cn(
@@ -980,44 +1021,28 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                                 </Badge>
                               )}
                             </div>
-                            {listMode === "comfortable" ? (
-                              <>
-                                <div className="flex gap-1.5 md:gap-2 text-[11px] md:text-xs text-muted-foreground flex-wrap">
-                                  {calcularIdade(membro.data_nascimento) && (
-                                    <>
-                                      <span>{calcularIdade(membro.data_nascimento)} anos</span>
-                                      <span>/</span>
-                                    </>
-                                  )}
-                                  {membro.cargos && membro.cargos.length > 0 && (
-                                    <>
-                                      <span className="truncate">{membro.cargos[0]}</span>
-                                      <span>/</span>
-                                    </>
-                                  )}
-                                  <span className="capitalize">{membro.faixa_etaria}</span>
-                                </div>
-                                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <span>{"Presen\u00e7as:"}</span>
-                                  <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                    {membro.presencas ?? 0}
-                                  </span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-[11px] md:text-xs text-muted-foreground capitalize mt-0.5">
-                                  {membro.faixa_etaria}
-                                </p>
-                                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <span>{"Presen\u00e7as:"}</span>
-                                  <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                    {membro.presencas ?? 0}
-                                  </span>
-                                </div>
-                              </>
-                            )}
+                            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden">
+                              {calcularIdade(membro.data_nascimento) !== null && (
+                                <Badge variant="secondary" className="h-5 shrink-0 rounded-full px-2 text-[10px] font-medium">
+                                  {calcularIdade(membro.data_nascimento)} anos
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" className="h-5 max-w-[7rem] shrink truncate rounded-full px-2 text-[10px] font-medium capitalize">
+                                {membro.faixa_etaria}
+                              </Badge>
+                              {(membro.cargos ?? [])
+                                .slice(0, calcularIdade(membro.data_nascimento) === null ? 2 : 1)
+                                .map((cargo) => (
+                                <Badge key={cargo} variant="secondary" className="h-auto min-h-5 max-w-full whitespace-normal rounded-full px-2 py-0.5 text-[10px] font-medium leading-tight">
+                                  {cargo}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
+                          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary" title="Presenças nos últimos 3 meses">
+                            {membro.presencasTrimestre ?? 0}
+                            <span className="ml-1 text-[10px] font-medium text-primary/70">pres.</span>
+                          </span>
                           <div
                             className="flex items-start justify-end"
                             onClick={(e) => e.stopPropagation()}
@@ -1026,7 +1051,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               <DropdownMenuTrigger asChild>
                                 <button
                                   className="inline-flex items-center justify-center rounded-full h-8 w-8 md:h-9 md:w-9 hover:bg-muted"
-                                  aria-label="Opcoes"
+                                  aria-label="Opções"
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </button>
@@ -1065,25 +1090,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                     )}
                   </div>
                 </div>
-              </ResizablePanel>
-
-              <ResizableHandle withHandle className="mx-1 md:mx-2" />
-
               {/* Painel de detalhes à direita */}
-              <ResizablePanel defaultSize={65} minSize={40}>
-                <div className="md:pt-1 h-full overflow-hidden animate-enter flex flex-col">
-                  <div className="flex justify-end mb-2">
-                    <button
-                      className="inline-flex items-center justify-center rounded-md border border-border bg-background text-foreground h-8 px-3 text-xs md:text-sm"
-                      onClick={() => setSelectedMembro(null)}
-                    >
-                      Voltar para lista
-                    </button>
-                  </div>
+                <div className="h-full min-w-0 overflow-hidden animate-enter md:pt-1">
                   {selectedMembro && (
                     <MemberDetailPanel
                       membro={selectedMembro}
                       onEdit={(id) => navigate(`/membros/editar/${id}`)}
+                      onViewHistory={(id) => navigate(`/membros/visualizar/${id}`)}
                       onDeleted={() => {
                         setSelectedMembro(null);
                         loadMembros();
@@ -1091,14 +1104,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                     />
                   )}
                 </div>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            </div>
           ) : (
             // Lista única (mobile ou sem membro selecionado)
             <div className="md:pt-1 h-full overflow-hidden">
               <div
                 className={cn(
-                    "h-full space-y-2 overflow-y-auto animate-fade-in md:space-y-3 md:pb-4 md:pr-2",
+                    "h-full space-y-3 overflow-y-auto animate-fade-in md:pb-4 md:pr-2",
                     isMobile && "mx-auto w-full max-w-[22rem]",
                     isMobile
                       ? "scrollbar-none mx-auto w-full max-w-[22rem] pb-[calc(env(safe-area-inset-bottom)+11rem)] pr-0"
@@ -1112,7 +1124,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                       "w-full cursor-pointer border transition-all",
                       isMobile
                         ? "rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm hover:border-primary/35 active:bg-accent/25"
-                        : "rounded-3xl border-border/50 bg-card shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-elevated)]",
+                        : "rounded-3xl border-border/55 bg-card/90 shadow-[var(--shadow-card)] hover:border-primary/30 hover:shadow-[var(--shadow-elevated)]",
                       selectedMembro?.id === membro.id && "border-primary bg-primary/10",
                     )}
                     onPointerDown={() => {
@@ -1205,27 +1217,33 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             </Badge>
                           )}
                         </div>
-                        {isMobile && expandedMembroId === membro.id ? null : listMode === "comfortable" ? (
+                        {!isMobile ? (
+                          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden">
+                            {calcularIdade(membro.data_nascimento) !== null && (
+                              <Badge variant="secondary" className="h-5 shrink-0 rounded-full px-2 text-[10px] font-medium">
+                                {calcularIdade(membro.data_nascimento)} anos
+                              </Badge>
+                            )}
+                            <Badge variant="secondary" className="h-5 max-w-[7rem] shrink truncate rounded-full px-2 text-[10px] font-medium capitalize">
+                              {membro.faixa_etaria}
+                            </Badge>
+                            {(membro.cargos ?? [])
+                              .slice(0, calcularIdade(membro.data_nascimento) === null ? 2 : 1)
+                              .map((cargo) => (
+                                <Badge key={cargo} variant="secondary" className="h-auto min-h-5 max-w-full whitespace-normal rounded-full px-2 py-0.5 text-[10px] font-medium leading-tight">
+                                  {cargo}
+                                </Badge>
+                              ))}
+                          </div>
+                        ) : expandedMembroId === membro.id ? null : listMode === "comfortable" ? (
                           <>
                             <div className="flex gap-1.5 md:gap-2 text-[11px] md:text-xs text-muted-foreground flex-wrap">
-                              {calcularIdade(membro.data_nascimento) && (
-                                <>
-                                  <span>{calcularIdade(membro.data_nascimento)} anos</span>
-                                  <span>/</span>
-                                </>
-                              )}
-                              {membro.cargos && membro.cargos.length > 0 && (
-                                <>
-                                  <span className="truncate">{membro.cargos[0]}</span>
-                                  <span>/</span>
-                                </>
-                              )}
-                              <span className="capitalize">{membro.faixa_etaria}</span>
+                              <span className="truncate">{getMemberSummaryParts(membro).join(" • ")}</span>
                             </div>
                             <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                              <span>{"Presen\u00e7as:"}</span>
+                              <span>Últimos 3 meses:</span>
                               <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                {membro.presencas ?? 0}
+                                {membro.presencasTrimestre ?? 0}
                               </span>
                             </div>
                           </>
@@ -1235,14 +1253,20 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                               {membro.faixa_etaria}
                             </p>
                             <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                              <span>{"Presen\u00e7as:"}</span>
+                              <span>Últimos 3 meses:</span>
                               <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                {membro.presencas ?? 0}
+                                {membro.presencasTrimestre ?? 0}
                               </span>
                             </div>
                           </>
                         )}
                       </div>
+                      {!isMobile && (
+                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary" title="Presenças nos últimos 3 meses">
+                          {membro.presencasTrimestre ?? 0}
+                          <span className="ml-1 text-[10px] font-medium text-primary/70">pres.</span>
+                        </span>
+                      )}
                       {!isMobile && (
                         <div
                           className="flex items-start justify-end"
@@ -1252,7 +1276,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
                             <DropdownMenuTrigger asChild>
                               <button
                                 className="inline-flex items-center justify-center rounded-full h-8 w-8 md:h-9 md:w-9 hover:bg-muted"
-                                aria-label="Opcoes"
+                                aria-label="Opções"
                               >
                                 <MoreVertical className="h-4 w-4" />
                               </button>

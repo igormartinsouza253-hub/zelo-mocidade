@@ -61,7 +61,7 @@ export function MobileDashboardHome({
 
   // Altura estável por slide (evita “pulo” entre widgets no carrossel).
   // Ajustada para encaixar bem em 390x844 mantendo respiro para header/dock.
-  const slideHeightClass = "h-[334px]";
+  const slideHeightClass = "h-[clamp(280px,43vh,334px)] md:h-[380px]";
 
   const [api, setApi] = useState<CarouselApi | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -84,7 +84,7 @@ export function MobileDashboardHome({
 
   return (
     <div className="h-full w-full bg-background overflow-x-hidden">
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-20 space-y-3 scrollbar-none">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-20 space-y-3 scrollbar-none md:grid md:auto-rows-max md:grid-cols-2 md:gap-3 md:space-y-0 md:pb-3">
         <MobileStatsGrid
           totalMembros={stats.totalMembros}
           totalReunioes={stats.totalReunioes}
@@ -92,7 +92,7 @@ export function MobileDashboardHome({
           ultimaReuniao={stats.ultimaReuniao}
         />
 
-        <section aria-label="Atalhos" className="w-full">
+        <section aria-label="Atalhos" className="w-full md:col-span-2">
           <div className="grid grid-cols-3 gap-2">
             <Button
               type="button"
@@ -132,7 +132,7 @@ export function MobileDashboardHome({
           </div>
         </section>
 
-        <section aria-label="Gráficos" className="w-full">
+        <section aria-label="Gráficos" className="w-full md:col-span-2">
           <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
             <div className="px-2.5 pb-2.5 pt-3">
               <Carousel
@@ -173,22 +173,27 @@ export function MobileDashboardHome({
                     key={idx}
                     type="button"
                     aria-label={`Ir para o slide ${idx + 1}`}
+                    aria-current={idx === selectedIndex ? "true" : undefined}
                     onClick={() => api?.scrollTo(idx)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      idx === selectedIndex ? "w-8 bg-primary" : "w-3 bg-muted"
-                    }`}
-                  />
+                    className="flex h-10 min-w-10 items-center justify-center px-1"
+                  >
+                    <span
+                      className={`h-1.5 rounded-full transition-all ${
+                        idx === selectedIndex ? "w-8 bg-primary" : "w-3 bg-muted"
+                      }`}
+                    />
+                  </button>
                 ))}
               </div>
             </div>
           </Card>
         </section>
 
-        <section aria-label="Aniversariantes" className="h-[310px] w-full">
+        <section aria-label="Aniversariantes" className="h-[clamp(260px,38vh,310px)] w-full md:h-[310px]">
           <AniversariantesWidget size="md" aniversariantes={aniversariantes} />
         </section>
 
-        <section aria-label="Notas rápidas" className="h-[220px] w-full">
+        <section aria-label="Notas rápidas" className="h-[clamp(200px,31vh,220px)] w-full md:h-[310px]">
           <NotasWidget size="md" notas={notas} onDelete={onDeleteNota} />
         </section>
       </div>

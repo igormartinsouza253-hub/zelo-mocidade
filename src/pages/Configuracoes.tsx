@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown, RotateCcw } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -46,7 +46,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SidebarConfigCard } from "@/components/SidebarConfigCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { cn } from "@/lib/utils";
@@ -114,7 +113,7 @@ const Configuracoes = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Tema e personalização visual (por usuário)
-  const [themePreset, setThemePreset] = useState<ThemePresetId>("azul");
+  const [themePreset, setThemePreset] = useState<ThemePresetId>("verde");
   const [customTheme, setCustomTheme] = useState<CustomThemeConfig | null>(null);
   const [savingTheme, setSavingTheme] = useState(false);
   const [userThemes, setUserThemes] = useState<{ id: string; name: string; config: CustomThemeConfig }[]>([]);
@@ -172,24 +171,20 @@ const Configuracoes = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, canManageRestricted]);
 
-  // Aplica o preset imediatamente ao alternar Claro/Escuro/Sistema.
-  // (O next-themes troca a classe no <html>, e então reaplicamos as variáveis CSS do preset
-  // para o modo correto sem depender do botão "Salvar tema".)
+  // Reaplica a identidade visual fixa ao alternar Claro/Escuro/Sistema.
   useEffect(() => {
     const modeKey = resolvedTheme ?? theme;
     if (!modeKey) return;
 
-    const customConfig: CustomThemeConfig | null = customTheme;
-
     // Defer para garantir que a classe (dark) já foi atualizada pelo next-themes
     const t = window.setTimeout(() => {
       import("@/lib/theme-presets").then(({ applyThemePreset }) => {
-        applyThemePreset(themePreset, customConfig || undefined);
+        applyThemePreset("verde");
       });
     }, 0);
 
     return () => window.clearTimeout(t);
-  }, [theme, resolvedTheme, themePreset, customTheme]);
+  }, [theme, resolvedTheme]);
 
   const checkAdminStatus = async () => {
     if (!user) return;
@@ -247,17 +242,10 @@ const Configuracoes = () => {
       if (error) throw error;
 
       if (data) {
-        const rawPreset = (data.theme_preset as any) ?? "azul";
-        const preset: ThemePresetId = ["azul", "laranja", "verde", "rosa", "roxo", "vermelho", "amarelo"].includes(rawPreset)
-          ? (rawPreset as ThemePresetId)
-          : "azul";
-        setThemePreset(preset);
-
-        const storedCustom = (data.custom_theme as any) || null;
-        setCustomTheme(storedCustom);
-
+        setThemePreset("verde");
+        setCustomTheme(null);
         import("@/lib/theme-presets").then(({ applyThemePreset }) => {
-          applyThemePreset(preset, storedCustom || undefined);
+          applyThemePreset("verde");
         });
       }
     } catch (error) {
@@ -997,6 +985,44 @@ const Configuracoes = () => {
     }
   };
 
+  const handleResetTheme = async () => {
+    if (!user) {
+      toast.error("É necessário estar autenticado para restaurar o tema.");
+      return;
+    }
+
+    setSavingTheme(true);
+    try {
+      const defaultPreset: ThemePresetId = "verde";
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert(
+          {
+            user_id: user.id,
+            theme_preset: defaultPreset,
+            custom_theme: null,
+          },
+          { onConflict: "user_id" },
+        );
+
+      if (error) throw error;
+
+      setThemePreset(defaultPreset);
+      setCustomTheme(null);
+      setTheme("system");
+
+      const { applyThemePreset } = await import("@/lib/theme-presets");
+      applyThemePreset(defaultPreset);
+
+      toast.success("Tema padrão restaurado.");
+    } catch (error) {
+      console.error("Erro ao restaurar tema padrão:", error);
+      toast.error("Não foi possível restaurar o tema padrão.");
+    } finally {
+      setSavingTheme(false);
+    }
+  };
+
   const applyPresetInstant = (preset: ThemePresetId) => {
     const customConfig: CustomThemeConfig | null = customTheme;
 
@@ -1046,7 +1072,7 @@ const Configuracoes = () => {
                     <Monitor className="h-4 w-4" />
                   </div>
                   <div className="flex-1 text-left">
-                    <CardTitle className="text-sm">Tema e personalização</CardTitle>
+                    <CardTitle className="text-sm">Aparência</CardTitle>
                     <CardDescription className="line-clamp-2 text-xs">
                       Cores, modo claro/escuro e aparência geral do app.
                     </CardDescription>
@@ -1197,7 +1223,7 @@ const Configuracoes = () => {
               </Card>
 
               {/* 2️⃣ Paleta de cores do app */}
-              <Card>
+              <Card className="hidden">
                 <CardHeader className="pb-3 pt-3 px-3">
                   <CardTitle className="text-sm">Paleta de cores do app</CardTitle>
                   <CardDescription className="text-xs">
@@ -1262,6 +1288,16 @@ const Configuracoes = () => {
                     className="mt-2 gap-1.5 h-8 text-xs w-full"
                   >
                     {savingTheme ? "Salvando..." : "Salvar tema"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleResetTheme}
+                    disabled={savingTheme}
+                    className="gap-1.5 h-8 text-xs w-full"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Restaurar tema padrão
                   </Button>
                 </CardContent>
               </Card>
@@ -1528,7 +1564,7 @@ const Configuracoes = () => {
 
           {mobileSection === "about" && (
             <div className="space-y-4">
-              <Card>
+              <Card className="hidden">
                 <CardHeader className="pb-3 pt-3 px-3">
                   <CardTitle className="flex items-center gap-1.5 text-sm">
                     <Info className="h-4 w-4" />
@@ -1709,8 +1745,7 @@ const Configuracoes = () => {
 
           <Tabs defaultValue="tema" className="w-full">
             <TabsList className="mb-4 flex flex-wrap gap-2">
-              <TabsTrigger value="tema">Tema e personalização</TabsTrigger>
-              {!isMobile && <TabsTrigger value="sidebar">Barra Lateral</TabsTrigger>}
+              <TabsTrigger value="tema">Aparência</TabsTrigger>
               {canManageRestricted && (
                 <>
                   <TabsTrigger value="usuarios">Usuários e cargos</TabsTrigger>
@@ -1725,7 +1760,7 @@ const Configuracoes = () => {
                 <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
                   <CardTitle className="text-sm md:text-lg">Aparência</CardTitle>
                   <CardDescription className="text-xs md:text-sm">
-                    Personalize tema de cores e o modo de exibição
+                    Escolha como o app acompanha o modo claro ou escuro
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pb-3 md:pb-6 px-3 md:px-6 space-y-4">
@@ -1759,7 +1794,7 @@ const Configuracoes = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-3 md:space-y-4">
+                  <div className="hidden space-y-3 md:space-y-4">
                     <Label className="text-xs md:text-sm">Paleta base</Label>
                     <p className="text-[11px] md:text-xs text-muted-foreground mb-1">
                       Escolha o tom principal do app. O resultado é aplicado em tempo real em
@@ -1993,7 +2028,7 @@ const Configuracoes = () => {
                   </div>
 
                   {/* Pré-visualização em tempo real */}
-                  <div className="mt-2 md:mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="hidden mt-2 md:mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div className="space-y-2">
                       <Label className="text-xs md:text-sm">Prévia de cartão e botões</Label>
                       <div className="rounded-xl border bg-card p-3 md:p-4 space-y-2 shadow-sm">
@@ -2058,14 +2093,26 @@ const Configuracoes = () => {
 
                   {/* Ações de tema e dock */}
                   <div className="flex flex-col md:flex-row gap-2 md:items-center justify-between">
-                    <Button
-                      type="button"
-                      onClick={handleSaveTheme}
-                      disabled={savingTheme}
-                      className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
-                    >
-                      {savingTheme ? "Salvando..." : "Salvar tema"}
-                    </Button>
+                    <div className="hidden flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        onClick={handleSaveTheme}
+                        disabled={savingTheme}
+                        className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
+                      >
+                        {savingTheme ? "Salvando..." : "Salvar tema"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleResetTheme}
+                        disabled={savingTheme}
+                        className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        Restaurar tema padrão
+                      </Button>
+                    </div>
 
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Button
@@ -2232,12 +2279,6 @@ const Configuracoes = () => {
                  />
                )}
              </TabsContent>
-
-            {!isMobile && (
-              <TabsContent value="sidebar" className="space-y-4 md:space-y-6">
-                <SidebarConfigCard />
-              </TabsContent>
-            )}
 
             {isAdmin && (
               <>

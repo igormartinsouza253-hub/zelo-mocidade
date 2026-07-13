@@ -15,6 +15,7 @@ export interface PageHeaderConfig {
   backTo?: string;
   primaryActions?: React.ReactNode;
   secondaryActions?: React.ReactNode;
+  desktopTopbarActions?: React.ReactNode;
   mobileSearch?: {
     value: string;
     onChange: (value: string) => void;

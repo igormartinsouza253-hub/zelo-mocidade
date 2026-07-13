@@ -104,38 +104,38 @@ export function DesktopDashboard({
   const notasWidget = (size: "md" | "lg" = "lg") => (
     <ExpandableWidget
       title="Notas rápidas"
-      renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} />}
+      renderExpanded={() => <NotasWidget size="lg" notas={notas} onDelete={onDeleteNota} desktopDashboard />}
     >
-      <NotasWidget size={size} notas={notas} onDelete={onDeleteNota} />
+      <NotasWidget size={size} notas={notas} onDelete={onDeleteNota} desktopDashboard />
     </ExpandableWidget>
   );
 
   const aniversariantesWidget = (size: "md" | "lg" = "lg") => (
     <ExpandableWidget
       title="Aniversariantes"
-      renderExpanded={() => <AniversariantesWidget size="lg" aniversariantes={aniversariantes} />}
+      renderExpanded={() => <AniversariantesWidget size="lg" aniversariantes={aniversariantes} desktopDashboard />}
     >
-      <AniversariantesWidget size={size} aniversariantes={aniversariantes} />
+      <AniversariantesWidget size={size} aniversariantes={aniversariantes} desktopDashboard />
     </ExpandableWidget>
   );
 
   return (
-    <div className="desktop-dashboard-shell h-full min-h-0 w-full overflow-hidden bg-background">
-      <div className="desktop-dashboard-grid-wide hidden h-full min-h-0 grid-cols-[minmax(0,1.55fr)_minmax(320px,0.58fr)] grid-rows-[minmax(0,1.28fr)_minmax(260px,0.82fr)] gap-3 overflow-hidden xl:grid">
+    <div className="desktop-dashboard-shell h-full min-h-0 w-full overflow-x-hidden overflow-y-auto bg-background scrollbar-thin">
+      <div className="desktop-dashboard-grid-wide hidden h-full min-h-[560px] grid-cols-[minmax(0,2.35fr)_minmax(240px,1fr)] grid-rows-[minmax(0,1.03fr)_minmax(230px,0.97fr)] gap-3 overflow-hidden xl:grid">
         <section className="min-h-0 overflow-hidden">{reunioesChart("lg")}</section>
         <section className="min-h-0 overflow-hidden">{topMembros("lg")}</section>
 
-        <section className="grid min-h-0 grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden xl:col-span-2">
+        <section className="grid min-h-0 grid-cols-[minmax(0,1.65fr)_minmax(0,0.78fr)_minmax(0,1.28fr)] gap-3 overflow-hidden xl:col-span-2">
           <div className="min-h-0 overflow-hidden">{faixaEtariaChart("lg", "side")}</div>
           <div className="min-h-0 overflow-hidden">{notasWidget("md")}</div>
           <div className="min-h-0 overflow-hidden">{aniversariantesWidget("md")}</div>
         </section>
       </div>
 
-      <div className="desktop-dashboard-grid-compact grid h-full min-h-0 grid-cols-6 grid-rows-[minmax(0,1.16fr)_minmax(260px,0.86fr)] gap-3 overflow-hidden xl:hidden">
+      <div className="desktop-dashboard-grid-compact grid h-full min-h-[560px] grid-cols-6 grid-rows-[minmax(0,1.03fr)_minmax(230px,0.97fr)] gap-3 overflow-hidden xl:hidden">
         <div className="col-span-4 min-h-0 overflow-hidden">{reunioesChart("md")}</div>
         <div className="col-span-2 min-h-0 overflow-hidden">{topMembros("md")}</div>
-        <section className="col-span-6 grid min-h-0 grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+        <section className="col-span-6 grid min-h-0 grid-cols-[minmax(0,1.65fr)_minmax(0,0.78fr)_minmax(0,1.28fr)] gap-3 overflow-hidden">
           <div className="min-h-0 overflow-hidden">{faixaEtariaChart("lg", "side")}</div>
           <div className="min-h-0 overflow-hidden">{notasWidget("md")}</div>
           <div className="min-h-0 overflow-hidden">{aniversariantesWidget("md")}</div>

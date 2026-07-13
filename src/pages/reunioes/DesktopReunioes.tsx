@@ -18,6 +18,7 @@ import {
   Mic2,
   UsersRound,
   UserPlus,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDateLocal } from "@/lib/date-utils";
@@ -59,7 +60,12 @@ interface Reuniao {
   totalRecitativos?: number;
   recitativos_individuais?: number;
   numero_visitas?: number;
+  quem_atendeu?: string | null;
+  palavra_referencia?: string | null;
+  oracoes?: Array<{ nome?: string; tipo?: string; membro_id?: string }> | null;
   ageGroupCounts?: Record<string, number>;
+  ageGroupTotals?: Record<string, number>;
+  prayingNames?: string[];
 }
 
 interface ChartData {
@@ -386,7 +392,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
         <DropdownMenuContent
           align="end"
           sideOffset={18}
-          className="w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
+          className={isMobile ? "w-[calc(100vw-2rem)] max-w-[22rem] translate-x-[max(1rem,calc((100vw-22rem)/2))] rounded-3xl border border-border/55 bg-background/98 p-3 text-foreground shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94" : "w-80 rounded-2xl border border-border/70 bg-popover p-3 text-popover-foreground shadow-[var(--shadow-elevated)]"}
         >
           <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="text-xs font-semibold text-foreground">{"Filtros e ordena\u00e7\u00e3o"}</div>
@@ -560,14 +566,12 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
       breadcrumbs: [{ label: "Início", href: "/" }, { label: "Reuniões" }],
       showBackButton: true,
       backTo: "/",
-      mobileSearch: isMobile
-        ? {
+      mobileSearch: {
             value: searchTerm,
             onChange: setSearchTerm,
             placeholder: "Buscar...",
             menu: selectionMode ? selectionActions : mobileFiltersMenu,
-          }
-        : undefined,
+          },
       mobilePrimaryAction: isMobile && !selectionMode
         ? {
             label: "Nova reuni\u00e3o",
@@ -649,11 +653,35 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
 
       if (error) throw error;
 
+      const { data: membrosCadastrados, error: membrosError } = await supabase
+        .from("membros")
+        .select("faixa_etaria, ativo")
+        .eq("group_id", activeGroupId);
+
+      if (membrosError) throw membrosError;
+
+      const ageGroupTotals: Record<string, number> = {
+        Crianças: 0,
+        Meninos: 0,
+        Meninas: 0,
+        Moços: 0,
+        Moças: 0,
+      };
+
+      (membrosCadastrados || [])
+        .filter((membro: any) => membro.ativo !== false)
+        .forEach((membro: any) => {
+          const faixa = membro.faixa_etaria;
+          if (faixa && ageGroupTotals[faixa] !== undefined) {
+            ageGroupTotals[faixa] += 1;
+          }
+        });
+
       const reunioesWithCount = await Promise.all(
         (data || []).map(async (reuniao) => {
           const { data: presencas } = await supabase
             .from("presencas")
-            .select("id, membro_faixa_etaria")
+            .select("id, membro_faixa_etaria, membro_nome, orou")
             .eq("group_id", activeGroupId)
             .eq("reuniao_id", reuniao.id);
 
@@ -675,11 +703,18 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
             }
           });
 
+          const prayingNames = (presencas || [])
+            .filter((presenca: any) => Boolean(presenca.orou))
+            .map((presenca: any) => presenca.membro_nome)
+            .filter(Boolean);
+
           return {
             ...reuniao,
             totalParticipantes: totalMembros + totalVisitas,
             totalRecitativos: totalMembros + totalVisitas + totalRecitativos,
             ageGroupCounts: counts,
+            ageGroupTotals,
+            prayingNames,
           } as Reuniao & { totalParticipantes: number; totalRecitativos: number };
         }),
       );
@@ -748,8 +783,11 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
 
     setFilteredReunioes(filtered);
 
-    if (!isMobile && filtered.length > 0) {
-      setSelectedReuniao((current) => current ?? filtered[0]);
+    if (!isMobile) {
+      setSelectedReuniao((current) => {
+        if (!current) return null;
+        return filtered.some((reuniao) => reuniao.id === current.id) ? current : null;
+      });
     }
   };
 
@@ -806,7 +844,288 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     }
   };
 
+  const getMeetingTitle = (reuniao: Reuniao) => formatDateLocal(reuniao.data);
+
+  const getPrayerNames = (reuniao: Reuniao) => {
+    const names = [
+      ...(reuniao.prayingNames || []),
+      ...((reuniao.oracoes || []).map((oracao) => oracao?.nome).filter(Boolean) as string[]),
+    ];
+    return Array.from(new Set(names));
+  };
+
+  const buildMeetingSummary = (reuniao: Reuniao) => {
+    const participantes = reuniao.totalParticipantes || 0;
+    const recitativos = reuniao.totalRecitativos || 0;
+    const visitas = reuniao.numero_visitas || 0;
+    const individuais = reuniao.recitativos_individuais || 0;
+    const prayerNames = getPrayerNames(reuniao);
+    const destaques = AGE_GROUP_LABELS
+      .map((label) => ({ label, value: reuniao.ageGroupCounts?.[label] || 0 }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const faixaDestaque = destaques[0];
+
+    const frases = [
+      `A reunião de ${getMeetingTitle(reuniao)} registrou ${participantes} participante${participantes === 1 ? "" : "s"} e ${recitativos} recitativo${recitativos === 1 ? "" : "s"} no total.`,
+    ];
+
+    if (prayerNames.length) {
+      frases.push(`O momento de oração foi conduzido por ${prayerNames.slice(0, 3).join(", ")}${prayerNames.length > 3 ? ` e mais ${prayerNames.length - 3}` : ""}.`);
+    }
+
+    if (reuniao.quem_atendeu) {
+      frases.push(`${reuniao.quem_atendeu} ficou responsável pelo atendimento.`);
+    }
+
+    if (faixaDestaque) {
+      frases.push(`A maior presença foi de ${faixaDestaque.label}, com ${faixaDestaque.value} membro${faixaDestaque.value === 1 ? "" : "s"} presente${faixaDestaque.value === 1 ? "" : "s"}.`);
+    }
+
+    if (visitas > 0 || individuais > 0) {
+      frases.push(`Também houve ${visitas} visita${visitas === 1 ? "" : "s"} e ${individuais} recitativo${individuais === 1 ? "" : "s"} individual${individuais === 1 ? "" : "is"}.`);
+    }
+
+    if (reuniao.observacoes?.trim()) {
+      frases.push(`Comentário especial: ${reuniao.observacoes.trim()}`);
+    }
+
+    return frases.join(" ");
+  };
+
+  const renderMeetingSummary = (reuniao: Reuniao) => {
+    const participantes = reuniao.totalParticipantes || 0;
+    const recitativos = reuniao.totalRecitativos || 0;
+    const visitas = reuniao.numero_visitas || 0;
+    const individuais = reuniao.recitativos_individuais || 0;
+    const prayerNames = getPrayerNames(reuniao);
+    const destaques = AGE_GROUP_LABELS
+      .map((label) => ({ label, value: reuniao.ageGroupCounts?.[label] || 0 }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const faixaDestaque = destaques[0];
+
+    return (
+      <>
+        A reunião de <strong>{getMeetingTitle(reuniao)}</strong> registrou{" "}
+        <strong>{participantes} participante{participantes === 1 ? "" : "s"}</strong> e{" "}
+        <strong>{recitativos} recitativo{recitativos === 1 ? "" : "s"}</strong> no total.
+        {prayerNames.length ? (
+          <>
+            {" "}O momento de oração foi conduzido por <strong>{prayerNames.slice(0, 3).join(", ")}{prayerNames.length > 3 ? ` e mais ${prayerNames.length - 3}` : ""}</strong>.
+          </>
+        ) : null}
+        {reuniao.quem_atendeu ? (
+          <>
+            {" "}<strong>{reuniao.quem_atendeu}</strong> ficou responsável pelo atendimento.
+          </>
+        ) : null}
+        {faixaDestaque ? (
+          <>
+            {" "}A maior presença foi de <strong>{faixaDestaque.label}</strong>, com{" "}
+            <strong>{faixaDestaque.value} membro{faixaDestaque.value === 1 ? "" : "s"} presente{faixaDestaque.value === 1 ? "" : "s"}</strong>.
+          </>
+        ) : null}
+        {visitas > 0 || individuais > 0 ? (
+          <>
+            {" "}Também houve <strong>{visitas} visita{visitas === 1 ? "" : "s"}</strong> e{" "}
+            <strong>{individuais} recitativo{individuais === 1 ? "" : "s"} individual{individuais === 1 ? "" : "is"}</strong>.
+          </>
+        ) : null}
+        {reuniao.observacoes?.trim() ? (
+          <>
+            {" "}Comentário especial: <strong>{reuniao.observacoes.trim()}</strong>
+          </>
+        ) : null}
+      </>
+    );
+  };
+
+  const getMeetingAttendanceBars = (reuniao: Reuniao) =>
+    AGE_GROUP_LABELS.map((label) => {
+      const presentes = reuniao.ageGroupCounts?.[label] || 0;
+      const total = reuniao.ageGroupTotals?.[label] || 0;
+      const percentage = total ? Math.round((presentes / total) * 100) : 0;
+      return {
+        label,
+        presentes,
+        total,
+        percentage,
+        color: AGE_GROUP_COLORS[label] || "hsl(var(--primary))",
+      };
+    });
+
   const isSplitView = !isMobile && !!selectedReuniao;
+
+  if (!isMobile) {
+    const desktopSplit = Boolean(selectedReuniao);
+
+    return (
+      <div className="h-full w-full overflow-hidden bg-background">
+        <div className={`grid h-full min-h-0 gap-3 p-3 ${desktopSplit ? "grid-cols-[minmax(20rem,0.86fr)_minmax(36rem,1.7fr)]" : "grid-cols-1"}`}>
+          <Card className="min-h-0 overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+            <CardHeader className="px-4 pb-3 pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg">Reuniões Registradas</CardTitle>
+                  <p className="text-sm text-muted-foreground">{filteredReunioes.length} reunião{filteredReunioes.length === 1 ? "" : "ões"} encontrada{filteredReunioes.length === 1 ? "" : "s"}</p>
+                </div>
+                <span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-secondary px-3 text-sm font-bold tabular-nums text-foreground">
+                  {filteredReunioes.length}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="min-h-0 px-4 pb-4 pt-1">
+              <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-1 pr-2 scrollbar-thin">
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, index) => (
+                    <div key={index} className="flex min-h-[5.25rem] w-full items-center gap-4 rounded-2xl border border-border/55 bg-background/45 p-3">
+                      <Skeleton className="h-12 w-12 rounded-xl" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-2.5 w-4/5" />
+                      </div>
+                    </div>
+                  ))
+                ) : filteredReunioes.length ? (
+                  filteredReunioes.map((reuniao) => {
+                    const active = selectedReuniao?.id === reuniao.id;
+                    return (
+                      <button
+                        key={reuniao.id}
+                        type="button"
+                        className={`group flex min-h-[5.35rem] w-full items-center gap-4 rounded-2xl border p-3 text-left outline-none transition-all hover:border-primary/50 hover:bg-secondary/45 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70 ${active ? "border-primary bg-primary/10 ring-1 ring-inset ring-primary/55" : "border-border/55 bg-background/50"}`}
+                        onClick={() => setSelectedReuniao((current) => current?.id === reuniao.id ? null : reuniao)}
+                      >
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground">
+                          <Calendar className="h-6 w-6" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-base font-extrabold text-foreground">{getMeetingTitle(reuniao)}</span>
+                          <span className="mt-1 block truncate text-sm font-medium text-muted-foreground">
+                            {reuniao.totalParticipantes || 0} participantes | Total de recitativos: {reuniao.totalRecitativos || 0}
+                          </span>
+                        </span>
+                        <MoreVertical className="h-4 w-4 shrink-0 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-100" />
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full flex h-full min-h-[18rem] flex-col items-center justify-center rounded-3xl border border-dashed border-border/60 text-center">
+                    <Calendar className="mb-3 h-10 w-10 text-muted-foreground" />
+                    <p className="font-semibold text-foreground">Nenhuma reunião encontrada</p>
+                    <p className="text-sm text-muted-foreground">Ajuste a busca ou os filtros da barra superior.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedReuniao ? (
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="px-4 pb-3 pt-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground">Detalhes da Reunião de</p>
+                    <CardTitle className="text-2xl leading-tight">{getMeetingTitle(selectedReuniao)}</CardTitle>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="member-card-action member-card-action-danger"
+                      onClick={() => handleDeleteReuniao(selectedReuniao.id)}
+                      aria-label="Excluir reunião"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="member-card-action-label">Excluir</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="member-card-action"
+                      onClick={() => navigate(`/reunioes/${selectedReuniao.id}`)}
+                      aria-label="Editar reunião"
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span className="member-card-action-label">Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="member-card-action"
+                      onClick={() => navigate(`/reunioes/visualizar/${selectedReuniao.id}`)}
+                      aria-label="Ver informações completas da reunião"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span className="member-card-action-label">Informações</span>
+                    </button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-0 scrollbar-thin">
+                <section className="rounded-2xl border border-border/60 bg-background/50 p-4">
+                  <h3 className="text-xl font-extrabold text-foreground">Resumo da Reunião</h3>
+                  <p className="mt-2 text-base font-medium leading-relaxed text-muted-foreground [&_strong]:font-extrabold [&_strong]:text-foreground">
+                    {renderMeetingSummary(selectedReuniao)}
+                  </p>
+                </section>
+
+                <section className="grid min-h-[24rem] flex-1 grid-cols-[minmax(17rem,0.72fr)_minmax(28rem,1.28fr)] gap-4">
+                  <div className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/50 p-4">
+                    <h3 className="text-xl font-extrabold text-foreground">Recitativos</h3>
+                    <div className="mt-4 flex-1 space-y-3">
+                      {[
+                        ...AGE_GROUP_LABELS.map((label) => ({ label, value: selectedReuniao.ageGroupCounts?.[label] || 0, color: AGE_GROUP_COLORS[label] })),
+                        { label: "Visitas", value: selectedReuniao.numero_visitas || 0, color: AGE_GROUP_COLORS.Recitativos },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center justify-between gap-4">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="h-4 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="truncate text-base font-semibold text-foreground">{item.label}</span>
+                          </div>
+                          <span className="text-base font-extrabold tabular-nums text-foreground">{String(item.value).padStart(2, "0")}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary px-4 py-3">
+                      <span className="text-base font-extrabold text-foreground">Total geral:</span>
+                      <span className="text-3xl font-black tabular-nums text-foreground">{selectedReuniao.totalRecitativos || 0}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-background/50 p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-xl font-extrabold text-foreground">Presença por faixa</h3>
+                      <span className="text-sm font-semibold text-muted-foreground">Presentes / cadastrados</span>
+                    </div>
+                    <div className="flex min-h-0 flex-1 items-stretch justify-between gap-4">
+                      {getMeetingAttendanceBars(selectedReuniao).map((item) => (
+                        <div key={item.label} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                          <div className="flex min-h-[14rem] w-full max-w-[5.25rem] flex-1 items-end overflow-hidden rounded-2xl bg-secondary">
+                            <div
+                              className="w-full rounded-2xl transition-all"
+                              style={{
+                                height: `${Math.max(item.percentage, item.presentes > 0 ? 8 : 0)}%`,
+                                backgroundColor: item.color,
+                              }}
+                            />
+                          </div>
+                          <div className="w-full rounded-xl border border-border/60 bg-card/70 px-2 py-2.5 text-center">
+                            <p className="truncate text-sm font-extrabold text-foreground">{item.label}</p>
+                            <p className="text-xs font-semibold text-muted-foreground">
+                              {item.percentage}% · {item.presentes}/{item.total}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">

@@ -966,7 +966,7 @@ const EditorNota = () => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Reuniao</Label>
+                  <Label className="text-xs">Reunião</Label>
                   <Select value={selectedReuniaoId} onValueChange={(value) => setSelectedReuniaoId(value)} disabled={!canEditNote}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Nenhuma" />

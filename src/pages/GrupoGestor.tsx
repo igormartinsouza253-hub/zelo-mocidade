@@ -375,7 +375,7 @@ export default function GrupoGestor() {
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-background">
       <div className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 px-3 backdrop-blur md:hidden">
         <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2" aria-label="Ir para início">
-          <ZeloLogo className="h-10 w-10 rounded-xl p-1" />
+          <ZeloLogo compact className="h-10 w-10 rounded-xl p-1" />
         </button>
 
         <p className="max-w-[48vw] truncate text-xs font-extrabold uppercase tracking-[0.12em] text-foreground">Grupo gestor</p>

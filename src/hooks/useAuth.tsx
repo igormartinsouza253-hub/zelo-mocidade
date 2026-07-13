@@ -77,10 +77,10 @@ export const useAuth = () => {
             },
           });
           if (roleErr && !(roleErr as any)?.message?.includes("401")) {
-            console.error("Erro ao bootstrap_user:", roleErr);
+            console.warn("Não foi possível preparar o acesso base agora. O app continuará tentando pelos fluxos principais.", roleErr);
           }
         } catch (err) {
-          console.error("Erro ao chamar bootstrap_user:", err);
+          console.warn("Não foi possível chamar bootstrap_user agora. O app continuará tentando pelos fluxos principais.", err);
         }
 
         const { data: existing, error: readError } = await supabase
@@ -136,7 +136,7 @@ export const useAuth = () => {
         if (updateError) throw updateError;
       } catch (err) {
         // Não bloqueia a navegação do app, mas ajuda no diagnóstico.
-        console.error("Erro ao garantir profile do usuário:", err);
+        console.warn("Não foi possível sincronizar o perfil do usuário agora:", err);
       }
     };
 

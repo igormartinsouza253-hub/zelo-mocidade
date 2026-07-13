@@ -455,6 +455,7 @@ export default function Calendario() {
 
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
   const saveLayersTimer = useRef<number | null>(null);
+  const handledNewEventParamRef = useRef<string | null>(null);
 
   const [searchText, setSearchText] = useState("");
 
@@ -512,9 +513,8 @@ export default function Calendario() {
     const LayersDropdown = (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">
+          <Button variant="outline" size="icon" aria-label="Filtros do calendário" title="Filtros do calendário">
             <Filter className="h-4 w-4" />
-            Camadas
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="z-50 w-56 bg-popover">
@@ -553,6 +553,12 @@ export default function Calendario() {
     setConfig({
       title: "Agenda",
       icon: CalendarDays,
+      mobileSearch: {
+        value: searchText,
+        onChange: setSearchText,
+        placeholder: "Buscar no calendário...",
+        menu: LayersDropdown,
+      },
       primaryActions: (
         <Button
           size="icon"
@@ -1074,6 +1080,32 @@ export default function Calendario() {
     }));
     setDialogOpen(true);
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("new") !== "1") return;
+
+    const requestKey = location.search;
+    if (handledNewEventParamRef.current === requestKey) return;
+    handledNewEventParamRef.current = requestKey;
+
+    const dataParam = params.get("data");
+    const baseDate =
+      dataParam && /^\d{4}-\d{2}-\d{2}$/.test(dataParam)
+        ? new Date(`${dataParam}T00:00:00`)
+        : new Date();
+
+    openCreateDialog(baseDate);
+
+    params.delete("new");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString() ? `?${params.toString()}` : "",
+      },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate]);
 
   const openFromEvent = (ev: CalendarItem) => {
     setSelectedOccurrence(ev);

@@ -25,6 +25,7 @@ import {
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { cn } from "@/lib/utils";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import { useIsMobile } from "@/hooks/use-mobile";
 interface Membro {
   id: string;
   nome: string;
@@ -75,6 +76,7 @@ const VisualizarReuniao = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { activeGroupId } = useActiveGroup();
+  const isMobile = useIsMobile();
   const [reuniao, setReuniao] = useState<ReuniaoData | null>(null);
   const [membrosPresentes, setMembrosPresentes] = useState<Membro[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -328,9 +330,17 @@ const VisualizarReuniao = () => {
   const filteredMembros = getFilteredAndSortedMembros();
   const groupedMembros = getMembrosGroupedByFaixa();
   const prayingMembers = membrosPresentes.filter((membro) => membro.orou);
-  const ageSummary = FAIXAS_ETARIAS.map((faixa) => ({
+  const prayingMemberNames = Array.from(new Set([
+    ...prayingMembers.map((membro) => membro.nome),
+    ...(reuniao.oracoes || [])
+      .filter((oracao) => oracao.tipo === "membro")
+      .map((oracao) => oracao.nome),
+  ].filter(Boolean)));
+  const ageSummary = [...FAIXAS_ETARIAS, "Visitantes"].map((faixa) => ({
     faixa,
-    total: membrosPresentes.filter((membro) => membro.faixa_etaria === faixa).length,
+    total: faixa === "Visitantes"
+      ? (reuniao.numero_visitas || 0)
+      : membrosPresentes.filter((membro) => membro.faixa_etaria === faixa).length,
   }));
   const pieChartData = chartData.length === 1
     ? [
@@ -347,7 +357,356 @@ const VisualizarReuniao = () => {
     { label: "Visitas", value: reuniao.numero_visitas || 0, icon: UserPlus },
     { label: "Individuais", value: reuniao.recitativos_individuais || 0, icon: Mic2 },
   ];
-  const carouselSlideCount = 3;
+  const carouselSlideCount = 2;
+  const desktopGroupedMembros = FAIXAS_ETARIAS
+    .map((faixa) => ({
+      faixa,
+      membros: membrosPresentes
+        .filter((membro) => membro.faixa_etaria === faixa)
+        .sort((a, b) => a.nome.localeCompare(b.nome)),
+    }))
+    .filter((grupo) => grupo.membros.length > 0);
+  const outrosMembros = membrosPresentes
+    .filter((membro) => !FAIXAS_ETARIAS.includes(membro.faixa_etaria))
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+  if (outrosMembros.length > 0) {
+    desktopGroupedMembros.push({ faixa: "Outros", membros: outrosMembros });
+  }
+
+  if (!isMobile) {
+    return (
+      <div className="h-full w-full overflow-hidden bg-background p-3">
+        <div className="grid h-full min-h-0 grid-cols-[minmax(24rem,0.92fr)_minmax(26rem,1fr)] gap-3">
+          <section className="flex min-h-0 flex-col gap-2.5">
+            <Card className="flex-none rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardContent className="flex items-center justify-between gap-4 px-4 py-2">
+                <h1 className="min-w-0 truncate text-xl font-extrabold text-foreground">
+                  Reunião de Jovens <span className="font-semibold text-muted-foreground">- {formatDateLocal(reuniao.data)}</span>
+                </h1>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    className="member-card-action member-card-action-danger"
+                    onClick={() => setShowDeleteDialog(true)}
+                    aria-label="Excluir reunião"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="member-card-action-label">Excluir</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="member-card-action"
+                    onClick={() => navigate(`/reunioes/${id}`)}
+                    aria-label="Editar reunião"
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span className="member-card-action-label">Editar</span>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid flex-none grid-cols-2 gap-2.5">
+              <Card className="rounded-[18px] border-border/60 bg-card/90 shadow-none">
+                <CardContent className="flex items-center justify-between gap-3 px-4 py-2">
+                  <span className="text-base font-extrabold text-foreground">Participantes</span>
+                  <span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-secondary px-2.5 text-xl font-black tabular-nums text-foreground">
+                    {getTotalParticipantes()}
+                  </span>
+                </CardContent>
+              </Card>
+              <Card className="rounded-[18px] border-border/60 bg-card/90 shadow-none">
+                <CardContent className="flex items-center justify-between gap-3 px-4 py-2">
+                  <span className="text-base font-extrabold text-foreground">Total</span>
+                  <span className="flex h-11 min-w-11 items-center justify-center rounded-full bg-secondary px-3 text-2xl font-black tabular-nums text-foreground">
+                    {getTotalRecitativos()}
+                  </span>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="flex-none rounded-[18px] border-border/60 bg-card/90 shadow-none">
+              <CardContent className="px-4 py-2">
+                <p className="text-xs font-semibold text-muted-foreground">Tema:</p>
+                <p className="truncate text-sm font-extrabold text-foreground">{reuniao.tema || "Sem tema definido"}</p>
+              </CardContent>
+            </Card>
+
+            <div className="grid flex-none grid-cols-2 gap-2.5">
+              <Card className="rounded-[18px] border-border/60 bg-card/90 shadow-none">
+                <CardContent className="px-4 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Quem atendeu:</p>
+                  <p className="truncate text-sm font-extrabold text-foreground">{reuniao.quem_atendeu || "Não informado"}</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-[18px] border-border/60 bg-card/90 shadow-none">
+                <CardContent className="px-4 py-3">
+                  <p className="text-xs font-semibold text-muted-foreground">Palavra pregada:</p>
+                  <p className="truncate text-sm font-extrabold text-foreground">{reuniao.palavra_referencia || "Não informada"}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="flex-none rounded-[18px] border-border/60 bg-card/90 shadow-none">
+              <CardContent className="px-4 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-extrabold text-foreground">Quem orou</p>
+                    <p className="text-xs font-medium text-muted-foreground">Membros que participaram da oração</p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-3 py-1 text-sm font-black tabular-nums text-foreground">
+                    {prayingMemberNames.length}
+                  </span>
+                </div>
+                <div className="mt-2 flex min-h-8 flex-nowrap items-center gap-2 overflow-x-auto scrollbar-none">
+                  {prayingMemberNames.length > 0 ? prayingMemberNames.map((nome) => (
+                    <span key={nome} className="max-w-[48%] shrink-0 truncate rounded-full border border-border/60 bg-background/55 px-3 py-1 text-xs font-semibold text-foreground">
+                      {nome}
+                    </span>
+                  )) : (
+                    <span className="text-xs font-medium text-muted-foreground">Nenhum membro marcado nesta reunião.</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="px-4 pb-1 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">Dados da Reunião:</CardTitle>
+                    <p className="text-xs font-medium text-muted-foreground">Distribuição, participação e resumo</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: carouselSlideCount }).map((_, index) => (
+                      <span
+                        key={index}
+                        className={cn(
+                          "h-1.5 rounded-full transition-all",
+                          selectedSlide === index ? "w-5 bg-primary" : "w-1.5 bg-muted-foreground/25"
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 px-4 pb-3 pt-0">
+                <Carousel setApi={setCarouselApi} opts={{ align: "start" }} className="h-full min-h-0 w-full [&>div]:h-full">
+                  <CarouselContent className="ml-0 h-full min-h-0 items-stretch">
+                    <CarouselItem className="flex h-full min-h-0 pl-0">
+                      <div className="grid h-full w-full grid-cols-[minmax(9rem,0.86fr)_minmax(12rem,1fr)] gap-3 overflow-hidden rounded-[1.25rem] bg-background/45 p-3">
+                        <div className="flex min-h-0 flex-col rounded-2xl bg-card/65 p-3">
+                          <h3 className="text-sm font-extrabold text-foreground">Distribuição</h3>
+                          <div className="mt-2 grid flex-1 grid-cols-2 content-start gap-x-4 gap-y-1">
+                            {ageSummary.map((item) => (
+                              <div key={item.faixa} className="flex items-center justify-between gap-3">
+                                <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-foreground">
+                                  <span className="h-3 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: FAIXA_COLORS[item.faixa] }} />
+                                  <span className="truncate">{item.faixa}</span>
+                                </span>
+                                <span className="text-xs font-black tabular-nums text-foreground">{String(item.total).padStart(2, "0")}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-2 flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
+                            <span className="text-xs font-extrabold text-foreground">Total participantes</span>
+                            <span className="text-lg font-black tabular-nums text-foreground">{getTotalParticipantes()}</span>
+                          </div>
+                        </div>
+                        <div className="flex min-h-0 items-center justify-center">
+                          {chartData.length > 0 ? (
+                            <div className="h-full max-h-[16rem] min-h-[12rem] w-full max-w-[18rem]">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={pieChartData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius="50%"
+                                    outerRadius="74%"
+                                    startAngle={90}
+                                    endAngle={-270}
+                                    paddingAngle={5}
+                                    cornerRadius={999}
+                                    minAngle={18}
+                                    dataKey="value"
+                                  >
+                                    <PieLabel
+                                      position="center"
+                                      content={({ viewBox }) => {
+                                        if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null;
+                                        return (
+                                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                            <tspan x={viewBox.cx} dy="-0.2em" className="fill-foreground text-2xl font-black">
+                                              {getTotalParticipantes()}
+                                            </tspan>
+                                            <tspan x={viewBox.cx} dy="1.45em" className="fill-muted-foreground text-[10px] font-bold">
+                                              PESSOAS
+                                            </tspan>
+                                          </text>
+                                        );
+                                      }}
+                                    />
+                                    {pieChartData.map((entry, index) => (
+                                      <Cell key={`desktop-cell-${index}`} fill={entry.color} stroke="transparent" strokeWidth={0} />
+                                    ))}
+                                  </Pie>
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          ) : (
+                            <p className="text-center text-sm text-muted-foreground">Nenhum participante registrado.</p>
+                          )}
+                        </div>
+                      </div>
+                    </CarouselItem>
+
+                    <CarouselItem className="flex h-full min-h-0 pl-0">
+                      <div className="flex h-full w-full flex-col overflow-hidden rounded-[1.25rem] bg-background/45 p-3">
+                        <div className="mb-2">
+                          <h3 className="text-sm font-extrabold text-foreground">Participação</h3>
+                          <p className="text-xs text-muted-foreground">Total de membros vs presentes</p>
+                        </div>
+                        {barChartData.length > 0 ? (
+                          <div className="grid min-h-0 flex-1 grid-cols-5 gap-2 overflow-y-auto pb-1 scrollbar-none">
+                            {barChartData.map((entry) => {
+                              const total = Number(entry.total) || 0;
+                              const presentes = Number(entry.presentes) || 0;
+                              const percentual = total > 0 ? Math.min(100, Math.round((presentes / total) * 100)) : 0;
+                              const color = FAIXA_COLORS[entry.faixa] || "hsl(var(--primary))";
+                              return (
+                                <div key={entry.faixa} className="flex min-h-[7rem] min-w-0 flex-col items-center justify-end gap-2 rounded-2xl bg-card/65 px-2 py-2">
+                                  <div className="flex w-full flex-1 items-end justify-center">
+                                    <div className="relative h-full min-h-[5rem] w-12 overflow-hidden rounded-full bg-muted/35 ring-1 ring-border/40">
+                                      <div className="absolute inset-x-0 bottom-0 rounded-full transition-[height] duration-500" style={{ height: `${percentual}%`, backgroundColor: color }} />
+                                    </div>
+                                  </div>
+                                  <div className="w-full text-center">
+                                    <p className="truncate text-xs font-extrabold text-foreground">{entry.faixa}</p>
+                                    <p className="text-[11px] font-semibold text-muted-foreground">{percentual}% <span aria-hidden="true">·</span> {presentes}/{total}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                            Sem dados para comparar participação.
+                          </div>
+                        )}
+                      </div>
+                    </CarouselItem>
+
+                    {false && (
+                    <CarouselItem className="flex h-full pl-0">
+                      <div className="grid h-full w-full grid-cols-2 gap-3 overflow-hidden rounded-[1.25rem] bg-background/45 p-3">
+                        <div className="rounded-2xl bg-primary px-4 py-3 text-primary-foreground">
+                          <p className="text-xs font-bold uppercase tracking-[0.14em] opacity-80">Total de recitativos</p>
+                          <p className="mt-2 text-6xl font-black leading-none tabular-nums">{getTotalRecitativos()}</p>
+                          <p className="mt-3 text-sm font-semibold opacity-85">
+                            {reuniao.recitativos_individuais || 0} individuais · {reuniao.numero_visitas || 0} visitas
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          {resumoItems.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                              <div key={item.label} className="flex min-h-[3rem] items-center justify-between rounded-2xl bg-card/70 px-3 py-2">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                                  <Icon className="h-4 w-4 text-primary" />
+                                  {item.label}
+                                </span>
+                                <span className="text-xl font-black tabular-nums text-foreground">{item.value}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </CarouselItem>
+                    )}
+                  </CarouselContent>
+                </Carousel>
+              </CardContent>
+            </Card>
+          </section>
+
+          <Card className="flex min-h-0 flex-col rounded-[20px] border-border/60 bg-card/90 shadow-none">
+            <CardHeader className="flex-none px-4 pb-1.5 pt-3">
+              <CardTitle className="text-xl">Membros presentes</CardTitle>
+              <p className="text-sm font-medium text-muted-foreground">
+                {membrosPresentes.length} membro{membrosPresentes.length === 1 ? "" : "s"} organizado{membrosPresentes.length === 1 ? "" : "s"} por faixa etária
+              </p>
+            </CardHeader>
+            <CardContent className="min-h-0 flex-1 px-4 pb-4 pt-0">
+              {desktopGroupedMembros.length > 0 ? (
+                <div className="grid h-full min-h-0 auto-rows-max grid-cols-2 content-start gap-x-3 gap-y-3 overflow-y-auto overflow-x-hidden pr-1 scrollbar-none">
+                  {desktopGroupedMembros.map((grupo) => (
+                    <div key={grupo.faixa} className="col-span-2 h-auto min-h-fit">
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <span className="h-3 w-1.5 rounded-full" style={{ backgroundColor: FAIXA_COLORS[grupo.faixa] || "hsl(var(--primary))" }} />
+                        <h3 className="text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
+                          {grupo.faixa} ({grupo.membros.length})
+                        </h3>
+                      </div>
+                      <div className="grid auto-rows-max grid-cols-2 gap-2">
+                        {grupo.membros.map((membro) => (
+                          <button
+                            key={membro.id}
+                            type="button"
+                            className="flex min-h-[2.5rem] items-center gap-2 rounded-xl border border-border/55 bg-background/55 px-3 py-1 text-left transition-colors hover:bg-secondary/50"
+                            onClick={() => navigate(`/membros/visualizar/${membro.id}`)}
+                          >
+                            <Avatar className="h-7 w-7 shrink-0 rounded-lg border border-border/50">
+                              <AvatarImage className="rounded-lg object-cover" src={membro.foto_url || undefined} alt={membro.nome} />
+                              <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                                {membro.nome.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{membro.nome}</span>
+                            {membro.orou ? <span className="h-2 w-2 shrink-0 rounded-full bg-primary" title="Orou" /> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/60 text-sm text-muted-foreground">
+                  Nenhum membro presente registrado.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir esta reunião? Esta ação não pode ser desfeita e todos os registros de presença serão removidos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!id) return;
+                  await supabase.from("presencas").delete().eq("reuniao_id", id);
+                  const { error } = await supabase.from("reunioes").delete().eq("id", id);
+                  if (error) throw error;
+                  navigate("/reunioes");
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom)+7rem)]">
@@ -597,6 +956,7 @@ const VisualizarReuniao = () => {
                     </div>
                   </CarouselItem>
 
+                  {false && (
                   <CarouselItem className="flex">
                     <div className="h-[320px] w-full overflow-y-auto rounded-[1.25rem] bg-background/45 p-2.5 scrollbar-none">
                       <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Resumo</h3>
@@ -629,6 +989,7 @@ const VisualizarReuniao = () => {
                       </div>
                     </div>
                   </CarouselItem>
+                  )}
                 </CarouselContent>
               </Carousel>
             </CardContent>

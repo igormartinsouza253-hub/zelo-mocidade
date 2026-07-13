@@ -41,13 +41,10 @@
       }
 
       .app-loading-logo {
-        width: 96px;
-        height: 96px;
-        padding: 16px;
-        border-radius: 28px;
-        background: hsl(var(--primary, var(--initial-primary)));
-        box-shadow: 0 18px 42px -30px rgb(0 0 0 / 0.55);
-        overflow: hidden;
+        width: 112px;
+        height: 112px;
+        padding: 4px;
+        background: transparent;
       }
 
       .app-loading-logo img {
@@ -55,6 +52,24 @@
         height: 100%;
         object-fit: contain;
         display: block;
+      }
+
+      html.dark .app-loading-logo img {
+        content: url("/logo-zelo-transparent-white.png");
+      }
+
+      html.light .app-loading-logo img {
+        content: url("/logo-zelo-transparent.png");
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --initial-background: 213 24% 9%;
+        }
+
+        .app-loading-logo img {
+          content: url("/logo-zelo-transparent-white.png");
+        }
       }
 
       .app-loading-bar {

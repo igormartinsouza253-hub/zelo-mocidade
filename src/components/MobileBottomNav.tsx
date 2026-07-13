@@ -25,7 +25,7 @@ type DockItem = {
 };
 
 const FIXED_DOCK: DockItem[] = [
-  { id: "home", label: "Inicio", url: "/", icon: Home },
+  { id: "home", label: "Início", url: "/", icon: Home },
   { id: "membros", label: "Membros", url: "/membros", icon: Users },
   { id: "reunioes", label: "Reuni\u00f5es", url: "/reunioes", icon: Handshake },
   { id: "calendario", label: "Agenda", url: "/calendario", icon: CalendarDays },

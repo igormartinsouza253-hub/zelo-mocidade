@@ -338,10 +338,17 @@ export default function DesktopVisitas() {
   };
 
   const renderVisitaItem = (visita: EnrichedVisita, isFuture: boolean) => (
-    <button
+    <div
       key={visita.id}
-      type="button"
+      role="button"
+      tabIndex={0}
       onClick={() => setSelectedVisita(visita)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setSelectedVisita(visita);
+        }
+      }}
       className="w-full text-left rounded-lg border border-border/70 bg-card p-2.5 md:p-3.5 space-y-1.5 md:space-y-2 hover:border-primary/60 hover:bg-accent/40 transition-colors"
     >
       <div className="flex items-center justify-between gap-2">
@@ -405,7 +412,7 @@ export default function DesktopVisitas() {
       {visita.observacoes && (
         <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-2">Obs.: {visita.observacoes}</p>
       )}
-    </button>
+    </div>
   );
 
   return (

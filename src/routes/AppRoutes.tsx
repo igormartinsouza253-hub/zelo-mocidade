@@ -27,7 +27,6 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const Cargos = lazy(() => import("@/pages/Cargos"));
 const Estatisticas = lazy(() => import("@/pages/Estatisticas"));
 const Notas = lazy(() => import("@/pages/Notas"));
-const Busca = lazy(() => import("@/pages/Busca"));
 const Visitas = lazy(() => import("@/pages/Visitas"));
 const NovaVisita = lazy(() => import("@/pages/NovaVisita"));
 const VisualizarVisita = lazy(() => import("@/pages/VisualizarVisita"));
@@ -117,7 +116,6 @@ export function AppRoutes() {
 
       <Route path="/cargos" element={<ProtectedLayout><Cargos /></ProtectedLayout>} />
       <Route path="/estatisticas" element={<ProtectedLayout><Estatisticas /></ProtectedLayout>} />
-      <Route path="/busca" element={<ProtectedLayout><Busca /></ProtectedLayout>} />
 
       <Route path="*" element={<PublicRoute><NotFound /></PublicRoute>} />
     </Routes>

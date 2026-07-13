@@ -38,11 +38,11 @@ const PRESET_MAP: Record<BuiltInPresetId, CustomThemeConfig> = {
     ring: "33 100% 45%",
   },
   verde: {
-    primary: "138 62% 38%", // #259b46
-    accent: "138 62% 46%",
-    sidebarPrimary: "138 62% 34%",
-    sidebarAccent: "120 16% 92%",
-    ring: "138 62% 38%",
+    primary: "48 30% 34%",
+    accent: "45 30% 92%",
+    sidebarPrimary: "48 30% 34%",
+    sidebarAccent: "45 30% 92%",
+    ring: "48 30% 34%",
   },
   rosa: {
     primary: "335 100% 42%", // #d60060
@@ -82,8 +82,8 @@ export const THEME_PRESETS_META: {
 }[] = [
   {
     id: "azul",
-    label: "Azul (Padrão)",
-    description: "Tema principal com destaques azuis",
+    label: "Azul",
+    description: "Tema com destaques azuis",
     preview: {
       primary: PRESET_MAP.azul.primary,
       accent: PRESET_MAP.azul.accent,
@@ -100,8 +100,8 @@ export const THEME_PRESETS_META: {
   },
   {
     id: "verde",
-    label: "Verde",
-    description: "Visual equilibrado com toques de verde",
+    label: "Verde Zelo (Padrão)",
+    description: "Visual editorial com verde profundo e neutros suaves",
     preview: {
       primary: PRESET_MAP.verde.primary,
       accent: PRESET_MAP.verde.accent,
@@ -195,7 +195,7 @@ export function applyThemePreset(preset: ThemePresetId, custom?: CustomThemeConf
     contrast,
   });
 
-  const base = PRESET_MAP[preset as BuiltInPresetId] || {};
+  const base = preset === "verde" ? {} : PRESET_MAP[preset as BuiltInPresetId] || {};
   const overrides = custom ? custom : {};
   const finalConfig: CustomThemeConfig = { ...base, ...overrides };
 

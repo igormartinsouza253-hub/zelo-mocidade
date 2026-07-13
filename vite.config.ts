@@ -53,4 +53,30 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          const normalizedId = id.replace(/\\/g, "/");
+
+          if (id.includes("react-big-calendar")) return "calendar-vendor";
+          if (id.includes("recharts")) return "charts-vendor";
+          if (id.includes("@tiptap") || id.includes("react-markdown")) return "editor-vendor";
+          if (id.includes("@supabase")) return "supabase-vendor";
+          if (id.includes("@radix-ui") || id.includes("vaul") || id.includes("cmdk")) return "ui-vendor";
+          if (id.includes("date-fns")) return "date-vendor";
+          if (id.includes("xlsx")) return "xlsx-vendor";
+          if (
+            normalizedId.includes("/node_modules/react/") ||
+            normalizedId.includes("/node_modules/react-dom/") ||
+            normalizedId.includes("/node_modules/scheduler/")
+          ) {
+            return "react-vendor";
+          }
+        },
+      },
+    },
+  },
 }));

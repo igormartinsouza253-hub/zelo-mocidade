@@ -1,5 +1,4 @@
 import React from "react";
-import { ModernSidebar } from "@/components/ModernSidebar";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -17,12 +16,14 @@ import {
   Bell,
   MoreVertical,
   Plus,
+  ChevronDown,
+  CalendarPlus,
+  UserPlus,
+  SlidersHorizontal,
+  FileText,
 } from "lucide-react";
-import {
-  SidebarPreferencesProvider,
-} from "@/hooks/useSidebarPreferences";
 import { DockPreferencesProvider } from "@/hooks/useDockPreferences";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -77,15 +78,38 @@ function resolveRoute(pathname: string) {
   return routeTitles["/"];
 }
 
+const desktopRootPaths = new Set([
+  "/",
+  "/membros",
+  "/reunioes",
+  "/calendario",
+  "/visitas",
+  "/notas",
+  "/estatisticas",
+  "/configuracoes",
+  "/grupo",
+]);
+
+function resolveParentPath(pathname: string) {
+  if (pathname.startsWith("/membros/")) return "/membros";
+  if (pathname.startsWith("/reunioes/")) return "/reunioes";
+  if (pathname.startsWith("/visitas/")) return "/visitas";
+  if (pathname.startsWith("/notas/")) return "/notas";
+  if (pathname.startsWith("/grupo/")) return "/grupo";
+  if (pathname.startsWith("/calendario/")) return "/calendario";
+  if (pathname.startsWith("/configuracoes/")) return "/configuracoes";
+  if (pathname.startsWith("/estatisticas/")) return "/estatisticas";
+
+  return null;
+}
+
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <SidebarPreferencesProvider>
-      <DockPreferencesProvider>
-        <PageHeaderProvider>
-          <AppLayoutShell>{children}</AppLayoutShell>
-        </PageHeaderProvider>
-      </DockPreferencesProvider>
-    </SidebarPreferencesProvider>
+    <DockPreferencesProvider>
+      <PageHeaderProvider>
+        <AppLayoutShell>{children}</AppLayoutShell>
+      </PageHeaderProvider>
+    </DockPreferencesProvider>
   );
 }
 
@@ -100,6 +124,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const { profile } = useCurrentProfile();
   const { activeGroupId, activeGroup, loading: loadingGroup } = useActiveGroup();
   const isViewportMobile = useIsMobile();
+  const heartbeatWarningAtRef = useRef(0);
   // Arquitetura por breakpoint: Mobile (<md) e Desktop/Tablet (md+).
   const isMobileMode = isViewportMobile;
   useEffect(() => {
@@ -141,7 +166,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   }, [user, loadingGroup, activeGroupId, location.pathname, navigate]);
 
   const isDashboard = location.pathname === "/";
-  const [isLandscapeMobile, setIsLandscapeMobile] = useState(false);
   const [hideMobileDockOverride, setHideMobileDockOverride] = useState(false);
 
   // Permite que telas mobile peçam para esconder/mostrar a dock inferior.
@@ -155,20 +179,72 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     return () => window.removeEventListener("mobileDockVisibility", handler as EventListener);
   }, []);
 
-  // Tenta travar em retrato quando o navegador/OS suporta (PWA/Android costuma suportar).
-  useEffect(() => {
-    if (!isMobileMode) return;
-
-    const orientation = (screen as any)?.orientation;
-    if (orientation?.lock) {
-      void orientation.lock("portrait").catch(() => {
-        // Nem todos os navegadores permitem; fallback é o overlay de landscape.
-      });
-    }
-  }, [isMobileMode]);
-
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState(false);
+  const [desktopSearchOpen, setDesktopSearchOpen] = useState(false);
+  const [desktopSearchQuery, setDesktopSearchQuery] = useState("");
+  const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const [globalSuggestions, setGlobalSuggestions] = useState<Array<{ id: string; label: string; helper: string; href: string; kind: "page" | "member" | "meeting" }>>([]);
+  const scopedSearch = config?.mobileSearch;
+
+  useEffect(() => {
+    setDesktopSearchQuery(scopedSearch?.value ?? "");
+  }, [location.pathname, scopedSearch?.value]);
+
+  useEffect(() => {
+    if (!desktopSearchOpen) return;
+    desktopSearchInputRef.current?.focus();
+  }, [desktopSearchOpen]);
+
+  const submitDesktopSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const firstSuggestion = globalSuggestions[0];
+    if (!scopedSearch && firstSuggestion) {
+      navigate(firstSuggestion.href);
+      setDesktopSearchOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!desktopSearchOpen || scopedSearch || !activeGroupId) {
+      setGlobalSuggestions([]);
+      return;
+    }
+
+    const query = desktopSearchQuery.trim();
+    if (!query) {
+      setGlobalSuggestions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      const normalized = query.toLocaleLowerCase("pt-BR");
+      const pages = [
+        ["Início", "Dashboard e visão geral", "/"],
+        ["Membros", "Cadastro e gestão de membros", "/membros"],
+        ["Reuniões", "Reuniões e presenças", "/reunioes"],
+        ["Calendário", "Eventos e agenda", "/calendario"],
+        ["Visitas", "Registro de visitas", "/visitas"],
+        ["Notas", "Notas rápidas", "/notas"],
+        ["Estatísticas", "Indicadores do grupo", "/estatisticas"],
+        ["Configurações", "Preferências do aplicativo", "/configuracoes"],
+      ].filter(([label, helper]) => `${label} ${helper}`.toLocaleLowerCase("pt-BR").includes(normalized));
+
+      const pattern = `%${query.replace(/[%_]/g, "")}%`;
+      const [membersResult, meetingsResult] = await Promise.all([
+        supabase.from("membros").select("id, nome, faixa_etaria").eq("group_id", activeGroupId).ilike("nome", pattern).limit(5),
+        supabase.from("reunioes").select("id, data, tema").eq("group_id", activeGroupId).ilike("tema", pattern).order("data", { ascending: false }).limit(5),
+      ]);
+
+      setGlobalSuggestions([
+        ...pages.map(([label, helper, href]) => ({ id: `page-${href}`, label, helper, href, kind: "page" as const })),
+        ...((membersResult.data ?? []).map((item) => ({ id: `member-${item.id}`, label: item.nome, helper: item.faixa_etaria || "Membro", href: `/membros/visualizar/${item.id}`, kind: "member" as const }))),
+        ...((meetingsResult.data ?? []).map((item) => ({ id: `meeting-${item.id}`, label: item.tema || "Reunião", helper: item.data, href: `/reunioes/visualizar/${item.id}`, kind: "meeting" as const }))),
+      ].slice(0, 10));
+    }, 220);
+
+    return () => window.clearTimeout(timer);
+  }, [activeGroupId, desktopSearchOpen, desktopSearchQuery, scopedSearch]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -305,8 +381,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           );
         if (error) throw error;
       } catch (e) {
-        // Não bloqueia UI; apenas diagnóstico.
-        console.warn("Heartbeat: falha ao atualizar presença:", e);
+        const now = Date.now();
+        if (now - heartbeatWarningAtRef.current > 120000) {
+          heartbeatWarningAtRef.current = now;
+          console.warn("Heartbeat: não foi possível atualizar presença. O app continua funcionando.", e);
+        }
       }
     };
 
@@ -405,22 +484,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
         if (error || !data) return;
 
-        const rawPreset = (data.theme_preset as any) ?? "azul";
-        const preset: ThemePresetId = [
-          "azul",
-          "laranja",
-          "verde",
-          "rosa",
-          "roxo",
-          "vermelho",
-          "amarelo",
-        ].includes(rawPreset)
-          ? (rawPreset as ThemePresetId)
-          : "azul";
-
-        const customConfig = (data.custom_theme as any) || null;
         const { applyThemePreset } = await import("@/lib/theme-presets");
-        applyThemePreset(preset, customConfig || undefined);
+        applyThemePreset("verde");
       } catch (error) {
         console.error("Erro ao aplicar tema padrão do usuário:", error);
       }
@@ -428,26 +493,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
     void applyUserTheme();
   }, [user]);
-
-  // Detecção de orientação apenas no mobile
-  useEffect(() => {
-    if (!isMobileMode) {
-      setIsLandscapeMobile(false);
-      return;
-    }
-
-    const mql = window.matchMedia("(orientation: landscape)");
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsLandscapeMobile(event.matches);
-    };
-
-    setIsLandscapeMobile(mql.matches);
-    mql.addEventListener("change", handleChange);
-
-    return () => {
-      mql.removeEventListener("change", handleChange);
-    };
-  }, [isMobileMode]);
 
   const handleSignOut = async () => {
     try {
@@ -501,6 +546,15 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const showMobileBackButton =
     location.pathname !== "/" && (config?.showBackButton ?? true);
 
+  const isDesktopSubpage =
+    !desktopRootPaths.has(location.pathname) &&
+    (config?.showBackButton ?? true);
+
+  const handleDesktopBack = () => {
+    const parentPath = resolveParentPath(location.pathname);
+    navigate(config?.backTo ?? parentPath ?? -1);
+  };
+
   const handleMobileBack = () => {
     if (config?.backTo) {
       navigate(config.backTo);
@@ -509,24 +563,167 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     }
   };
 
+  const morePage = [
+    { label: "Visitas", path: "/visitas" },
+    { label: "Notas", path: "/notas" },
+    { label: "Estatísticas", path: "/estatisticas" },
+  ].find((item) => location.pathname.startsWith(item.path));
+  const contextualPageLabel = location.pathname === "/membros/novo"
+    ? "Novo Membro"
+    : location.pathname.startsWith("/membros/editar/")
+      ? "Editar Membro"
+      : null;
+  const contextualCreate = contextualPageLabel
+    ? null
+    : location.pathname.startsWith("/membros")
+    ? { label: "Novo membro", href: "/membros/novo", icon: UserPlus }
+    : location.pathname.startsWith("/reunioes")
+      ? { label: "Nova reunião", href: "/reunioes/nova", icon: Handshake }
+      : location.pathname.startsWith("/calendario")
+        ? { label: "Novo evento", href: "/calendario?new=1", icon: CalendarPlus }
+        : location.pathname.startsWith("/visitas")
+          ? { label: "Nova visita", href: "/visitas/nova", icon: Handshake }
+          : location.pathname.startsWith("/notas")
+            ? { label: "Nova nota", href: "/notas/nova", icon: FileText }
+        : null;
+  const isSettingsPage = location.pathname.startsWith("/configuracoes");
+
   return (
     <>
-       <div className="flex h-screen w-full bg-background md:bg-background md:pl-28 overflow-hidden">
-        {/* Modern Sidebar - Desktop/Tablet only */}
+       <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
+        {/* Navegação principal desktop */}
         {!isMobileMode && (
-          <ModernSidebar
-            user={user}
-            profile={profile}
-            activeGroupName={activeGroup?.name}
-            loadingGroup={loadingGroup}
-            unreadNotifications={unreadNotifications}
-            onOpenNotifications={() => setIsNotificationsDrawerOpen(true)}
-            onSignOut={handleSignOut}
-          />
+          <header className="desktop-topbar relative hidden h-[68px] shrink-0 items-center px-[18px] md:flex">
+            <div className="flex h-11 shrink-0 items-center gap-2 rounded-[20px] border border-border bg-card px-2">
+              {isDesktopSubpage ? (
+                <button
+                  type="button"
+                  onClick={handleDesktopBack}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] bg-secondary text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                  aria-label="Voltar"
+                  title="Voltar"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              ) : null}
+              <ZeloLogo compact className="h-8 w-8 rounded-xl p-1.5" />
+              {contextualPageLabel ? (
+                <span className="flex h-8 items-center rounded-[15px] bg-secondary px-3 text-xs font-bold text-foreground">
+                  {contextualPageLabel}
+                </span>
+              ) : contextualCreate ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(contextualCreate.href)}
+                  className="flex h-8 items-center justify-center gap-2 rounded-[15px] bg-primary px-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  aria-label={contextualCreate.label}
+                >
+                  <contextualCreate.icon className="h-4 w-4" />
+                  <span className="whitespace-nowrap text-xs">{contextualCreate.label}</span>
+                </button>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="flex h-8 w-12 items-center justify-center rounded-[15px] bg-secondary text-foreground transition-colors hover:bg-secondary/80" aria-label="Criar novo item">
+                      <Plus className="h-5 w-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" sideOffset={10} className="w-52 rounded-xl p-1.5">
+                    <DropdownMenuItem onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                      <Handshake className="mr-2 h-4 w-4" /> Nova reunião
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
+                      <UserPlus className="mr-2 h-4 w-4" /> Novo membro
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
+                      <CalendarPlus className="mr-2 h-4 w-4" /> Novo evento
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                      <Handshake className="mr-2 h-4 w-4" /> Nova visita
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                      <FileText className="mr-2 h-4 w-4" /> Nova nota
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            <nav className="absolute left-1/2 flex h-11 w-[min(620px,42vw)] -translate-x-1/2 items-center gap-2 rounded-[20px] border border-border bg-card p-1.5" aria-label="Navegação principal">
+              {[
+                ["Início", "/"],
+                ["Membros", "/membros"],
+                ["Reuniões", "/reunioes"],
+                ["Calendário", "/calendario"],
+              ].map(([label, path]) => {
+                const active = path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+                return (
+                  <button key={path} type="button" onClick={() => navigate(path)} className={`h-8 flex-1 rounded-[13px] px-4 text-xs font-bold uppercase tracking-tight ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+                    {label}
+                  </button>
+                );
+              })}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={`flex h-8 flex-1 items-center justify-center gap-1 rounded-[13px] px-4 text-xs font-bold uppercase ${morePage ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+                    {morePage?.label ?? "Mais"} <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/visitas")}>Visitas</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/notas")}>Notas</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/estatisticas")}>Estatísticas</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </nav>
+
+            <div className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-[20px] border border-border bg-card px-2">
+              {config?.desktopTopbarActions ? <div className="flex h-9 items-center">{config.desktopTopbarActions}</div> : null}
+              <form onSubmit={submitDesktopSearch} className={`relative flex h-8 min-w-0 items-center rounded-[14px] transition-[width,background-color] duration-300 ${desktopSearchOpen ? "w-[230px] bg-secondary px-1" : "w-8"}`}>
+                <button type={desktopSearchOpen ? "submit" : "button"} onClick={() => !desktopSearchOpen && setDesktopSearchOpen(true)} className="topbar-icon h-8 w-8 shrink-0" aria-label={desktopSearchOpen ? "Pesquisar" : "Abrir pesquisa"}><Search /></button>
+                <input
+                  ref={desktopSearchInputRef}
+                  value={desktopSearchQuery}
+                  onChange={(event) => {
+                    setDesktopSearchQuery(event.target.value);
+                    scopedSearch?.onChange(event.target.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setDesktopSearchOpen(false);
+                      desktopSearchInputRef.current?.blur();
+                    }
+                  }}
+                  onBlur={() => window.setTimeout(() => setDesktopSearchOpen(false), 180)}
+                  className={`min-w-0 flex-1 border-0 bg-transparent pr-2 text-xs text-foreground outline-none placeholder:text-muted-foreground ${desktopSearchOpen ? "opacity-100" : "pointer-events-none w-0 opacity-0"}`}
+                  placeholder={scopedSearch?.placeholder ?? "Buscar páginas e dados..."}
+                  aria-label="Pesquisar no Zelo"
+                  tabIndex={desktopSearchOpen ? 0 : -1}
+                />
+                {desktopSearchOpen && !scopedSearch && desktopSearchQuery.trim() ? (
+                  <div className="absolute right-0 top-[calc(100%+12px)] z-[70] w-[340px] overflow-hidden rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-[var(--shadow-elevated)]">
+                    {globalSuggestions.length ? globalSuggestions.map((item) => (
+                      <button key={item.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { navigate(item.href); setDesktopSearchOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-accent">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground">{item.kind === "page" ? <FileText className="h-4 w-4" /> : item.kind === "member" ? <Users className="h-4 w-4" /> : <Handshake className="h-4 w-4" />}</span>
+                        <span className="min-w-0"><span className="block truncate text-sm font-semibold">{item.label}</span><span className="block truncate text-[11px] text-muted-foreground">{item.helper}</span></span>
+                      </button>
+                    )) : <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhuma sugestão encontrada neste grupo.</p>}
+                  </div>
+                ) : null}
+              </form>
+              {scopedSearch?.menu ? <div className="topbar-page-tools flex h-9 items-center">{scopedSearch.menu}</div> : null}
+              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action relative ${isNotificationsDrawerOpen ? "is-active" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
+              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><button type="button" className="topbar-expand-action" aria-label="Conta"><Avatar className="topbar-action-avatar h-5 w-5"><AvatarImage src={profile?.avatar_url || undefined} /><AvatarFallback className="text-[9px]">{(profile?.username || user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar><span className="topbar-action-label">Conta</span></button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end"><DropdownMenuItem onClick={handleSignOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
         )}
 
         {/* Main Content - respeita a margem da barra recolhida em telas grandes */}
-         <div className="flex-1 flex flex-col min-h-0 min-w-0">
+         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {/* Mobile Top Header */}
             {isMobileMode &&
               // Visualização de visita tem header próprio (action bar)
@@ -545,7 +742,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                           <ArrowLeft className="h-4 w-4" />
                         </button>
                       ) : (
-                        <ZeloLogo className="h-10 w-10 rounded-xl p-1" />
+                        <ZeloLogo compact className="h-10 w-10 rounded-xl p-1" />
                       )}
                     </div>
 
@@ -652,18 +849,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         />
       ) : null}
 
-      {isMobileMode && isLandscapeMobile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md md:hidden">
-          <div className="max-w-xs px-6 py-4 rounded-2xl border border-border bg-card shadow-lg text-center">
-            <p className="text-sm font-medium text-foreground mb-1">
-              Gire o aparelho para o modo retrato
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Este app foi otimizado para uso apenas na orientação vertical.
-            </p>
-          </div>
-        </div>
-      )}
     </>
   );
 }

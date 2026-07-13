@@ -18,6 +18,7 @@ export interface AniversarianteItem {
 interface AniversariantesWidgetProps {
   size: WidgetSize;
   aniversariantes: AniversarianteItem[];
+  desktopDashboard?: boolean;
 }
 
 type BirthdayViewMode = "cards" | "list";
@@ -62,6 +63,7 @@ const getFirstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 export const AniversariantesWidget = ({
   size,
   aniversariantes,
+  desktopDashboard = false,
 }: AniversariantesWidgetProps) => {
   const navigate = useNavigate();
   const expandableWidget = useExpandableWidget();
@@ -85,6 +87,15 @@ export const AniversariantesWidget = ({
     return mes - 1 === displayedMonthIndex;
   });
   const totalMes = aniversariantesMes.length;
+  const firstWeekday = new Date(currentMonthDate.getFullYear(), displayedMonthIndex, 1).getDay();
+  const daysInMonth = new Date(currentMonthDate.getFullYear(), displayedMonthIndex + 1, 0).getDate();
+  const calendarDays = Array.from({ length: 42 }, (_, index) => {
+    const day = index - firstWeekday + 1;
+    return day > 0 && day <= daysInMonth ? day : null;
+  });
+  const birthdayDays = new Set(aniversariantesMes.map((item) => getBirthdayParts(item.data).dia));
+  const todayDay = monthOffset === 0 ? today.getDate() : null;
+  const ghostCardCount = Math.max(0, 4 - aniversariantesMes.length);
 
   const compact = size === "md";
   const carouselCardWidth = compact ? 150 : 170;
@@ -228,14 +239,14 @@ export const AniversariantesWidget = ({
       >
         <div className="flex min-h-8 items-center justify-between gap-2">
           <div className="min-w-0 px-1.5 leading-none">
-            <h3 className="truncate text-[13px] font-bold uppercase">Aniversariantes</h3>
+            <h3 className="truncate text-[15px] font-bold">Aniversariantes</h3>
             <p className="mt-1 truncate text-[12px] font-medium opacity-95">Próximos aniversários</p>
           </div>
 
-          <div className="flex shrink-0 items-center rounded-[10px] bg-primary-foreground/18 px-1 py-0.5">
+          <div className="flex shrink-0 items-center rounded-[10px] bg-primary-foreground/18 px-0.5">
             <button
               type="button"
-              className="inline-flex h-7 w-6 items-center justify-center rounded-lg text-primary-foreground transition-colors hover:bg-primary-foreground/18"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary-foreground transition-colors hover:bg-primary-foreground/18"
               onClick={(event) => updateMonth(event, -1)}
               aria-label="Mês anterior"
             >
@@ -246,7 +257,7 @@ export const AniversariantesWidget = ({
             </span>
             <button
               type="button"
-              className="inline-flex h-7 w-6 items-center justify-center rounded-lg text-primary-foreground transition-colors hover:bg-primary-foreground/18"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary-foreground transition-colors hover:bg-primary-foreground/18"
               onClick={(event) => updateMonth(event, 1)}
               aria-label="Próximo mês"
             >
@@ -257,7 +268,74 @@ export const AniversariantesWidget = ({
       </div>
 
       <CardContent className="flex min-h-0 flex-1 flex-col px-1.5 pb-1.5 pt-1.5">
-        {totalMes === 0 ? (
+        {desktopDashboard ? (
+          <div className="grid h-full min-h-0 grid-cols-[minmax(205px,1.05fr)_minmax(185px,0.95fr)] gap-2">
+            <section className="flex min-h-0 flex-col rounded-[13px] border border-border bg-card px-3 py-2.5">
+              <div className="mb-1.5 grid grid-cols-7 gap-1.5">
+                {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map((label) => (
+                  <span key={label} className="text-center text-[8px] font-bold text-muted-foreground">{label}</span>
+                ))}
+              </div>
+              <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6 gap-1.5">
+                {calendarDays.map((day, index) => {
+                  const hasBirthday = day !== null && birthdayDays.has(day);
+                  const isToday = day !== null && day === todayDay;
+                  return (
+                    <div
+                      key={`${day ?? "empty"}-${index}`}
+                      className={`relative flex min-h-0 items-center justify-center rounded-full text-[9px] font-bold tabular-nums ${
+                        day === null
+                          ? "opacity-0"
+                        : hasBirthday
+                            ? "border border-foreground bg-foreground text-background"
+                            : isToday
+                              ? "border-2 border-primary bg-primary/10 text-foreground"
+                              : "bg-secondary text-muted-foreground"
+                      }`}
+                      title={isToday ? "Hoje" : hasBirthday ? "Aniversário" : undefined}
+                    >
+                      {day}
+                      {isToday ? <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" /> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="min-h-0 space-y-1.5 overflow-y-auto pr-0.5 scrollbar-none">
+              {aniversariantesMes.length > 0 ? aniversariantesMes.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={(event) => openMember(event, item.id)}
+                  className="flex w-full items-center justify-between gap-2 rounded-[13px] border border-border bg-card px-2 py-1.5 text-left transition-colors hover:bg-accent/35"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Avatar className="h-9 w-9 shrink-0 rounded-full border border-border">
+                      <AvatarImage className="rounded-full object-cover" src={item.foto_url || undefined} alt={item.nome} />
+                      <AvatarFallback className="rounded-full bg-secondary text-foreground"><UserRound className="h-4 w-4" /></AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate text-[12px] font-semibold leading-tight text-foreground">{item.nome}</p>
+                      {item.idade ? <p className="mt-0.5 text-[10px] text-muted-foreground">{item.idade} anos</p> : null}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[18px] font-bold leading-none text-foreground">{getDayLabel(item.data)}</span>
+                </button>
+              )) : null}
+              {Array.from({ length: ghostCardCount }, (_, index) => (
+                <div key={`birthday-ghost-${index}`} aria-hidden="true" className="flex min-h-[48px] w-full items-center gap-2 rounded-[13px] border border-dashed border-border/70 bg-secondary/20 px-2 py-1.5 opacity-70">
+                  <div className="h-9 w-9 shrink-0 rounded-full border border-dashed border-border bg-secondary/55" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-2 w-3/4 rounded-full bg-secondary" />
+                    <div className="h-1.5 w-1/3 rounded-full bg-secondary/80" />
+                  </div>
+                  <div className="h-4 w-5 rounded bg-secondary" />
+                </div>
+              ))}
+            </section>
+          </div>
+        ) : totalMes === 0 ? (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-[14px] border border-dashed border-primary/35 px-3 text-center text-sm font-medium text-muted-foreground">
             Nenhum aniversariante cadastrado para este mês.
           </div>
@@ -367,7 +445,7 @@ export const AniversariantesWidget = ({
               )}
             </div>
 
-            <div className="mt-1.5 flex h-3 shrink-0 items-center justify-center gap-1.5">
+            <div className={desktopDashboard ? "hidden" : "mt-1.5 flex h-3 shrink-0 items-center justify-center gap-1.5"}>
               <button
                 type="button"
                 aria-label="Exibir em carrossel"

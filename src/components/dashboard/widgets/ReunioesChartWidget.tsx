@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
@@ -46,7 +46,6 @@ export const ReunioesChartWidget = ({
   dashboardSummary,
   reunioesRecentes,
 }: ReunioesChartWidgetProps) => {
-  const chartId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const SERIES_COLORS: Record<string, string> = {
     Crianças: resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
     Meninos: resolveHslFromCssVar("--faixa-meninos", "138 62% 38%"),
@@ -56,9 +55,7 @@ export const ReunioesChartWidget = ({
   };
 
   const VISITAS_COLOR = resolveHslFromCssVar("--faixa-visitas", "33 100% 45%");
-  const colorToGradient = (color: string) =>
-    `linear-gradient(145deg, color-mix(in hsl, ${color} 90%, white 18%), ${color} 58%, color-mix(in hsl, ${color} 82%, black 18%))`;
-  const seriesGradientId = (key: string) => `${chartId}-serie-${key.replace(/[^a-zA-Z0-9]/g, "")}`;
+  const colorToGradient = (color: string) => color;
 
   const navigate = useNavigate();
   const navigateTimerRef = useRef<number | null>(null);
@@ -234,7 +231,7 @@ export const ReunioesChartWidget = ({
 
     return (
       <g transform={`translate(${x},${y})`}>
-        <foreignObject x={tickX} y={2} width={tickWidth} height={26}>
+        <foreignObject x={tickX} y={2} width={tickWidth} height={40}>
           <button
             type="button"
             onClick={(event) => {
@@ -248,7 +245,7 @@ export const ReunioesChartWidget = ({
               isSelected
                 ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"
                 : "border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-            } ${compactMobile ? "h-6 text-[8px]" : "h-7 text-[10px]"}`}
+            } ${compactMobile ? "h-10 text-[8px]" : "h-10 text-[10px]"}`}
             style={{ width: tickWidth }}
             aria-pressed={isSelected}
             aria-label={`Selecionar reunião ${formatMeetingLabel(payload.value)}`}
@@ -374,10 +371,10 @@ export const ReunioesChartWidget = ({
         onClick={scheduleNavigate}
         onDoubleClick={cancelScheduledNavigate}
       >
-        <div className="grid shrink-0 grid-cols-[minmax(178px,1.2fr)_repeat(5,minmax(120px,1fr))] gap-1">
-          <div className="flex min-w-0 flex-col justify-center rounded-[12px] bg-primary px-3 py-2 text-primary-foreground">
-            <h3 className="truncate text-sm font-extrabold uppercase leading-none">Gráfico de presença</h3>
-            <p className="mt-1 truncate text-[10px] font-bold leading-none opacity-95">
+        <div className="grid shrink-0 grid-cols-5 gap-1 2xl:grid-cols-[minmax(205px,1.05fr)_repeat(4,minmax(115px,1fr))_minmax(170px,1.2fr)]">
+          <div className="col-span-5 flex min-h-10 min-w-0 items-center justify-between gap-3 rounded-[12px] bg-primary px-3 py-2 text-primary-foreground 2xl:col-span-1 2xl:flex-col 2xl:items-stretch 2xl:justify-center 2xl:gap-0">
+            <h3 className="truncate text-[15px] font-bold leading-[1.2]">Gráfico de presença</h3>
+            <p className="shrink-0 truncate text-[10px] font-bold leading-none opacity-95 2xl:mt-1">
               Últimas {meetings.length} reuniões registradas
             </p>
           </div>
@@ -387,18 +384,18 @@ export const ReunioesChartWidget = ({
             return (
               <div
                 key={`${item.label}-${item.helper}`}
-                className="flex min-w-0 items-center gap-2.5 rounded-[12px] border border-primary/70 bg-card px-2 py-1.5"
+                className="flex min-h-12 min-w-0 items-center gap-1.5 rounded-[12px] border border-primary/55 bg-muted/20 px-1.5 py-1.5 shadow-[var(--shadow-soft)] 2xl:gap-2 2xl:px-2"
                 style={tone ? { borderColor: tone.accent, background: tone.soft } : undefined}
               >
                 <span
-                  className="inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary px-1.5 text-lg font-extrabold leading-none text-primary-foreground tabular-nums"
+                  className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-[10px] bg-primary px-1.5 text-xl font-extrabold leading-none text-primary-foreground tabular-nums"
                   style={tone ? { background: tone.accent } : undefined}
                 >
                   {item.value}
                 </span>
-                <span className="min-w-0 leading-none">
-                  <span className="block truncate text-[9px] font-extrabold uppercase text-foreground">{item.label}</span>
-                  <span className="mt-1 block truncate text-[8px] font-bold text-muted-foreground">{item.helper}</span>
+                <span className="flex min-w-0 flex-col justify-center">
+                  <span className="block truncate text-[clamp(9px,0.7vw,11px)] font-extrabold uppercase leading-[1.2] text-foreground" title={item.label}>{item.label}</span>
+                  <span className="mt-0.5 block line-clamp-2 text-[clamp(8px,0.62vw,10px)] font-bold leading-[1.2] text-muted-foreground" title={item.helper}>{item.helper}</span>
                 </span>
               </div>
             );
@@ -450,7 +447,7 @@ export const ReunioesChartWidget = ({
                               }
                               style={{
                                 height: `${segmentHeight}%`,
-                                backgroundImage: colorToGradient(segment.color),
+                                backgroundColor: colorToGradient(segment.color),
                               }}
                             />
                           );
@@ -496,7 +493,7 @@ export const ReunioesChartWidget = ({
 
           <aside className="flex min-h-0 flex-col overflow-hidden rounded-[13px] border border-primary/55 bg-muted/30 p-2">
             <div className="flex h-10 shrink-0 items-stretch justify-between gap-2 rounded-[10px] border border-primary/45 bg-card py-1 pl-3 pr-1">
-              <h4 className="flex min-w-0 items-center truncate text-sm font-extrabold uppercase text-primary">Resumo da reunião</h4>
+              <h4 className="flex min-w-0 items-center truncate text-[clamp(11px,0.9vw,14px)] font-extrabold uppercase text-primary">Resumo da reunião</h4>
               <span className="inline-flex min-w-[3.6rem] shrink-0 items-center justify-center rounded-[9px] bg-primary px-2 text-center text-[10px] font-extrabold uppercase leading-none text-primary-foreground">
                 {selectedDashboardDate ? (
                   <>
@@ -517,7 +514,7 @@ export const ReunioesChartWidget = ({
                     <div className="flex min-w-0 items-center gap-3">
                       <span
                         className="h-5 w-2.5 shrink-0 rounded-full shadow-[0_4px_10px_hsl(var(--foreground)/0.14)]"
-                        style={{ backgroundImage: colorToGradient(item.color) }}
+                        style={{ backgroundColor: colorToGradient(item.color) }}
                       />
                       <span className="truncate text-sm font-bold text-foreground">{item.label}</span>
                     </div>
@@ -588,16 +585,6 @@ export const ReunioesChartWidget = ({
                       if (typeof index === "number") handleSelectMeeting(index);
                     }}
                   >
-                    <defs>
-                      {[...Object.entries(SERIES_COLORS), ["visitas", VISITAS_COLOR] as const].map(([key, color]) => (
-                        <linearGradient key={key} id={seriesGradientId(key)} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={color} stopOpacity="0.78" />
-                          <stop offset="42%" stopColor={color} stopOpacity="1" />
-                          <stop offset="100%" stopColor={color} stopOpacity="0.88" />
-                        </linearGradient>
-                      ))}
-                    </defs>
-
                     <CartesianGrid
                       strokeDasharray="3 6"
                       stroke="hsl(var(--border) / 0.35)"
@@ -610,7 +597,7 @@ export const ReunioesChartWidget = ({
                       axisLine={false}
                       interval={0}
                       tickMargin={0}
-                      height={compactMobile ? 28 : 36}
+                      height={compactMobile ? 42 : 44}
                       padding={{ left: 0, right: 0 }}
                       tick={<DateTick />}
                     />
@@ -636,7 +623,7 @@ export const ReunioesChartWidget = ({
                       />
                     )}
 
-                    <Bar dataKey="Crianças" stackId="a" fill={`url(#${seriesGradientId("Crianças")})`} barSize={barSize} radius={[0, 0, 10, 10]}>
+                    <Bar dataKey="Crianças" stackId="a" fill={SERIES_COLORS["Crianças"]} barSize={barSize} radius={[0, 0, 10, 10]}>
                       {visibleMeetings.map((meeting: any, index) => (
                         <Cell
                           key={`criancas-${index}`}
@@ -648,14 +635,14 @@ export const ReunioesChartWidget = ({
                     </Bar>
 
                     {(["Meninas", "Meninos", "Moças", "Moços"] as const).map((faixa) => (
-                      <Bar key={faixa} dataKey={faixa} stackId="a" fill={`url(#${seriesGradientId(faixa)})`} barSize={barSize} radius={[0, 0, 0, 0]}>
+                      <Bar key={faixa} dataKey={faixa} stackId="a" fill={SERIES_COLORS[faixa]} barSize={barSize} radius={[0, 0, 0, 0]}>
                         {visibleMeetings.map((meeting: any, index) => (
                           <Cell key={`${faixa}-${index}`} fillOpacity={compactMobile ? 1 : (meeting.__meetingIndex ?? index) === selectedIndex ? 1 : 0.46} />
                         ))}
                       </Bar>
                     ))}
 
-                    <Bar dataKey="visitas" stackId="a" fill={`url(#${seriesGradientId("visitas")})`} barSize={barSize} radius={[10, 10, 0, 0]}>
+                    <Bar dataKey="visitas" stackId="a" fill={VISITAS_COLOR} barSize={barSize} radius={[10, 10, 0, 0]}>
                       {visibleMeetings.map((meeting: any, index) => (
                         <Cell key={`visitas-${index}`} fillOpacity={compactMobile ? 1 : (meeting.__meetingIndex ?? index) === selectedIndex ? 1 : 0.46} />
                       ))}
@@ -683,7 +670,7 @@ export const ReunioesChartWidget = ({
                         <div className="flex min-w-0 items-center gap-2">
                           <span
                             className={compactMobile ? "h-2 w-2 shrink-0 rounded-full shadow-[0_3px_8px_hsl(var(--foreground)/0.14)]" : "h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_3px_8px_hsl(var(--foreground)/0.14)]"}
-                            style={{ backgroundImage: colorToGradient(item.color) }}
+                            style={{ backgroundColor: colorToGradient(item.color) }}
                           />
                           <span className={compactMobile ? "truncate text-[11px] font-medium opacity-90" : "truncate text-sm font-medium opacity-90"}>{item.label}</span>
                         </div>
