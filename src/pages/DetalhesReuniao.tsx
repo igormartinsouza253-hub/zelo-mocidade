@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,11 +95,6 @@ const DetalhesReuniao = () => {
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
 
   useEffect(() => {
-    if (!activeGroupId) return;
-    void loadReuniao();
-  }, [activeGroupId, id]);
-
-  useEffect(() => {
     setConfig({
       title: "Editar reunião",
       showBackButton: true,
@@ -136,7 +131,7 @@ const DetalhesReuniao = () => {
     return () => setConfig(null);
   }, [navigate, loading, setConfig, isMobile]);
 
-  const loadCargos = async (groupId: string | null) => {
+  const loadCargos = useCallback(async (groupId: string | null) => {
     if (!groupId) {
       setCargosDisponiveis([]);
       return;
@@ -153,9 +148,9 @@ const DetalhesReuniao = () => {
     } catch (error) {
       console.error("Erro ao carregar cargos:", error);
     }
-  };
+  }, []);
 
-  const loadMembros = async (groupId: string | null, presentMemberIds: string[] = []) => {
+  const loadMembros = useCallback(async (groupId: string | null, presentMemberIds: string[] = []) => {
     if (!groupId) {
       setMembros([]);
       return;
@@ -180,10 +175,10 @@ const DetalhesReuniao = () => {
     } catch (error) {
       console.error("Erro ao carregar membros:", error);
     }
-  };
+  }, []);
 
-  const loadReuniao = async () => {
-    if (!activeGroupId) return;
+  const loadReuniao = useCallback(async () => {
+    if (!activeGroupId || !id) return;
 
     try {
       const { data: reuniao, error: reuniaoError } = await supabase
@@ -221,8 +216,8 @@ const DetalhesReuniao = () => {
       setSelectedMembros(presentes);
       setMembrosQueOraram(
         (presencas || [])
-          .filter((p: any) => Boolean(p.orou))
-          .map((p: any) => p.membro_id)
+          .filter((p) => Boolean(p.orou))
+          .map((p) => p.membro_id)
       );
       await Promise.all([loadCargos(groupId), loadMembros(groupId, presentes)]);
     } catch (error) {
@@ -230,7 +225,11 @@ const DetalhesReuniao = () => {
       toast.error("Erro ao carregar dados da reunião");
       navigate("/reunioes");
     }
-  };
+  }, [activeGroupId, id, loadCargos, loadMembros, navigate]);
+
+  useEffect(() => {
+    void loadReuniao();
+  }, [loadReuniao]);
 
   const toggleCargo = (cargoNome: string) => {
     setSelectedCargos((prev) =>

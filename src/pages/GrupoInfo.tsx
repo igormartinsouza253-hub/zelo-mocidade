@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -136,56 +136,7 @@ export default function GrupoInfo() {
     return () => setConfig(null);
   }, [setConfig]);
 
-  useEffect(() => {
-    if (loadingActiveGroup) return;
-    if (!activeGroupId) {
-      navigate("/grupo", { replace: true });
-      return;
-    }
-
-    void loadAll();
-  }, [activeGroupId, loadingActiveGroup, navigate]);
-
-  useEffect(() => {
-    if (!activeGroupId) return;
-    const id = window.setInterval(() => void loadPresence(), 30000);
-    return () => window.clearInterval(id);
-  }, [activeGroupId]);
-
-  useEffect(() => {
-    if (!activeGroupId || !isAdmin) return;
-
-    const channel = supabase
-      .channel(`group-join-requests:${activeGroupId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "group_join_requests", filter: `group_id=eq.${activeGroupId}` },
-        (payload) => {
-          const row = payload.new as { status?: string } | null;
-          if (payload.eventType === "INSERT" && row?.status === "pending") {
-            toast("Nova solicitacao de acesso", { description: "Um usuario solicitou entrada no grupo." });
-          }
-          void loadPendingRequests();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeGroupId, isAdmin]);
-
-  const loadAll = async () => {
-    setLoading(true);
-    try {
-      const loadedGroup = await loadGroup();
-      await Promise.all([loadMembers(loadedGroup?.created_by ?? null), loadPresence(), loadPendingRequests()]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPendingRequests = async () => {
+  const loadPendingRequests = useCallback(async () => {
     if (!activeGroupId || !isAdmin) {
       setPendingRequests([]);
       return;
@@ -201,8 +152,8 @@ export default function GrupoInfo() {
         .order("created_at", { ascending: true });
       if (error) throw error;
 
-      const rows = ((data as any[]) ?? []).filter((row) => row.user_id);
-      const userIds = rows.map((row) => row.user_id as string);
+      const rows = (data ?? []).filter((row) => row.user_id);
+      const userIds = rows.map((row) => row.user_id);
       const profileById = new Map<string, { username: string; email: string | null }>();
 
       if (userIds.length > 0) {
@@ -212,7 +163,7 @@ export default function GrupoInfo() {
           .in("id", userIds);
 
         if (!profilesError) {
-          (profiles as any[] | null)?.forEach((profile) => {
+          profiles?.forEach((profile) => {
             if (!profile?.id) return;
             profileById.set(profile.id, {
               username: profile.username || profile.email?.split("@")[0] || "Usuario",
@@ -242,9 +193,9 @@ export default function GrupoInfo() {
     } finally {
       setLoadingRequests(false);
     }
-  };
+  }, [activeGroupId, isAdmin]);
 
-  const refreshGroupPhotoUrl = async (path: string | null) => {
+  const refreshGroupPhotoUrl = useCallback(async (path: string | null) => {
     if (!path) {
       setGroupPhotoUrl(null);
       return;
@@ -256,9 +207,9 @@ export default function GrupoInfo() {
       return;
     }
     setGroupPhotoUrl(data.signedUrl);
-  };
+  }, []);
 
-  const loadGroup = async () => {
+  const loadGroup = useCallback(async () => {
     if (!activeGroupId) return null;
 
     const { data, error } = await supabase
@@ -273,15 +224,15 @@ export default function GrupoInfo() {
       return null;
     }
 
-    const nextGroup = (data as any) ?? null;
+    const nextGroup = data ?? null;
     setGroup(nextGroup);
     setDraftName(nextGroup?.name ?? "");
     setDraftDescription(nextGroup?.description ?? "");
     await refreshGroupPhotoUrl(nextGroup?.photo_url ?? null);
     return nextGroup as GroupDetails | null;
-  };
+  }, [activeGroupId, refreshGroupPhotoUrl]);
 
-  const loadMembers = async (ownerId = group?.created_by ?? null) => {
+  const loadMembers = useCallback(async (ownerId: string | null) => {
     if (!activeGroupId) return;
 
     const { data: groupMembers, error: membersError } = await supabase
@@ -296,8 +247,8 @@ export default function GrupoInfo() {
       return;
     }
 
-    const rows = ((groupMembers as any[]) ?? []).filter((row) => row.user_id);
-    const userIds = rows.map((row) => row.user_id as string);
+    const rows = (groupMembers ?? []).filter((row) => row.user_id);
+    const userIds = rows.map((row) => row.user_id);
 
     const profileById = new Map<string, { username: string; email: string | null }>();
     if (userIds.length > 0) {
@@ -307,7 +258,7 @@ export default function GrupoInfo() {
         .in("id", userIds);
 
       if (!profilesError) {
-        (profiles as any[] | null)?.forEach((profile) => {
+        profiles?.forEach((profile) => {
           if (!profile?.id) return;
           profileById.set(profile.id, {
             username: profile.username || profile.email?.split("@")[0] || "Usuário",
@@ -337,9 +288,9 @@ export default function GrupoInfo() {
           return a.username.localeCompare(b.username, "pt-BR");
         }),
     );
-  };
+  }, [activeGroupId]);
 
-  const loadPresence = async () => {
+  const loadPresence = useCallback(async () => {
     if (!activeGroupId) return;
 
     const { data, error } = await supabase
@@ -353,11 +304,63 @@ export default function GrupoInfo() {
     }
 
     const nextPresence: Record<string, PresenceRow> = {};
-    (data as any[] | null)?.forEach((row) => {
-      if (row?.user_id) nextPresence[row.user_id] = row as PresenceRow;
+    data?.forEach((row) => {
+      if (row.user_id) nextPresence[row.user_id] = row;
     });
     setPresenceByUserId(nextPresence);
-  };
+  }, [activeGroupId]);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const loadedGroup = await loadGroup();
+      await Promise.all([
+        loadMembers(loadedGroup?.created_by ?? null),
+        loadPresence(),
+        loadPendingRequests(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadGroup, loadMembers, loadPendingRequests, loadPresence]);
+
+  useEffect(() => {
+    if (loadingActiveGroup) return;
+    if (!activeGroupId) {
+      navigate("/grupo", { replace: true });
+      return;
+    }
+    void loadAll();
+  }, [activeGroupId, loadAll, loadingActiveGroup, navigate]);
+
+  useEffect(() => {
+    if (!activeGroupId) return;
+    const id = window.setInterval(() => void loadPresence(), 30000);
+    return () => window.clearInterval(id);
+  }, [activeGroupId, loadPresence]);
+
+  useEffect(() => {
+    if (!activeGroupId || !isAdmin) return;
+
+    const channel = supabase
+      .channel(`group-join-requests:${activeGroupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_join_requests", filter: `group_id=eq.${activeGroupId}` },
+        (payload) => {
+          const row = payload.new as { status?: string } | null;
+          if (payload.eventType === "INSERT" && row?.status === "pending") {
+            toast("Nova solicitacao de acesso", { description: "Um usuario solicitou entrada no grupo." });
+          }
+          void loadPendingRequests();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeGroupId, isAdmin, loadPendingRequests]);
 
   const handleSaveInfo = async () => {
     if (!activeGroupId) return;
@@ -413,7 +416,7 @@ export default function GrupoInfo() {
 
       const { error: updateError } = await supabase
         .from("management_groups")
-        .update({ photo_url: filePath } as any)
+        .update({ photo_url: filePath })
         .eq("id", activeGroupId);
       if (updateError) throw updateError;
 
@@ -435,14 +438,14 @@ export default function GrupoInfo() {
     setCreatingInvite(true);
     try {
       const token = createInviteToken();
-      let { error } = await supabase.rpc("create_group_invite" as any, {
+      let { error } = await supabase.rpc("create_group_invite", {
         _group_id: activeGroupId,
         _token: token,
         _expires_in_minutes: 10,
       });
 
       if (error && String(error.message ?? "").toLowerCase().includes("_expires_in_minutes")) {
-        const fallback = await supabase.rpc("create_group_invite" as any, {
+        const fallback = await supabase.rpc("create_group_invite", {
           _group_id: activeGroupId,
           _token: token,
           _expires_in_hours: 1,
@@ -525,7 +528,7 @@ export default function GrupoInfo() {
 
     setRequestActionId(requestId);
     try {
-      const { error } = await supabase.rpc("decide_group_join_request" as any, {
+      const { error } = await supabase.rpc("decide_group_join_request", {
         _request_id: requestId,
         _action: action,
       });

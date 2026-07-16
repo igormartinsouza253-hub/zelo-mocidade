@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, BarChart3, Users } from "lucide-react";
+import { Activity, ArrowUpRight, Award, BarChart3, BookOpen, CalendarDays, Heart, TrendingUp, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,7 +43,8 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   };
 
   const navigate = useNavigate();
-  const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
+  const detectedMobile = useIsMobile();
+  const isMobile = __forceMobile ? true : __forceDesktop ? false : detectedMobile;
   const { setConfig } = usePageHeader();
   const { activeGroupId } = useActiveGroup();
   const [stats, setStats] = useState<Stats>({
@@ -456,6 +457,200 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
       cat => visibleCategories[cat]
     );
   };
+
+  const dashboardChartData = getFilteredChartData();
+  // Keep six stable slots so a period with only a few meetings does not
+  // stretch each column across the whole chart. Empty slots stay blank.
+  const dashboardChartSlots: MainChartData[] = Array.from({ length: 6 }, (_, index) => (
+    dashboardChartData[index] || { data: "" }
+  ));
+  const dashboardMeetingCount = dashboardChartData.length || mainChartData.length;
+  const dashboardVisits = (dashboardChartData.length ? dashboardChartData : mainChartData)
+    .reduce((sum, item) => sum + (Number(item.Visitas) || 0), 0);
+  const dashboardRecitativos = (dashboardChartData.length ? dashboardChartData : mainChartData)
+    .reduce((sum, item) => sum + (Number(item["Recitativos Individuais"]) || 0), 0);
+  const dashboardRate = stats.mediaPorFaixa.length
+    ? Math.round(stats.mediaPorFaixa.reduce((sum, item) => sum + item.percentual, 0) / stats.mediaPorFaixa.length)
+    : 0;
+  const dashboardTopFaixa = stats.mediaPorFaixa.length
+    ? stats.mediaPorFaixa.reduce((top, item) => item.percentual > top.percentual ? item : top)
+    : null;
+  const dashboardLowFaixa = stats.mediaPorFaixa.length
+    ? stats.mediaPorFaixa.reduce((low, item) => item.percentual < low.percentual ? item : low)
+    : null;
+
+  if (!isMobile) {
+    return (
+      <div className="h-full min-h-0 w-full overflow-hidden bg-background p-3 md:p-4">
+        <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3">
+          <section className="flex min-h-[4.25rem] items-center justify-between gap-4 rounded-[20px] border border-border/60 bg-card/90 px-5 py-3 shadow-none">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Visão geral do grupo</p>
+              <h1 className="truncate text-xl font-extrabold text-foreground">Estatísticas e insights</h1>
+              <p className="truncate text-xs text-muted-foreground">Acompanhe participação, reuniões e evolução do grupo em um só lugar.</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Select value={startPeriod} onValueChange={setStartPeriod}>
+                <SelectTrigger className="h-9 w-[6.75rem] rounded-xl bg-background/70 text-xs">
+                  <SelectValue placeholder="Início" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set(availableDates.map(d => `${d.year}-${d.month}`))).map(date => (
+                    <SelectItem key={date} value={date}>{formatMonth(date)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">até</span>
+              <Select value={endPeriod} onValueChange={setEndPeriod}>
+                <SelectTrigger className="h-9 w-[6.75rem] rounded-xl bg-background/70 text-xs">
+                  <SelectValue placeholder="Fim" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set(availableDates.map(d => `${d.year}-${d.month}`))).map(date => (
+                    <SelectItem key={date} value={date}>{formatMonth(date)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </section>
+
+          <section className="grid h-[4.5rem] min-h-0 grid-cols-4 gap-3">
+            {[
+              { label: "Reuniões no período", value: dashboardMeetingCount, helper: "encontros registrados", icon: CalendarDays, tone: "bg-secondary" },
+              { label: "Média por reunião", value: stats.mediaTotal, helper: "participantes em média", icon: Users, tone: "bg-primary/15" },
+              { label: "Presença média", value: `${dashboardRate}%`, helper: dashboardTopFaixa ? `${dashboardTopFaixa.faixa} lidera` : "sem dados por faixa", icon: Activity, tone: "bg-emerald-500/15" },
+              { label: "Orações registradas", value: prayerStats.totalOracoes, helper: `${prayerStats.mediaPorReuniao} por reunião`, icon: Heart, tone: "bg-rose-500/15" },
+            ].map((metric) => {
+              const Icon = metric.icon;
+              return (
+                <Card key={metric.label} className="min-w-0 rounded-[18px] border-border/60 bg-card/90 shadow-none">
+                  <CardContent className="flex h-full items-center justify-between gap-2 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-semibold text-muted-foreground">{metric.label}</p>
+                      <p className="mt-0.5 text-xl font-black tabular-nums text-foreground">{metric.value}</p>
+                      <p className="truncate text-[10px] font-medium text-muted-foreground">{metric.helper}</p>
+                    </div>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${metric.tone}`}>
+                      <Icon className="h-4 w-4 text-foreground" />
+                    </span>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </section>
+
+          <section className="grid min-h-0 grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.95fr)] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="flex-none px-4 pb-2 pt-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base"><BarChart3 className="h-4 w-4 text-primary" />Participação por reunião</CardTitle>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Distribuição de presença, visitas e recitativos ao longo do período.</p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-foreground">{dashboardMeetingCount} encontros</span>
+                </div>
+                <div className="mt-2 flex max-w-full gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[...allFaixas, "Visitas", "Recitativos Individuais"].map((category) => {
+                    const active = visibleCategories[category];
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => toggleCategory(category)}
+                        className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors ${active ? "border-primary/40 bg-secondary text-foreground" : "border-border/50 bg-background/40 text-muted-foreground line-through"}`}
+                      >
+                        {category}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 px-3 pb-3 pt-0">
+                <div className="h-full min-h-0 rounded-2xl bg-background/45 p-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dashboardChartSlots} barCategoryGap="34%" margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" opacity={0.28} />
+                      <XAxis dataKey="data" interval={0} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} style={{ fontSize: "10px" }} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} width={30} style={{ fontSize: "10px" }} />
+                      <Tooltip
+                        cursor={{ fill: "hsl(var(--secondary) / 0.35)" }}
+                        contentStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.8rem", color: "hsl(var(--popover-foreground))" }}
+                      />
+                      {getVisibleCategories().map((category, index, array) => (
+                        <Bar key={category} dataKey={category} stackId="presence" barSize={34} maxBarSize={34} fill={FAIXA_COLORS[category] || "hsl(var(--primary))"} name={category} radius={index === array.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="flex-none px-4 pb-2 pt-3">
+                <CardTitle className="flex items-center gap-2 text-base"><Award className="h-4 w-4 text-primary" />Insights rápidos</CardTitle>
+                <p className="text-xs text-muted-foreground">Leituras automáticas dos dados atuais.</p>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-4 pb-3 pt-0 scrollbar-none">
+                <div className="rounded-2xl bg-secondary/70 p-2.5">
+                  <div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-foreground">Faixa com melhor presença</span><ArrowUpRight className="h-4 w-4 text-primary" /></div>
+                  <p className="mt-0.5 text-base font-black text-foreground">{dashboardTopFaixa?.faixa || "Sem dados"}</p>
+                  <p className="text-[11px] text-muted-foreground">{dashboardTopFaixa ? `${dashboardTopFaixa.percentual.toFixed(0)}% de presença média` : "Registre reuniões para gerar insights."}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/50 p-2.5">
+                  <div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-foreground">Ponto de atenção</span><Activity className="h-4 w-4 text-primary" /></div>
+                  <p className="mt-0.5 text-sm font-bold text-foreground">{dashboardLowFaixa?.faixa || "Aguardando dados"}</p>
+                  <p className="text-[11px] text-muted-foreground">{dashboardLowFaixa ? `${dashboardLowFaixa.percentual.toFixed(0)}% de presença média no período` : "Não há faixa suficiente para comparar."}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-border/60 bg-background/50 p-2.5"><p className="text-[11px] text-muted-foreground">Visitas</p><p className="mt-0.5 text-lg font-black text-foreground">{dashboardVisits}</p></div>
+                  <div className="rounded-2xl border border-border/60 bg-background/50 p-2.5"><p className="text-[11px] text-muted-foreground">Recitativos</p><p className="mt-0.5 text-lg font-black text-foreground">{dashboardRecitativos}</p></div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="flex-none px-4 pb-2 pt-3">
+                <div className="flex items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4 text-primary" />Presença por faixa etária</CardTitle><p className="text-xs text-muted-foreground">Média de presentes comparada ao total cadastrado.</p></div><span className="text-[11px] font-semibold text-muted-foreground">presentes / total</span></div>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 px-4 pb-3 pt-0">
+                <div className="grid h-full min-h-0 grid-cols-5 items-end gap-2">
+                  {stats.mediaPorFaixa.map((item) => {
+                    const color = FAIXA_COLORS[item.faixa] || "hsl(var(--primary))";
+                    const percent = Math.max(0, Math.min(100, item.percentual));
+                    return (
+                      <div key={item.faixa} className="flex min-w-0 flex-col items-center justify-end gap-1.5">
+                        <span className="text-[10px] font-black tabular-nums text-foreground">{percent.toFixed(0)}%</span>
+                        <div className="flex h-[7.25rem] w-full max-w-[4.5rem] items-end overflow-hidden rounded-full bg-muted/35 ring-1 ring-border/40"><div className="w-full rounded-full transition-[height] duration-500" style={{ height: `${percent}%`, backgroundColor: color }} /></div>
+                        <p className="w-full truncate text-center text-[10px] font-bold text-foreground">{item.faixa}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground">{item.media}/{item.total}</p>
+                      </div>
+                    );
+                  })}
+                  {!stats.mediaPorFaixa.length ? <div className="col-span-5 flex h-full items-center justify-center text-xs text-muted-foreground">Sem dados de presença por faixa.</div> : null}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="flex-none px-4 pb-2 pt-3"><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4 text-primary" />Orações e palavras</CardTitle><p className="text-xs text-muted-foreground">Participação ativa e temas recentes.</p></CardHeader>
+              <CardContent className="grid min-h-0 flex-1 grid-cols-2 gap-3 px-4 pb-3 pt-0">
+                <div className="min-h-0 overflow-y-auto space-y-2 scrollbar-none">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Quem mais orou</p>
+                  {topPrayerMembers.slice(0, 4).map((member, index) => <div key={member.id} className="flex items-center justify-between gap-2 rounded-xl border border-border/55 bg-background/45 px-2.5 py-2"><span className="min-w-0 truncate text-xs font-semibold text-foreground"><span className="mr-1.5 text-primary">{index + 1}.</span>{member.nome}</span><span className="shrink-0 text-[11px] font-black text-foreground">{member.total}</span></div>)}
+                  {!topPrayerMembers.length ? <p className="text-xs text-muted-foreground">Nenhuma oração vinculada a membro.</p> : null}
+                </div>
+                <div className="min-h-0 overflow-y-auto space-y-2 scrollbar-none">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Palavras recentes</p>
+                  {recentWords.slice(0, 4).map((item) => <button key={item.id} type="button" onClick={() => navigate(`/reunioes/visualizar/${item.id}`)} className="w-full rounded-xl border border-border/55 bg-background/45 px-2.5 py-2 text-left transition-colors hover:bg-secondary/60"><span className="block truncate text-xs font-bold text-foreground">{item.palavra_referencia}</span><span className="block truncate text-[10px] text-muted-foreground">{formatDate(item.data)}{item.tema ? ` · ${item.tema}` : ""}</span></button>)}
+                  {!recentWords.length ? <p className="text-xs text-muted-foreground">Nenhuma palavra registrada.</p> : null}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">

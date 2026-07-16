@@ -76,7 +76,7 @@ export const useAuth = () => {
               Authorization: `Bearer ${session.access_token}`,
             },
           });
-          if (roleErr && !(roleErr as any)?.message?.includes("401")) {
+          if (roleErr && !roleErr.message.includes("401")) {
             console.warn("Não foi possível preparar o acesso base agora. O app continuará tentando pelos fluxos principais.", roleErr);
           }
         } catch (err) {
@@ -93,7 +93,7 @@ export const useAuth = () => {
         if (cancelled) return;
 
         const email = user.email ?? null;
-        const meta: any = user.user_metadata ?? {};
+        const meta = user.user_metadata as Record<string, unknown>;
         const avatarUrl: string | null =
           typeof meta.avatar_url === "string" ? meta.avatar_url : null;
 
@@ -145,7 +145,7 @@ export const useAuth = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, session?.access_token]);
+  }, [user, session?.access_token]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

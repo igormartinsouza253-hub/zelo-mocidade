@@ -21,8 +21,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-const SUPER_ADMIN_EMAIL = "igor.ccb.mts@gmail.com";
-
 type SuperAdminGroup = {
   id: string;
   group_id: string;
@@ -71,7 +69,7 @@ export default function SuperAdminUsuarios() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<SuperAdminUser | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ user: SuperAdminUser; group: SuperAdminGroup } | null>(null);
-  const isAllowed = (user?.email ?? "").toLowerCase() === SUPER_ADMIN_EMAIL;
+  const isAllowed = user?.app_metadata?.super_admin === true;
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -92,8 +90,9 @@ export default function SuperAdminUsuarios() {
         body: { action: "super_admin_list" },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      setUsers(((data as any)?.users ?? []) as SuperAdminUser[]);
+      const response = data as { error?: string; users?: SuperAdminUser[] } | null;
+      if (response?.error) throw new Error(response.error);
+      setUsers(response?.users ?? []);
     } catch (error) {
       console.error("[SuperAdminUsuarios] load", error);
       toast.error("Não foi possível carregar os usuários.");
@@ -124,7 +123,8 @@ export default function SuperAdminUsuarios() {
         },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const response = data as { error?: string } | null;
+      if (response?.error) throw new Error(response.error);
       toast.success("Usuário removido do grupo.");
       setRemoveTarget(null);
       void loadUsers();
@@ -141,7 +141,8 @@ export default function SuperAdminUsuarios() {
         body: { action: "super_admin_delete_user", user_id: deleteTarget.id },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const response = data as { error?: string } | null;
+      if (response?.error) throw new Error(response.error);
       toast.success("Usuário excluído do app.");
       setDeleteTarget(null);
       void loadUsers();
@@ -163,7 +164,7 @@ export default function SuperAdminUsuarios() {
               Super administração
             </CardTitle>
             <CardDescription className="text-xs">
-              Acesso exclusivo da conta {SUPER_ADMIN_EMAIL}.
+              Acesso exclusivo para contas autorizadas pelo administrador da plataforma.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 pb-3 px-3">

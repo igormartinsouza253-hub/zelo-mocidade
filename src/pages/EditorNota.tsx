@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -9,6 +9,7 @@ import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
 import Mention from "@tiptap/extension-mention";
+import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,6 +126,8 @@ interface NoteVersion {
   author_name?: string | null;
 }
 
+type MentionSuggestionProps = SuggestionProps<Membro, { id: string; label: string }>;
+
 const EditorNota = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -155,6 +158,7 @@ const EditorNota = () => {
     y: number;
   } | null>(null);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
+  const salvarNotaRef = useRef<() => void>(() => undefined);
   const isOwner = !id || noteOwnerId === user?.id;
   const canManageNote = isAdmin || isOwner;
   const canEditNote = canManageNote || (visibility === "group" && sharedEditingEnabled && !archivedAt);
@@ -211,23 +215,26 @@ const EditorNota = () => {
           render: () => {
             let component: HTMLDivElement | null = null;
             let selectedIndex = 0;
+            let currentProps: MentionSuggestionProps | null = null;
             return {
-              onStart: (props: any) => {
+              onStart: (props: MentionSuggestionProps) => {
+                currentProps = props;
                 component = document.createElement("div");
                 component.className = "bg-popover border border-border rounded-lg shadow-lg p-1 z-50";
                 document.body.appendChild(component);
                 updateComponent(props);
               },
-              onUpdate: (props: any) => { updateComponent(props); },
-              onKeyDown: (props: any) => {
-                if (props.event.key === "ArrowUp") { selectedIndex = Math.max(0, selectedIndex - 1); updateComponent(props); return true; }
-                if (props.event.key === "ArrowDown") { selectedIndex = Math.min(props.items.length - 1, selectedIndex + 1); updateComponent(props); return true; }
-                if (props.event.key === "Enter") { const item = props.items[selectedIndex]; if (item) props.command({ id: item.id, label: item.nome }); return true; }
+              onUpdate: (props: MentionSuggestionProps) => { currentProps = props; updateComponent(props); },
+              onKeyDown: ({ event }: SuggestionKeyDownProps) => {
+                if (!currentProps) return false;
+                if (event.key === "ArrowUp") { selectedIndex = Math.max(0, selectedIndex - 1); updateComponent(currentProps); return true; }
+                if (event.key === "ArrowDown") { selectedIndex = Math.min(currentProps.items.length - 1, selectedIndex + 1); updateComponent(currentProps); return true; }
+                if (event.key === "Enter") { const item = currentProps.items[selectedIndex]; if (item) currentProps.command({ id: item.id, label: item.nome }); return true; }
                 return false;
               },
-              onExit: () => { if (component) { component.remove(); component = null; } },
+              onExit: () => { currentProps = null; if (component) { component.remove(); component = null; } },
             };
-            function updateComponent(props: any) {
+            function updateComponent(props: MentionSuggestionProps) {
               if (!component) return;
               const { clientRect, items, command } = props;
               if (!clientRect) return;
@@ -251,14 +258,6 @@ const EditorNota = () => {
     editorProps: { attributes: { class: "prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-[300px] max-w-none p-4" } },
   });
 
-  useEffect(() => {
-    if (loadingActiveGroup) return;
-    if (id && activeGroupId) {
-      loadNota();
-      return;
-    }
-    if (id && !activeGroupId) navigate("/grupo", { replace: true });
-  }, [id, activeGroupId, loadingActiveGroup]);
   useEffect(() => { if (editor && initialContent) editor.commands.setContent(initialContent); }, [editor, initialContent]);
 
   useEffect(() => { if (editor) editor.setEditable(!isViewMode && canEditNote); }, [editor, isViewMode, canEditNote]);
@@ -291,7 +290,7 @@ const EditorNota = () => {
           <Button
             size="sm"
             className="gap-1.5 text-xs md:text-sm whitespace-nowrap"
-            onClick={salvarNota}
+            onClick={() => salvarNotaRef.current()}
             disabled={loading || !canEditNote}
           >
             <Save className="h-3.5 w-3.5" />
@@ -442,59 +441,20 @@ const EditorNota = () => {
     return () => window.clearInterval(intervalId);
   }, [draftKey, editor, id, selectedMembroId, selectedReuniaoId, sharedEditingEnabled, tagsInput, visibility]);
 
-  const loadNota = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("notas")
-        .select("id, conteudo, user_id, membro_id, reuniao_id, group_id, visibility, tags, is_pinned, archived_at, shared_editing_enabled")
-        .eq("id", id)
-        .eq("group_id", activeGroupId)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setInitialContent(data.conteudo);
-        setSelectedMembroId((data.membro_id as string | null) ?? "none");
-        setSelectedReuniaoId((data.reuniao_id as string | null) ?? "none");
-        setVisibility(((data as any).visibility as "private" | "group") ?? "private");
-        setTagsInput((((data as any).tags as string[] | null) || []).join(", "));
-        setIsPinned(Boolean((data as any).is_pinned));
-        setArchivedAt(((data as any).archived_at as string | null) ?? null);
-        setSharedEditingEnabled(Boolean((data as any).shared_editing_enabled ?? true));
-        setNoteOwnerId(data.user_id);
-        setIsViewMode(true);
-
-        const { data: creatorProfile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", data.user_id)
-          .maybeSingle();
-        setCreatedByName(creatorProfile?.username ?? null);
-        if (((data as any).visibility as string) === "group") {
-          loadComments();
-        }
-        loadVersions();
-      }
-    } catch (error) {
-      console.error("Erro ao carregar nota:", error);
-      toast.error("Erro ao carregar nota");
-    }
-  };
-
-  const hydrateAuthors = async <T extends { user_id?: string; edited_by?: string | null }>(rows: T[]) => {
+  const hydrateAuthors = useCallback(async <T extends { user_id?: string; edited_by?: string | null }>(rows: T[]) => {
     const ids = Array.from(new Set(rows.map((row) => row.user_id || row.edited_by).filter((value): value is string => Boolean(value))));
     if (ids.length === 0) return rows.map((row) => ({ ...row, author_name: null }));
 
     const { data } = await supabase.from("profiles").select("id, username").in("id", ids);
     const names = new Map<string, string>();
-    (data || []).forEach((profile: any) => names.set(profile.id, profile.username));
+    (data || []).forEach((profile) => names.set(profile.id, profile.username));
     return rows.map((row) => ({ ...row, author_name: names.get(row.user_id || row.edited_by || "") || null }));
-  };
+  }, []);
 
-  const loadComments = async () => {
+  const loadComments = useCallback(async () => {
     if (!id || !activeGroupId) return;
     const { data, error } = await supabase
-      .from("note_comments" as any)
+      .from("note_comments")
       .select("id, body, created_at, user_id")
       .eq("note_id", id)
       .eq("group_id", activeGroupId)
@@ -505,13 +465,13 @@ const EditorNota = () => {
       return;
     }
 
-    setComments((await hydrateAuthors((data || []) as NoteComment[])) as NoteComment[]);
-  };
+    setComments(await hydrateAuthors(data || []));
+  }, [activeGroupId, hydrateAuthors, id]);
 
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     if (!id || !activeGroupId) return;
     const { data, error } = await supabase
-      .from("note_versions" as any)
+      .from("note_versions")
       .select("id, created_at, edited_by")
       .eq("note_id", id)
       .eq("group_id", activeGroupId)
@@ -523,14 +483,59 @@ const EditorNota = () => {
       return;
     }
 
-    setVersions((await hydrateAuthors((data || []) as NoteVersion[])) as NoteVersion[]);
-  };
+    setVersions(await hydrateAuthors(data || []));
+  }, [activeGroupId, hydrateAuthors, id]);
+
+  const loadNota = useCallback(async () => {
+    if (!id || !activeGroupId) return;
+    try {
+      const { data, error } = await supabase
+        .from("notas")
+        .select("id, conteudo, user_id, membro_id, reuniao_id, group_id, visibility, tags, is_pinned, archived_at, shared_editing_enabled")
+        .eq("id", id)
+        .eq("group_id", activeGroupId)
+        .single();
+
+      if (error) throw error;
+      setInitialContent(data.conteudo);
+      setSelectedMembroId(data.membro_id ?? "none");
+      setSelectedReuniaoId(data.reuniao_id ?? "none");
+      setVisibility(data.visibility === "group" ? "group" : "private");
+      setTagsInput((data.tags || []).join(", "));
+      setIsPinned(data.is_pinned);
+      setArchivedAt(data.archived_at ?? null);
+      setSharedEditingEnabled(data.shared_editing_enabled);
+      setNoteOwnerId(data.user_id);
+      setIsViewMode(true);
+
+      const { data: creatorProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", data.user_id)
+        .maybeSingle();
+      setCreatedByName(creatorProfile?.username ?? null);
+      if (data.visibility === "group") await loadComments();
+      await loadVersions();
+    } catch (error) {
+      console.error("Erro ao carregar nota:", error);
+      toast.error("Erro ao carregar nota");
+    }
+  }, [activeGroupId, id, loadComments, loadVersions]);
+
+  useEffect(() => {
+    if (loadingActiveGroup || !id) return;
+    if (!activeGroupId) {
+      navigate("/grupo", { replace: true });
+      return;
+    }
+    void loadNota();
+  }, [activeGroupId, id, loadNota, loadingActiveGroup, navigate]);
 
   const sendComment = async () => {
     if (!id || !activeGroupId || !user || !commentText.trim()) return;
 
     try {
-      const { error } = await supabase.from("note_comments" as any).insert({
+      const { error } = await supabase.from("note_comments").insert({
         note_id: id,
         group_id: activeGroupId,
         user_id: user.id,
@@ -548,7 +553,7 @@ const EditorNota = () => {
 
   const deleteComment = async (comment: NoteComment) => {
     try {
-      const { error } = await supabase.from("note_comments" as any).delete().eq("id", comment.id);
+      const { error } = await supabase.from("note_comments").delete().eq("id", comment.id);
       if (error) throw error;
       loadComments();
     } catch (error) {
@@ -636,11 +641,12 @@ const EditorNota = () => {
       navigate("/notas");
     } catch (error) {
       console.error("Erro ao salvar nota:", error);
-      const message = error instanceof Error ? error.message : String((error as any)?.message ?? "");
+      const details = error as { code?: string; message?: string } | null;
+      const message = error instanceof Error ? error.message : String(details?.message ?? "");
       const normalizedMessage = message.toLowerCase();
       if (normalizedMessage.includes("visibility") || normalizedMessage.includes("schema cache")) {
         toast.error("O banco ainda precisa receber a atualizacao de notas privadas/publicas.");
-      } else if (normalizedMessage.includes("row-level security") || (error as any)?.code === "42501") {
+      } else if (normalizedMessage.includes("row-level security") || details?.code === "42501") {
         toast.error("Sem permissao para salvar nota neste grupo gestor.");
       } else {
         toast.error(message || "Erro ao salvar nota");
@@ -769,14 +775,15 @@ const EditorNota = () => {
       </div>
     );
   };
+  salvarNotaRef.current = () => void salvarNota();
 
-  const MobileNoteToolbar = () => {
+  const MobileNoteToolbar = ({ mobile, viewMode }: { mobile: boolean; viewMode: boolean }) => {
     const [keyboardInset, setKeyboardInset] = useState(0);
     const [expanded, setExpanded] = useState(false);
     const [dragStartY, setDragStartY] = useState<number | null>(null);
 
     useEffect(() => {
-      if (!isMobile || isViewMode || typeof window === "undefined" || !window.visualViewport) return;
+      if (!mobile || viewMode || typeof window === "undefined" || !window.visualViewport) return;
 
       const viewport = window.visualViewport;
       const updateKeyboardInset = () => {
@@ -794,9 +801,9 @@ const EditorNota = () => {
         viewport.removeEventListener("scroll", updateKeyboardInset);
         window.removeEventListener("orientationchange", updateKeyboardInset);
       };
-    }, [isMobile, isViewMode]);
+    }, [mobile, viewMode]);
 
-    if (!isMobile || isViewMode) return null;
+    if (!mobile || viewMode) return null;
     const currentTextColor = editor.getAttributes("textStyle")?.color as string | undefined;
 
     return (
@@ -1630,7 +1637,7 @@ const EditorNota = () => {
           ) : null}
 
           {/* Mobile toolbar fixa (substitui a dock inferior do app) */}
-          <MobileNoteToolbar />
+          <MobileNoteToolbar mobile={isMobile} viewMode={isViewMode} />
 
           {/* Ações antigas do mobile removidas: agora ficam na toolbar fixa */}
 

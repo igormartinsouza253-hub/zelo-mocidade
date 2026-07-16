@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -81,13 +81,7 @@ const Aniversariantes = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadAniversariantes();
-    loadReunioes();
-    loadVisitas();
-  }, []);
-
-  const loadAniversariantes = async () => {
+  const loadAniversariantes = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("membros")
@@ -167,9 +161,9 @@ const Aniversariantes = () => {
     } catch (error) {
       console.error("Erro ao carregar aniversariantes:", error);
     }
-  };
+  }, []);
 
-  const loadReunioes = async () => {
+  const loadReunioes = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("reunioes")
@@ -181,9 +175,9 @@ const Aniversariantes = () => {
     } catch (error) {
       console.error("Erro ao carregar reuniões:", error);
     }
-  };
+  }, []);
 
-  const loadVisitas = async () => {
+  const loadVisitas = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("visitas")
@@ -196,7 +190,13 @@ const Aniversariantes = () => {
     } catch (error) {
       console.error("Erro ao carregar visitas:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadAniversariantes();
+    void loadReunioes();
+    void loadVisitas();
+  }, [loadAniversariantes, loadReunioes, loadVisitas]);
 
   const calcularDiasAteAniversario = (
     mesAtual: number,

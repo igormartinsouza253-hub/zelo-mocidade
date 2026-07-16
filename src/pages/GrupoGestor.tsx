@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Camera,
@@ -55,9 +55,10 @@ type JoinRequestRow = {
   created_at: string;
 };
 
-function getGroupErrorMessage(error: any, fallback: string) {
-  const code = String(error?.code ?? "");
-  const message = String(error?.message ?? error ?? "").toLowerCase();
+function getGroupErrorMessage(error: unknown, fallback: string) {
+  const details = error && typeof error === "object" ? error as { code?: unknown; message?: unknown } : null;
+  const code = String(details?.code ?? "");
+  const message = String(details?.message ?? error ?? "").toLowerCase();
 
   if (message.includes("not_authenticated") || code === "401") return "Sua sessão expirou. Faça login novamente.";
   if (message.includes("invalid_password")) return "Senha do grupo incorreta.";
@@ -138,7 +139,7 @@ export default function GrupoGestor() {
   const profileName = profile?.username || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Conta";
   const profileInitial = (profileName || user?.email || "U").charAt(0).toUpperCase();
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     setLoadingGroups(true);
     try {
       const { data, error } = await supabase
@@ -147,12 +148,12 @@ export default function GrupoGestor() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      const nextGroups = ((data as any) ?? []).filter((group: GroupRow) => Boolean(group.id && group.name));
+      const nextGroups = (data ?? []).filter((group) => Boolean(group.id && group.name));
       const groupIds = nextGroups.map((group: GroupRow) => group.id);
       let counts: Record<string, number> = {};
       if (groupIds.length > 0) {
         const { data: memberRows } = await supabase.from("group_members").select("group_id").in("group_id", groupIds);
-        counts = ((memberRows as any) ?? []).reduce((acc: Record<string, number>, row: { group_id: string }) => {
+        counts = (memberRows ?? []).reduce<Record<string, number>>((acc, row) => {
           acc[row.group_id] = (acc[row.group_id] ?? 0) + 1;
           return acc;
         }, {});
@@ -170,9 +171,9 @@ export default function GrupoGestor() {
     } finally {
       setLoadingGroups(false);
     }
-  };
+  }, []);
 
-  const loadMyJoinRequests = async () => {
+  const loadMyJoinRequests = useCallback(async () => {
     if (!user) {
       setMyJoinRequests({});
       return;
@@ -185,25 +186,25 @@ export default function GrupoGestor() {
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    const latestByGroup = ((data as any) ?? []).reduce((acc: Record<string, JoinRequestRow>, request: JoinRequestRow) => {
+    const latestByGroup = (data ?? []).reduce<Record<string, JoinRequestRow>>((acc, request) => {
       if (!acc[request.group_id]) acc[request.group_id] = request;
       return acc;
     }, {});
     setMyJoinRequests(latestByGroup);
-  };
+  }, [user]);
 
   useEffect(() => {
     void loadGroups().catch((error) => {
       console.error(error);
       toast.error("Não foi possível carregar os grupos.");
     });
-  }, []);
+  }, [loadGroups]);
 
   useEffect(() => {
     void loadMyJoinRequests().catch((error) => {
       console.error(error);
     });
-  }, [user?.id]);
+  }, [loadMyJoinRequests]);
 
   useEffect(() => {
     if (!user || activeGroupId || changeMode) return;
@@ -262,7 +263,7 @@ export default function GrupoGestor() {
     });
     if (uploadError) throw uploadError;
 
-    const { error: updateError } = await supabase.from("management_groups").update({ photo_url: filePath } as any).eq("id", groupId);
+    const { error: updateError } = await supabase.from("management_groups").update({ photo_url: filePath }).eq("id", groupId);
     if (updateError) throw updateError;
   };
 
@@ -322,7 +323,7 @@ export default function GrupoGestor() {
 
     setJoining(true);
     try {
-      const { data: requestStatus, error } = await supabase.rpc("request_group_join" as any, {
+      const { data: requestStatus, error } = await supabase.rpc("request_group_join", {
         _group_id: selectedGroupId,
         _password: joinPassword.trim(),
       });

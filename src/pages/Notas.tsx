@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeRichText } from "@/lib/sanitize-html";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Archive, ArchiveRestore, Copy, Download, Lock, Pin, Plus, MoreVertical, Filter, Tag, UserCircle, Users, StickyNote } from "lucide-react";
@@ -48,6 +49,8 @@ interface Nota {
   reuniao_tema?: string | null;
 }
 
+type FiltroVinculo = "todas" | "membro" | "reuniao" | "sem";
+
 export default function Notas() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -60,27 +63,22 @@ export default function Notas() {
   const [selectedNota, setSelectedNota] = useState<Nota | null>(null);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [mobileActionsNota, setMobileActionsNota] = useState<Nota | null>(null);
-  const [filtroVinculo, setFiltroVinculo] = useState<"todas" | "membro" | "reuniao" | "sem">("todas");
+  const [filtroVinculo, setFiltroVinculo] = useState<FiltroVinculo>("todas");
   const [filtroRapido, setFiltroRapido] = useState<"ativas" | "minhas" | "publicas" | "privadas" | "fixadas" | "arquivadas">("ativas");
   const [filtroMembro, setFiltroMembro] = useState<string>("todos");
   const [filtroReuniao, setFiltroReuniao] = useState<string>("todas");
   const [filtroTag, setFiltroTag] = useState<string>("todas");
   const [buscaNotas, setBuscaNotas] = useState("");
 
-  useEffect(() => {
-    if (!loadingActiveGroup && activeGroupId) loadNotas();
-    if (!loadingActiveGroup && !activeGroupId) navigate("/grupo", { replace: true });
-  }, [activeGroupId, loadingActiveGroup]);
-
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFiltroRapido("ativas");
     setFiltroVinculo("todas");
     setFiltroMembro("todos");
     setFiltroReuniao("todas");
     setFiltroTag("todas");
-  };
+  }, []);
 
-  const loadNotas = async () => {
+  const loadNotas = useCallback(async () => {
     if (!activeGroupId) {
       setNotas([]);
       setSelectedNota(null);
@@ -126,18 +124,18 @@ export default function Notas() {
       if (profilesResp.error) throw profilesResp.error;
 
       const membrosMap = new Map<string, string>();
-      (membrosResp.data || []).forEach((m: any) => {
-        membrosMap.set(m.id, m.nome);
+      (membrosResp.data || []).forEach((membro) => {
+        membrosMap.set(membro.id, membro.nome);
       });
 
       const reunioesMap = new Map<string, { data: string; tema: string | null }>();
-      (reunioesResp.data || []).forEach((r: any) => {
-        reunioesMap.set(r.id, { data: r.data, tema: r.tema });
+      (reunioesResp.data || []).forEach((reuniao) => {
+        reunioesMap.set(reuniao.id, { data: reuniao.data, tema: reuniao.tema });
       });
 
       const profilesMap = new Map<string, string>();
-      (profilesResp.data || []).forEach((p: any) => {
-        profilesMap.set(p.id, p.username);
+      (profilesResp.data || []).forEach((profile) => {
+        profilesMap.set(profile.id, profile.username);
       });
 
       const notasEnriquecidas: Nota[] = notasBase.map((n) => ({
@@ -160,7 +158,16 @@ export default function Notas() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeGroupId, isMobile]);
+
+  useEffect(() => {
+    if (loadingActiveGroup) return;
+    if (!activeGroupId) {
+      navigate("/grupo", { replace: true });
+      return;
+    }
+    void loadNotas();
+  }, [activeGroupId, loadNotas, loadingActiveGroup, navigate]);
 
   const noteToPlainText = (html: string) => {
     const temp = document.createElement("div");
@@ -213,7 +220,7 @@ export default function Notas() {
     try {
       const { error } = await supabase
         .from("notas")
-        .update(patch as any)
+        .update(patch)
         .eq("id", nota.id)
         .eq("group_id", activeGroupId);
 
@@ -240,7 +247,7 @@ export default function Notas() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${getTituloFromHtml(nota.conteudo).replace(/[^\w\-]+/g, "-").slice(0, 40) || "nota"}.txt`;
+    link.download = `${getTituloFromHtml(nota.conteudo).replace(/[^\w-]+/g, "-").slice(0, 40) || "nota"}.txt`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -435,9 +442,9 @@ export default function Notas() {
     </div>
   );
 
-  const FiltersControls = (
+  const FiltersControls = useMemo(() => (
     <div className="grid w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2 md:text-sm">
-      <Select value={filtroVinculo} onValueChange={(v) => setFiltroVinculo(v as any)}>
+      <Select value={filtroVinculo} onValueChange={(value) => setFiltroVinculo(value as FiltroVinculo)}>
         <SelectTrigger className="h-9 w-full rounded-xl">
           <SelectValue placeholder="Vínculo" />
         </SelectTrigger>
@@ -491,7 +498,7 @@ export default function Notas() {
         </SelectContent>
       </Select>
     </div>
-  );
+  ), [filtroMembro, filtroReuniao, filtroTag, filtroVinculo, membrosDisponiveis, reunioesDisponiveis, tagsDisponiveis]);
 
   useEffect(() => {
     setConfig({
@@ -590,7 +597,7 @@ export default function Notas() {
     });
 
     return () => setConfig(null);
-  }, [navigate, setConfig, isMobile, activeFiltersCount, filtroVinculo, filtroMembro, filtroReuniao, filtroTag, membrosDisponiveis.length, reunioesDisponiveis.length, tagsDisponiveis.length, buscaNotas]);
+  }, [FiltersControls, activeFiltersCount, buscaNotas, clearFilters, isMobile, navigate, setConfig]);
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
@@ -875,7 +882,10 @@ export default function Notas() {
                           <VisibilityBadge nota={selectedNota} />
                           <NoteBadges nota={selectedNota} />
                         </div>
-                        <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: selectedNota.conteudo }} />
+                        <div
+                          className="prose prose-sm max-w-none text-sm"
+                          dangerouslySetInnerHTML={{ __html: sanitizeRichText(selectedNota.conteudo) }}
+                        />
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">Selecione uma nota na lista para visualizar aqui.</p>

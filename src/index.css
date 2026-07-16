@@ -516,6 +516,20 @@ All colors MUST be HSL.
     flex: 0 0 auto;
   }
 
+  .topbar-expand-action.topbar-square-action {
+    width: 2.25rem;
+    max-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: 0.875rem;
+    background: transparent;
+  }
+
+  .topbar-expand-action.topbar-square-action:hover,
+  .topbar-expand-action.topbar-square-action.is-active {
+    background: hsl(var(--secondary));
+  }
+
   .topbar-action-avatar {
     width: 1.25rem;
     height: 1.25rem;
@@ -535,6 +549,7 @@ All colors MUST be HSL.
 
   .topbar-expand-action:hover,
   .topbar-expand-action.keep-label {
+    width: max-content;
     max-width: 11rem;
     gap: 0.4rem;
     padding: 0 0.65rem;
@@ -553,6 +568,12 @@ All colors MUST be HSL.
     min-width: 2.25rem;
     min-height: 2.25rem;
     border-radius: 0.75rem;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  .topbar-expand-action.topbar-square-action.is-active,
+  .topbar-expand-action.topbar-square-action.is-active:hover {
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
   }

@@ -25,7 +25,7 @@ export function useGroupMembers(groupId: string | null) {
         .eq("group_id", groupId);
       if (gmErr) throw gmErr;
 
-      const userIds = (gm as any[] | null)?.map((r) => r.user_id as string).filter(Boolean) ?? [];
+      const userIds = gm?.map((row) => row.user_id).filter(Boolean) ?? [];
       if (userIds.length === 0) {
         setMembers([]);
         return;
@@ -38,12 +38,12 @@ export function useGroupMembers(groupId: string | null) {
       if (pErr) throw pErr;
 
       const usernameById = new Map<string, string>();
-      (profiles as any[] | null)?.forEach((p) => {
-        if (p?.id) usernameById.set(p.id as string, (p.username as string) ?? "Usuário");
+      profiles?.forEach((profile) => {
+        if (profile.id) usernameById.set(profile.id, profile.username ?? "Usuário");
       });
 
       const next: GroupMemberInfo[] = userIds.map((uid) => {
-        const row = (gm as any[]).find((x) => x.user_id === uid);
+        const row = gm?.find((membership) => membership.user_id === uid);
         return {
           userId: uid,
           username: usernameById.get(uid) ?? "Usuário",

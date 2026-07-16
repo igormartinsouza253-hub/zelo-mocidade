@@ -151,13 +151,13 @@ async function getPostAuthDestination(userId: string) {
   const pendingInvite = getPendingInviteDestination();
   if (pendingInvite) return pendingInvite;
 
-  const { data, error } = await supabase.rpc("get_my_group_context" as any);
+  const { data, error } = await supabase.rpc("get_my_group_context");
   if (error) {
     console.warn("[Auth] Não foi possível checar grupos do usuário:", error);
     return "/grupo";
   }
 
-  return Array.isArray(data) && data.some((group: any) => group?.group_id) ? "/" : "/grupo";
+  return data.some((group) => Boolean(group.group_id)) ? "/" : "/grupo";
 }
 
 async function isUsernameAvailable(username: string) {
@@ -167,7 +167,9 @@ async function isUsernameAvailable(username: string) {
 
   if (data?.email) return false;
 
-  const status = (error as any)?.context?.status;
+  const status = error && "context" in error
+    ? (error.context as { status?: number } | undefined)?.status
+    : undefined;
   if (error && status !== 404) {
     console.warn("[Auth] Não foi possível verificar username antes do cadastro:", error);
   }
@@ -402,7 +404,7 @@ const Auth = () => {
       return;
     }
 
-    const identities = (signUpData.user as any)?.identities;
+    const identities = signUpData.user?.identities;
     if (Array.isArray(identities) && identities.length === 0) {
       setMode("login");
       setIdentifier(email.trim());

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +11,10 @@ import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { z } from "zod";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { toast } from "sonner";
 import { ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/theme-presets";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { BootstrapAdminButton } from "@/components/BootstrapAdminButton";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
 import { NotificationSettingsSection } from "@/components/settings/NotificationSettingsSection";
 
@@ -50,7 +50,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { cn } from "@/lib/utils";
 
-const SUPER_ADMIN_EMAIL = "igor.ccb.mts@gmail.com";
+const ENABLE_LEGACY_USER_MANAGEMENT = false;
 
 interface UserWithRole {
   id: string;
@@ -151,8 +151,7 @@ const Configuracoes = () => {
   }, [user]);
 
   const canManageRestricted = isAdmin || isGroupAdmin;
-  const currentAccountEmail = (accountEmail ?? user?.email ?? "").toLowerCase();
-  const isSuperAdmin = currentAccountEmail === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = user?.app_metadata?.super_admin === true;
 
   useEffect(() => {
     if (!isMobile) return;
@@ -579,7 +578,7 @@ const Configuracoes = () => {
       .slice(0, 10);
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     const header = [
       "nome",
       "faixa_etaria",
@@ -591,11 +590,19 @@ const Configuracoes = () => {
       "observacoes",
     ];
 
-    const worksheet = XLSX.utils.aoa_to_sheet([header]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Membros");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Membros");
+    worksheet.addRow(header);
 
-    XLSX.writeFile(workbook, "modelo_importacao_membros.xlsx");
+    const buffer = await workbook.xlsx.writeBuffer();
+    const url = URL.createObjectURL(
+      new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modelo_importacao_membros.xlsx";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleImportMembers = async (file: File) => {
@@ -608,11 +615,27 @@ const Configuracoes = () => {
     setImportSummary(null);
 
     try {
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error("A planilha deve ter no máximo 5 MB.");
+      }
+
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(data);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) throw new Error("A planilha não contém abas.");
+
+      const headers = worksheet.getRow(1).values as ExcelJS.CellValue[];
+      const rows: Record<string, string>[] = [];
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1 || rows.length >= 5000) return;
+        const parsed: Record<string, string> = {};
+        for (let column = 1; column < headers.length; column++) {
+          const key = worksheet.getRow(1).getCell(column).text.trim();
+          if (key) parsed[key] = row.getCell(column).text;
+        }
+        rows.push(parsed);
+      });
 
       let imported = 0;
       let skipped = 0;
@@ -957,10 +980,10 @@ const Configuracoes = () => {
     try {
       const customConfig: CustomThemeConfig | null = customTheme;
 
-      const payload: any = {
+      const payload = {
         user_id: user.id,
         theme_preset: themePreset,
-        custom_theme: customConfig,
+        custom_theme: customConfig ? ({ ...customConfig } as Json) : null,
       };
 
       const { error } = await supabase
@@ -1436,7 +1459,7 @@ const Configuracoes = () => {
                 </CardContent>
               </Card>
 
-              {false && canManageRestricted && (
+              {ENABLE_LEGACY_USER_MANAGEMENT && canManageRestricted && (
                 <>
                   <Card>
                     <CardHeader className="pb-3 pt-3 px-3">
@@ -2246,16 +2269,6 @@ const Configuracoes = () => {
                    </div>
 
                    <div className="space-y-3">
-                     <BootstrapAdminButton
-                       accountEmail={accountEmail}
-                       isAdmin={isAdmin}
-                       onPromoted={() => {
-                         void checkAdminStatus();
-                         // Força recarregar lista/abas se necessário
-                         window.setTimeout(() => window.location.reload(), 300);
-                       }}
-                     />
-
                      <div className="flex justify-end">
                        <Button
                          type="button"

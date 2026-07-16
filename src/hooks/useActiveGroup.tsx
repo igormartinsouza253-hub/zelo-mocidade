@@ -243,7 +243,7 @@ function useActiveGroupState(): ActiveGroupContextValue {
 
     try {
       const { data, error } = await withTimeout(
-        supabase.rpc("get_my_group_context" as any),
+        supabase.rpc("get_my_group_context"),
         "Tempo limite ao carregar os grupos da conta.",
       );
 
@@ -299,7 +299,7 @@ function useActiveGroupState(): ActiveGroupContextValue {
       setLoading(true);
       try {
         const { data, error } = await withTimeout(
-          supabase.rpc("set_active_group_for_current_user" as any, {
+          supabase.rpc("set_active_group_for_current_user", {
             _group_id: groupId,
           }),
           "Tempo limite ao ativar o grupo.",

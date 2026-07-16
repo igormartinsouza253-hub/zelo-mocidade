@@ -747,6 +747,66 @@ export type Database = {
           },
         ]
       }
+      note_comments: {
+        Row: {
+          body: string
+          created_at: string
+          group_id: string
+          id: string
+          note_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          group_id: string
+          id?: string
+          note_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          note_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      note_versions: {
+        Row: {
+          conteudo: string
+          created_at: string
+          edited_by: string | null
+          group_id: string
+          id: string
+          note_id: string
+          tags: string[]
+          visibility: string
+        }
+        Insert: {
+          conteudo: string
+          created_at?: string
+          edited_by?: string | null
+          group_id: string
+          id?: string
+          note_id: string
+          tags?: string[]
+          visibility: string
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string
+          edited_by?: string | null
+          group_id?: string
+          id?: string
+          note_id?: string
+          tags?: string[]
+          visibility?: string
+        }
+        Relationships: []
+      }
       notas: {
         Row: {
           conteudo: string
@@ -1253,6 +1313,15 @@ export type Database = {
       }
     }
     Functions: {
+      create_group_invite: {
+        Args: {
+          _expires_in_hours?: number
+          _expires_in_minutes?: number
+          _group_id: string
+          _token: string
+        }
+        Returns: string
+      }
       check_group_password: {
         Args: { _group_id: string; _password: string }
         Returns: boolean
@@ -1275,10 +1344,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      decide_group_join_request: {
+        Args: { _action: string; _request_id: string }
+        Returns: undefined
+      }
       current_group_id: { Args: { _user_id: string }; Returns: string }
       generate_today_birthday_notifications: {
         Args: { _group_id: string; _recipient_user_id: string }
         Returns: number
+      }
+      get_my_group_context: {
+        Args: never
+        Returns: {
+          description: string
+          group_id: string
+          is_active: boolean
+          name: string
+          role: Database["public"]["Enums"]["group_role"]
+        }[]
       }
       has_role: {
         Args: {
@@ -1308,6 +1391,19 @@ export type Database = {
       is_notification_type_enabled: {
         Args: { _type: string; _user_id: string }
         Returns: boolean
+      }
+      request_group_join: {
+        Args: { _group_id: string; _password: string }
+        Returns: string
+      }
+      set_active_group_for_current_user: {
+        Args: { _group_id: string }
+        Returns: {
+          description: string
+          group_id: string
+          name: string
+          role: Database["public"]["Enums"]["group_role"]
+        }[]
       }
       transfer_group_ownership: {
         Args: { _group_id: string; _new_owner_id: string }

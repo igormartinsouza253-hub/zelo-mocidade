@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,49 +68,7 @@ export default function DesktopVisitas() {
   const [hoveredList, setHoveredList] = useState<"futuras" | "passadas" | null>(null);
   const { setConfig } = usePageHeader();
 
-  useEffect(() => {
-    if (!activeGroupId) {
-      setMembros([]);
-      setVisitasRaw([]);
-      setSuggestions([]);
-      setLoadingMembros(false);
-      setLoadingVisitas(false);
-      setLoadingSuggestions(false);
-      return;
-    }
-
-    setSelectedVisita(null);
-    void loadMembros();
-    void loadVisitas();
-  }, [activeGroupId]);
-
-  useEffect(() => {
-    if (membros.length > 0 && visitasRaw.length >= 0) {
-      void loadSuggestions();
-    }
-  }, [activeGroupId, membros.length, visitasRaw.length]);
-
-  useEffect(() => {
-    if (!activeGroupId) return;
-
-    const channel = supabase
-      .channel(`visitas-changes:${activeGroupId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "visitas", filter: `group_id=eq.${activeGroupId}` },
-        () => {
-          void loadVisitas();
-          void loadSuggestions();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeGroupId]);
-
-  const loadMembros = async () => {
+  const loadMembros = useCallback(async () => {
     if (!activeGroupId) return;
 
     try {
@@ -129,9 +87,9 @@ export default function DesktopVisitas() {
     } finally {
       setLoadingMembros(false);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadVisitas = async () => {
+  const loadVisitas = useCallback(async () => {
     if (!activeGroupId) return;
 
     try {
@@ -157,9 +115,9 @@ export default function DesktopVisitas() {
     } finally {
       setLoadingVisitas(false);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadSuggestions = async () => {
+  const loadSuggestions = useCallback(async () => {
     if (!activeGroupId) return;
 
     try {
@@ -230,7 +188,47 @@ export default function DesktopVisitas() {
     } finally {
       setLoadingSuggestions(false);
     }
-  };
+  }, [activeGroupId, membros]);
+
+  useEffect(() => {
+    if (!activeGroupId) {
+      setMembros([]);
+      setVisitasRaw([]);
+      setSuggestions([]);
+      setLoadingMembros(false);
+      setLoadingVisitas(false);
+      setLoadingSuggestions(false);
+      return;
+    }
+
+    setSelectedVisita(null);
+    void loadMembros();
+    void loadVisitas();
+  }, [activeGroupId, loadMembros, loadVisitas]);
+
+  useEffect(() => {
+    if (membros.length > 0) void loadSuggestions();
+  }, [loadSuggestions, membros.length, visitasRaw.length]);
+
+  useEffect(() => {
+    if (!activeGroupId) return;
+
+    const channel = supabase
+      .channel(`visitas-changes:${activeGroupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "visitas", filter: `group_id=eq.${activeGroupId}` },
+        () => {
+          void loadVisitas();
+          void loadSuggestions();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeGroupId, loadSuggestions, loadVisitas]);
 
   const visitasEnriquecidas = useMemo<EnrichedVisita[]>(() => {
     if (visitasRaw.length === 0) return [];

@@ -54,8 +54,12 @@ window.addEventListener("unhandledrejection", (event) => {
 
 // Evita comportamento inesperado no preview/dev (cache/auto-update servindo bundles antigos).
 // Mantemos PWA apenas em producao real (app publicada), nunca no dominio id-preview.
-const isPreviewHost =
-  typeof window !== "undefined" && window.location.hostname.startsWith("id-preview--");
+const isPreviewHost = typeof window !== "undefined" && (
+  window.location.hostname.startsWith("id-preview--") ||
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "::1"
+);
 
 if (import.meta.env.PROD && !isPreviewHost) {
   const updateSW = registerSW({

@@ -21,6 +21,7 @@ import {
   UserPlus,
   SlidersHorizontal,
   FileText,
+  type LucideIcon,
 } from "lucide-react";
 import { DockPreferencesProvider } from "@/hooks/useDockPreferences";
 import { useEffect, useRef, useState } from "react";
@@ -47,7 +48,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-const routeTitles: Record<string, { title: string; icon: any }> = {
+const routeTitles: Record<string, { title: string; icon: LucideIcon }> = {
   "/": { title: "Início - Reuniões de Jovem", icon: Home },
   "/membros": { title: "Membros", icon: Users },
   "/reunioes": { title: "Reuniões", icon: Handshake },
@@ -324,10 +325,10 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       new Notification(incoming.title, notificationOptions);
     };
 
-    void supabase.rpc("generate_today_birthday_notifications" as any, {
+    void supabase.rpc("generate_today_birthday_notifications", {
       _group_id: activeGroupId,
       _recipient_user_id: user.id,
-    } as any);
+    });
 
     const channel = supabase
       .channel(`mobile-notifications:${user.id}`)
@@ -376,7 +377,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               group_id: activeGroupId,
               user_id: user.id,
               last_seen_at: nowIso,
-            } as any,
+            },
             { onConflict: "group_id,user_id" },
           );
         if (error) throw error;
@@ -552,7 +553,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const handleDesktopBack = () => {
     const parentPath = resolveParentPath(location.pathname);
-    navigate(config?.backTo ?? parentPath ?? -1);
+    const target = config?.backTo ?? parentPath;
+    if (target) {
+      navigate(target);
+    } else {
+      navigate(-1);
+    }
   };
 
   const handleMobileBack = () => {
@@ -567,6 +573,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     { label: "Visitas", path: "/visitas" },
     { label: "Notas", path: "/notas" },
     { label: "Estatísticas", path: "/estatisticas" },
+    { label: "Cargos", path: "/cargos" },
   ].find((item) => location.pathname.startsWith(item.path));
   const contextualPageLabel = location.pathname === "/membros/novo"
     ? "Novo Membro"
@@ -673,11 +680,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                   <DropdownMenuItem onClick={() => navigate("/visitas")}>Visitas</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/notas")}>Notas</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/estatisticas")}>Estatísticas</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/cargos")}>Cargos</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </nav>
 
-            <div className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-[20px] border border-border bg-card px-2">
+            <div className="ml-auto flex h-11 shrink-0 items-center gap-3 rounded-[20px] border border-border bg-card px-2">
               {config?.desktopTopbarActions ? <div className="flex h-9 items-center">{config.desktopTopbarActions}</div> : null}
               <form onSubmit={submitDesktopSearch} className={`relative flex h-8 min-w-0 items-center rounded-[14px] transition-[width,background-color] duration-300 ${desktopSearchOpen ? "w-[230px] bg-secondary px-1" : "w-8"}`}>
                 <button type={desktopSearchOpen ? "submit" : "button"} onClick={() => !desktopSearchOpen && setDesktopSearchOpen(true)} className="topbar-icon h-8 w-8 shrink-0" aria-label={desktopSearchOpen ? "Pesquisar" : "Abrir pesquisa"}><Search /></button>
@@ -712,8 +720,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                 ) : null}
               </form>
               {scopedSearch?.menu ? <div className="topbar-page-tools flex h-9 items-center">{scopedSearch.menu}</div> : null}
-              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action relative ${isNotificationsDrawerOpen ? "is-active" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
-              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
+              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action topbar-square-action relative ${isNotificationsDrawerOpen ? "is-active keep-label" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
+              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action topbar-square-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><button type="button" className="topbar-expand-action" aria-label="Conta"><Avatar className="topbar-action-avatar h-5 w-5"><AvatarImage src={profile?.avatar_url || undefined} /><AvatarFallback className="text-[9px]">{(profile?.username || user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar><span className="topbar-action-label">Conta</span></button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end"><DropdownMenuItem onClick={handleSignOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent>

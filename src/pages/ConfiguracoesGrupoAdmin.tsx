@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -105,25 +105,7 @@ export default function ConfiguracoesGrupoAdmin() {
     supabase.auth.getUser().then((u) => setCurrentUserId(u.data.user?.id ?? null));
   }, []);
 
-  useEffect(() => {
-    if (loadingActiveGroup) return;
-    if (!activeGroupId || !isAdmin) {
-      navigate("/configuracoes");
-      return;
-    }
-    loadGroupData();
-    loadMembers();
-    loadGroupOwner();
-    void loadPresence();
-  }, [activeGroupId, isAdmin, loadingActiveGroup]);
-
-  useEffect(() => {
-    if (loadingActiveGroup || !activeGroupId || !isAdmin) return;
-    const id = window.setInterval(() => void loadPresence(), 30000);
-    return () => window.clearInterval(id);
-  }, [activeGroupId, isAdmin, loadingActiveGroup]);
-
-  const loadGroupData = async () => {
+  const loadGroupData = useCallback(async () => {
     if (!activeGroupId) return;
     try {
       const { data, error } = await supabase
@@ -135,15 +117,15 @@ export default function ConfiguracoesGrupoAdmin() {
       if (data) {
         setGroupName(data.name || "");
         setGroupDesc(data.description || "");
-        setGroupPhotoPath((data as any).photo_url ?? null);
+        setGroupPhotoPath(data.photo_url ?? null);
       }
     } catch (e) {
       console.error(e);
       toast.error("Erro ao carregar dados do grupo");
     }
-  };
+  }, [activeGroupId]);
 
-  const refreshGroupPhotoUrl = async (path: string | null) => {
+  const refreshGroupPhotoUrl = useCallback(async (path: string | null) => {
     if (!path) {
       setGroupPhotoUrl(null);
       return;
@@ -158,12 +140,12 @@ export default function ConfiguracoesGrupoAdmin() {
       console.error(e);
       setGroupPhotoUrl(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void refreshGroupPhotoUrl(groupPhotoPath);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupPhotoPath]);
+
+  }, [groupPhotoPath, refreshGroupPhotoUrl]);
 
   const handleGroupPhotoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -198,7 +180,7 @@ export default function ConfiguracoesGrupoAdmin() {
 
       const { error: updateError } = await supabase
         .from("management_groups")
-        .update({ photo_url: filePath } as any)
+        .update({ photo_url: filePath })
         .eq("id", activeGroupId);
       if (updateError) throw updateError;
 
@@ -215,7 +197,7 @@ export default function ConfiguracoesGrupoAdmin() {
     }
   };
 
-  const loadPresence = async () => {
+  const loadPresence = useCallback(async () => {
     if (!activeGroupId) return;
     try {
       const { data, error } = await supabase
@@ -225,16 +207,16 @@ export default function ConfiguracoesGrupoAdmin() {
       if (error) throw error;
 
       const next: Record<string, PresenceRow> = {};
-      (data as any[] | null)?.forEach((row) => {
-        if (row?.user_id) next[row.user_id] = row as PresenceRow;
+      data?.forEach((row) => {
+        if (row.user_id) next[row.user_id] = row;
       });
       setPresenceByUserId(next);
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadGroupOwner = async () => {
+  const loadGroupOwner = useCallback(async () => {
     if (!activeGroupId) return;
     try {
       const { data, error } = await supabase
@@ -247,26 +229,59 @@ export default function ConfiguracoesGrupoAdmin() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     if (!activeGroupId) return;
     setLoadingMembers(true);
     try {
-      const { data, error } = await supabase
+      const { data: memberships, error } = await supabase
         .from("group_members")
-        .select("id, user_id, role, created_at, profiles!inner(username, email)")
+        .select("id, user_id, role, created_at")
         .eq("group_id", activeGroupId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      setMembers((data as any) ?? []);
+
+      const userIds = memberships?.map((membership) => membership.user_id) ?? [];
+      const { data: profiles, error: profilesError } = userIds.length
+        ? await supabase.from("profiles").select("id, username, email").in("id", userIds)
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+
+      const typedProfiles = profiles as Array<{ id: string; username: string; email: string | null }>;
+      const profileById = new Map<string, GroupMember["profiles"]>();
+      typedProfiles.forEach((profile) => profileById.set(profile.id, profile));
+      setMembers(
+        (memberships ?? []).map((membership) => ({
+          ...membership,
+          profiles: profileById.get(membership.user_id),
+        })),
+      );
     } catch (e) {
       console.error(e);
       toast.error("Erro ao carregar membros");
     } finally {
       setLoadingMembers(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    if (loadingActiveGroup) return;
+    if (!activeGroupId || !isAdmin) {
+      navigate("/configuracoes");
+      return;
+    }
+    void loadGroupData();
+    void loadMembers();
+    void loadGroupOwner();
+    void loadPresence();
+  }, [activeGroupId, isAdmin, loadGroupData, loadGroupOwner, loadMembers, loadPresence, loadingActiveGroup, navigate]);
+
+  useEffect(() => {
+    if (loadingActiveGroup || !activeGroupId || !isAdmin) return;
+    const id = window.setInterval(() => void loadPresence(), 30000);
+    return () => window.clearInterval(id);
+  }, [activeGroupId, isAdmin, loadPresence, loadingActiveGroup]);
 
   const handleUpdateInfo = async () => {
     if (!activeGroupId) return;
@@ -380,14 +395,14 @@ export default function ConfiguracoesGrupoAdmin() {
     setCreatingInvite(true);
     try {
       const token = createInviteToken();
-      let { error } = await supabase.rpc("create_group_invite" as any, {
+      let { error } = await supabase.rpc("create_group_invite", {
         _group_id: activeGroupId,
         _token: token,
         _expires_in_minutes: 10,
       });
 
       if (error && String(error.message ?? "").toLowerCase().includes("_expires_in_minutes")) {
-        const fallback = await supabase.rpc("create_group_invite" as any, {
+        const fallback = await supabase.rpc("create_group_invite", {
           _group_id: activeGroupId,
           _token: token,
           _expires_in_hours: 1,
@@ -477,7 +492,7 @@ export default function ConfiguracoesGrupoAdmin() {
           </CardHeader>
         </Card>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
           <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="info">Informações</TabsTrigger>
             <TabsTrigger value="senha">Senha</TabsTrigger>

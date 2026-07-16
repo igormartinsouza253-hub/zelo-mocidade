@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Plus,
@@ -120,17 +120,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
   const navigate = useNavigate();
-  const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
-  const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
+  const detectedMobile = useIsMobile();
+  const isMobile = __forceMobile ? true : __forceDesktop ? false : detectedMobile;
+  const faixasEtarias = useMemo(() => ["Crianças", "Meninos", "Meninas", "Moços", "Moças"], []);
   const { setConfig } = usePageHeader();
   const { activeGroupId, isAdmin } = useActiveGroup();
 
   const hasSelected = selectedIds.length > 0;
-
-  useEffect(() => {
-    loadMembros();
-    loadCargos();
-  }, [activeGroupId]);
 
   useEffect(() => {
     localStorage.setItem("membros_sort", sortBy);
@@ -499,9 +495,11 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     deleting,
     membros.length,
     selectedMembro,
+    faixasEtarias,
+    showInactive,
   ]);
 
-  const loadCargos = async () => {
+  const loadCargos = useCallback(async () => {
     if (!activeGroupId) {
       setCargosDisponiveis([]);
       return;
@@ -518,9 +516,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     } catch (error) {
       console.error("Erro ao carregar cargos:", error);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadMembros = async () => {
+  const loadMembros = useCallback(async () => {
     if (!activeGroupId) {
       setMembros([]);
       setLoadingMembros(false);
@@ -612,7 +610,12 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     } finally {
       setLoadingMembros(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    void loadMembros();
+    void loadCargos();
+  }, [loadCargos, loadMembros]);
 
   const calcularIdade = (dataNascimento: string | null) => {
     if (!dataNascimento) return null;
@@ -943,7 +946,6 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
             >
               {Array.from({ length: 6 }).map((_, idx) => (
                 <Skeleton
-                  // eslint-disable-next-line react/no-array-index-key
                   key={idx}
                   className={cn(
                     "h-12 md:h-14",
