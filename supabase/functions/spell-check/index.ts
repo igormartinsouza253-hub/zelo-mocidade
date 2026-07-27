@@ -25,9 +25,10 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `Você é um corretor ortográfico especializado em português brasileiro. 
-Analise o texto fornecido e retorne APENAS o texto corrigido, mantendo toda a formatação HTML (tags como <p>, <strong>, <em>, <u>, <mark>, <h1>, <h2>, <h3>, <ul>, <ol>, <li>).
-Corrija apenas erros ortográficos e gramaticais óbvios.
+    const systemPrompt = `Você é um corretor ortográfico multilíngue.
+Detecte automaticamente o idioma predominante do texto e faça as correções nesse mesmo idioma, sem traduzir nem alterar nomes próprios.
+Retorne APENAS o texto corrigido, mantendo toda a formatação HTML (tags como <p>, <strong>, <em>, <u>, <mark>, <h1>, <h2>, <h3>, <ul>, <ol>, <li> e atributos de estilo).
+Corrija somente erros ortográficos e gramaticais claros.
 Mantenha a estrutura HTML intacta.
 Não adicione explicações, apenas retorne o HTML corrigido.`;
 

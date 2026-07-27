@@ -810,6 +810,8 @@ export type Database = {
       notas: {
         Row: {
           conteudo: string
+          titulo: string
+          external_links: string[]
           created_at: string
           group_id: string | null
           id: string
@@ -826,6 +828,8 @@ export type Database = {
         }
         Insert: {
           conteudo: string
+          titulo?: string
+          external_links?: string[]
           created_at?: string
           group_id?: string | null
           id?: string
@@ -842,6 +846,8 @@ export type Database = {
         }
         Update: {
           conteudo?: string
+          titulo?: string
+          external_links?: string[]
           created_at?: string
           group_id?: string | null
           id?: string

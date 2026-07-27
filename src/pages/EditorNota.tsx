@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
@@ -42,9 +42,20 @@ import {
   Send,
   History,
   Trash2,
+  CaseUpper,
+  CaseLower,
+  Minus,
+  Plus,
+  Highlighter,
+  FileDown,
+  Link2,
+  ExternalLink,
+  Globe2,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -58,29 +69,64 @@ import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateLocal } from "@/lib/date-utils";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
+import { noteHtmlToPlainText, resolveNoteTitle } from "@/lib/note-content";
+import { containsInappropriateLanguage } from "@/lib/content-moderation";
+import { exportNotePdf } from "@/lib/export-note-pdf";
+
+const TextStyleWithFontSize = TextStyle.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fontSize: {
+        default: null,
+        parseHTML: (element) => element.style.fontSize || null,
+        renderHTML: (attributes) => attributes.fontSize
+          ? { style: `font-size: ${attributes.fontSize}` }
+          : {},
+      },
+    };
+  },
+});
 
 const HIGHLIGHT_COLORS = [
-  { name: "Amarelo", color: "rgba(234, 179, 8, 0.5)" },
-  { name: "Verde", color: "rgba(22, 163, 74, 0.5)" },
-  { name: "Azul", color: "rgba(37, 99, 235, 0.5)" },
-  { name: "Rosa", color: "rgba(219, 39, 119, 0.5)" },
-  { name: "Laranja", color: "rgba(249, 115, 22, 0.5)" },
-  { name: "Roxo", color: "rgba(124, 58, 237, 0.5)" },
+  { name: "Amarelo", color: "#eab308" },
+  { name: "Verde", color: "#16a34a" },
+  { name: "Azul", color: "#2563eb" },
+  { name: "Rosa", color: "#db2777" },
+  { name: "Laranja", color: "#f97316" },
+  { name: "Roxo", color: "#7c3aed" },
 ];
 
 const TEXT_COLORS = [
   { name: "Padrão", color: "default" },
-  { name: "Preto", color: "#111827" },
+  { name: "Grafite", color: "#27272a" },
   { name: "Azul", color: "#2563eb" },
+  { name: "Ciano", color: "#0891b2" },
   { name: "Verde", color: "#16a34a" },
+  { name: "Amarelo", color: "#ca8a04" },
+  { name: "Laranja", color: "#ea580c" },
   { name: "Vermelho", color: "#dc2626" },
+  { name: "Rosa", color: "#db2777" },
   { name: "Roxo", color: "#7c3aed" },
 ];
 
 const FONT_FAMILIES = [
-  { name: "Padrão", value: "inherit" },
   { name: "Poppins", value: "Poppins, ui-sans-serif, system-ui, sans-serif" },
+  { name: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { name: "Georgia", value: "Georgia, 'Times New Roman', serif" },
+  { name: "Trebuchet", value: "'Trebuchet MS', Arial, sans-serif" },
+  { name: "Courier", value: "'Courier New', Courier, monospace" },
 ];
+
+const DEFAULT_FONT_FAMILY = FONT_FAMILIES[0].value;
+
+const hexToRgba = (hex: string, opacity: number) => {
+  const numeric = Number.parseInt(hex.replace("#", ""), 16);
+  const red = (numeric >> 16) & 255;
+  const green = (numeric >> 8) & 255;
+  const blue = numeric & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${opacity / 100})`;
+};
 
 const NOTE_TEMPLATES = [
   {
@@ -138,13 +184,20 @@ const EditorNota = () => {
   const [loading, setLoading] = useState(false);
   const [checkingSpelling, setCheckingSpelling] = useState(false);
   const [initialContent, setInitialContent] = useState("");
+  const [titulo, setTitulo] = useState("");
   const [isViewMode, setIsViewMode] = useState(false);
   const [membros, setMembros] = useState<Membro[]>([]);
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
   const [selectedMembroId, setSelectedMembroId] = useState<string | "none">("none");
   const [selectedReuniaoId, setSelectedReuniaoId] = useState<string | "none">("none");
-  const [visibility, setVisibility] = useState<"private" | "group">("private");
+  const [visibility, setVisibility] = useState<"private" | "group">("group");
   const [tagsInput, setTagsInput] = useState("");
+  const [externalLinks, setExternalLinks] = useState<string[]>([]);
+  const [externalLinkInput, setExternalLinkInput] = useState("");
+  const [fontSize, setFontSize] = useState(14);
+  const [fontFamily, setFontFamily] = useState(DEFAULT_FONT_FAMILY);
+  const [customTextColor, setCustomTextColor] = useState("#27272a");
+  const [highlightOpacity, setHighlightOpacity] = useState(50);
   const [isPinned, setIsPinned] = useState(false);
   const [archivedAt, setArchivedAt] = useState<string | null>(null);
   const [sharedEditingEnabled, setSharedEditingEnabled] = useState(true);
@@ -205,7 +258,7 @@ const EditorNota = () => {
       Underline,
       Highlight.configure({ multicolor: true, HTMLAttributes: { class: "rounded px-1" } }),
       Placeholder.configure({ placeholder: "Digite sua nota aqui..." }),
-      TextStyle,
+      TextStyleWithFontSize,
       Color,
       FontFamily,
       Mention.configure({
@@ -255,8 +308,62 @@ const EditorNota = () => {
     ],
     content: initialContent,
     editable: !isViewMode && canEditNote,
-    editorProps: { attributes: { class: "prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-[300px] max-w-none p-4" } },
+    editorProps: { attributes: { class: "prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-[300px] max-w-none p-4 font-[Poppins]" } },
   });
+
+  const editorUiState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          canUndo: false,
+          canRedo: false,
+          isBold: false,
+          isItalic: false,
+          isUnderline: false,
+          isBulletList: false,
+          isOrderedList: false,
+          isHighlight: false,
+          textColor: null as string | null,
+          fontSize: null as string | null,
+          fontFamily: null as string | null,
+          words: 0,
+          letters: 0,
+        };
+      }
+
+      const text = currentEditor.getText({ blockSeparator: "\n" });
+      const trimmedText = text.trim();
+      const textStyleAttributes = currentEditor.getAttributes("textStyle") as {
+        color?: string;
+        fontSize?: string;
+        fontFamily?: string;
+      };
+
+      return {
+        canUndo: currentEditor.can().undo(),
+        canRedo: currentEditor.can().redo(),
+        isBold: currentEditor.isActive("bold"),
+        isItalic: currentEditor.isActive("italic"),
+        isUnderline: currentEditor.isActive("underline"),
+        isBulletList: currentEditor.isActive("bulletList"),
+        isOrderedList: currentEditor.isActive("orderedList"),
+        isHighlight: currentEditor.isActive("highlight"),
+        textColor: textStyleAttributes.color || null,
+        fontSize: textStyleAttributes.fontSize || null,
+        fontFamily: textStyleAttributes.fontFamily || null,
+        words: trimmedText ? trimmedText.split(/\s+/u).length : 0,
+        letters: (text.match(/\p{L}/gu) || []).length,
+      };
+    },
+  });
+
+  const applyFontSize = useCallback((value: number) => {
+    if (!editor) return;
+    const nextSize = Math.min(72, Math.max(6, Math.round(value)));
+    setFontSize(nextSize);
+    editor.chain().focus().setMark("textStyle", { fontSize: `${nextSize}px` }).run();
+  }, [editor]);
 
   useEffect(() => { if (editor && initialContent) editor.commands.setContent(initialContent); }, [editor, initialContent]);
 
@@ -357,16 +464,42 @@ const EditorNota = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!editor || isViewMode) return;
-      if (event.ctrlKey || event.metaKey) {
-        if (event.key.toLowerCase() === "b") { event.preventDefault(); editor.chain().focus().toggleBold().run(); }
-        if (event.key.toLowerCase() === "i") { event.preventDefault(); editor.chain().focus().toggleItalic().run(); }
-        if (event.key.toLowerCase() === "u") { event.preventDefault(); editor.chain().focus().toggleUnderline().run(); }
-        if (event.key.toLowerCase() === "y") { event.preventDefault(); editor.chain().focus().redo().run(); }
+      const usesCommandKey = event.ctrlKey || event.metaKey;
+      if (!usesCommandKey) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "s") {
+        event.preventDefault();
+        salvarNotaRef.current();
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".ProseMirror")) return;
+
+      if (event.shiftKey && (key === "7" || event.code === "Digit7")) {
+        event.preventDefault();
+        editor.chain().focus().toggleOrderedList().run();
+      } else if (event.shiftKey && (key === "8" || event.code === "Digit8")) {
+        event.preventDefault();
+        editor.chain().focus().toggleBulletList().run();
+      } else if (event.altKey && (["1", "2", "3"].includes(key) || ["Digit1", "Digit2", "Digit3"].includes(event.code))) {
+        event.preventDefault();
+        const headingLevel = Number(event.code.startsWith("Digit") ? event.code.slice(-1) : key) as 1 | 2 | 3;
+        editor.chain().focus().toggleHeading({ level: headingLevel }).run();
+      } else if (event.shiftKey && (event.key === ">" || event.code === "Period")) {
+        event.preventDefault();
+        const currentSize = Number.parseInt(editor.getAttributes("textStyle")?.fontSize || "", 10) || fontSize;
+        applyFontSize(currentSize + 1);
+      } else if (event.shiftKey && (event.key === "<" || event.code === "Comma")) {
+        event.preventDefault();
+        const currentSize = Number.parseInt(editor.getAttributes("textStyle")?.fontSize || "", 10) || fontSize;
+        applyFontSize(currentSize - 1);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [editor, isViewMode]);
+  }, [applyFontSize, editor, fontSize, isViewMode]);
 
   const parseTags = () => Array.from(
     new Set(
@@ -392,9 +525,11 @@ const EditorNota = () => {
     if (id || !editor || !draftKey) return;
     try {
       const draft = JSON.parse(localStorage.getItem(draftKey) || "null") as {
+        titulo?: string;
         conteudo?: string;
         visibility?: "private" | "group";
         tagsInput?: string;
+        externalLinks?: string[];
         selectedMembroId?: string | "none";
         selectedReuniaoId?: string | "none";
         sharedEditingEnabled?: boolean;
@@ -402,8 +537,10 @@ const EditorNota = () => {
 
       if (!draft?.conteudo || draft.conteudo === "<p></p>") return;
       editor.commands.setContent(draft.conteudo);
-      setVisibility(draft.visibility ?? "private");
+      setTitulo(draft.titulo ?? "");
+      setVisibility(draft.visibility ?? "group");
       setTagsInput(draft.tagsInput ?? "");
+      setExternalLinks(draft.externalLinks ?? []);
       setSelectedMembroId(draft.selectedMembroId ?? "none");
       setSelectedReuniaoId(draft.selectedReuniaoId ?? "none");
       setSharedEditingEnabled(draft.sharedEditingEnabled ?? true);
@@ -419,7 +556,7 @@ const EditorNota = () => {
     const intervalId = window.setInterval(() => {
       const conteudo = editor.getHTML();
       const isEmpty = !conteudo || conteudo === "<p></p>";
-      if (isEmpty && !tagsInput.trim() && selectedMembroId === "none" && selectedReuniaoId === "none") {
+      if (isEmpty && !titulo.trim() && !tagsInput.trim() && externalLinks.length === 0 && selectedMembroId === "none" && selectedReuniaoId === "none") {
         localStorage.removeItem(draftKey);
         return;
       }
@@ -427,9 +564,11 @@ const EditorNota = () => {
       localStorage.setItem(
         draftKey,
         JSON.stringify({
+          titulo,
           conteudo,
           visibility,
           tagsInput,
+          externalLinks,
           selectedMembroId,
           selectedReuniaoId,
           sharedEditingEnabled,
@@ -439,7 +578,7 @@ const EditorNota = () => {
     }, 1200);
 
     return () => window.clearInterval(intervalId);
-  }, [draftKey, editor, id, selectedMembroId, selectedReuniaoId, sharedEditingEnabled, tagsInput, visibility]);
+  }, [draftKey, editor, externalLinks, id, selectedMembroId, selectedReuniaoId, sharedEditingEnabled, tagsInput, titulo, visibility]);
 
   const hydrateAuthors = useCallback(async <T extends { user_id?: string; edited_by?: string | null }>(rows: T[]) => {
     const ids = Array.from(new Set(rows.map((row) => row.user_id || row.edited_by).filter((value): value is string => Boolean(value))));
@@ -491,22 +630,24 @@ const EditorNota = () => {
     try {
       const { data, error } = await supabase
         .from("notas")
-        .select("id, conteudo, user_id, membro_id, reuniao_id, group_id, visibility, tags, is_pinned, archived_at, shared_editing_enabled")
+        .select("id, titulo, conteudo, user_id, membro_id, reuniao_id, group_id, visibility, tags, external_links, is_pinned, archived_at, shared_editing_enabled")
         .eq("id", id)
         .eq("group_id", activeGroupId)
         .single();
 
       if (error) throw error;
       setInitialContent(data.conteudo);
+      setTitulo(resolveNoteTitle(data.titulo, data.conteudo));
       setSelectedMembroId(data.membro_id ?? "none");
       setSelectedReuniaoId(data.reuniao_id ?? "none");
       setVisibility(data.visibility === "group" ? "group" : "private");
       setTagsInput((data.tags || []).join(", "));
+      setExternalLinks(data.external_links || []);
       setIsPinned(data.is_pinned);
       setArchivedAt(data.archived_at ?? null);
       setSharedEditingEnabled(data.shared_editing_enabled);
       setNoteOwnerId(data.user_id);
-      setIsViewMode(true);
+      setIsViewMode(false);
 
       const { data: creatorProfile } = await supabase
         .from("profiles")
@@ -534,6 +675,11 @@ const EditorNota = () => {
   const sendComment = async () => {
     if (!id || !activeGroupId || !user || !commentText.trim()) return;
 
+    if (containsInappropriateLanguage(commentText)) {
+      toast.error("O comentário contém palavrão ou conteúdo sexual. Revise o texto antes de enviar.");
+      return;
+    }
+
     try {
       const { error } = await supabase.from("note_comments").insert({
         note_id: id,
@@ -547,7 +693,12 @@ const EditorNota = () => {
       loadComments();
     } catch (error) {
       console.error("Erro ao comentar:", error);
-      toast.error("Erro ao enviar comentario");
+      const message = error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? "");
+      toast.error(
+        message.toLowerCase().includes("note_content_contains_prohibited_language")
+          ? "O comentário contém palavrão ou conteúdo sexual. Revise o texto antes de enviar."
+          : "Erro ao enviar comentário",
+      );
     }
   };
 
@@ -571,8 +722,17 @@ const EditorNota = () => {
     }
 
     const conteudo = editor.getHTML();
+    const tituloNormalizado = titulo.trim();
+    if (!tituloNormalizado) {
+      toast.error("Informe um título para a nota");
+      return;
+    }
     if (!conteudo || conteudo === "<p></p>") {
       toast.error("A nota não pode estar vazia");
+      return;
+    }
+    if (containsInappropriateLanguage(`${tituloNormalizado} ${noteHtmlToPlainText(conteudo)}`)) {
+      toast.error("A nota contém palavrão ou conteúdo sexual. Revise o título e o texto antes de salvar.");
       return;
     }
 
@@ -601,9 +761,11 @@ const EditorNota = () => {
         const { error } = await supabase
           .from("notas")
           .update({
+            titulo: tituloNormalizado,
             conteudo,
             visibility,
             tags,
+            external_links: externalLinks,
             is_pinned: canManageNote ? isPinned : undefined,
             archived_at: canManageNote ? archivedAt : undefined,
             shared_editing_enabled: canManageNote ? sharedEditingEnabled : undefined,
@@ -619,11 +781,13 @@ const EditorNota = () => {
         const { error } = await supabase
           .from("notas")
           .insert({
+            titulo: tituloNormalizado,
             conteudo,
             user_id: user.id,
             group_id: activeGroupId,
             visibility,
             tags,
+            external_links: externalLinks,
             is_pinned: isPinned,
             archived_at: archivedAt,
             shared_editing_enabled: sharedEditingEnabled,
@@ -644,7 +808,9 @@ const EditorNota = () => {
       const details = error as { code?: string; message?: string } | null;
       const message = error instanceof Error ? error.message : String(details?.message ?? "");
       const normalizedMessage = message.toLowerCase();
-      if (normalizedMessage.includes("visibility") || normalizedMessage.includes("schema cache")) {
+      if (normalizedMessage.includes("note_content_contains_prohibited_language")) {
+        toast.error("A nota contém palavrão ou conteúdo sexual. Revise o título e o texto antes de salvar.");
+      } else if (normalizedMessage.includes("visibility") || normalizedMessage.includes("schema cache")) {
         toast.error("O banco ainda precisa receber a atualizacao de notas privadas/publicas.");
       } else if (normalizedMessage.includes("row-level security") || details?.code === "42501") {
         toast.error("Sem permissao para salvar nota neste grupo gestor.");
@@ -653,6 +819,75 @@ const EditorNota = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyFontFamily = (value: string) => {
+    setFontFamily(value);
+    editor?.chain().focus().setFontFamily(value).run();
+  };
+
+  const transformSelectionCase = (mode: "upper" | "lower") => {
+    if (!editor) return;
+    const { from, to, empty } = editor.state.selection;
+    if (empty) {
+      toast.info("Selecione um trecho para alterar maiúsculas ou minúsculas.");
+      return;
+    }
+
+    const transaction = editor.state.tr;
+    editor.state.doc.nodesBetween(from, to, (node, position) => {
+      if (!node.isText || !node.text) return;
+      const start = Math.max(from, position);
+      const end = Math.min(to, position + node.nodeSize);
+      const selectedText = node.text.slice(start - position, end - position);
+      transaction.insertText(mode === "upper" ? selectedText.toUpperCase() : selectedText.toLowerCase(), start, end);
+    });
+    editor.view.dispatch(transaction);
+    editor.commands.focus();
+  };
+
+  const addExternalLink = () => {
+    const rawValue = externalLinkInput.trim();
+    if (!rawValue) return;
+    if (externalLinks.length >= 8) {
+      toast.error("Cada nota pode ter no máximo 8 links externos.");
+      return;
+    }
+
+    try {
+      const normalizedValue = /^https?:\/\//i.test(rawValue) ? rawValue : `https://${rawValue}`;
+      const url = new URL(normalizedValue);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error("invalid protocol");
+      const normalizedUrl = url.toString();
+      if (externalLinks.includes(normalizedUrl)) {
+        toast.info("Este link já foi adicionado.");
+        return;
+      }
+      setExternalLinks((current) => [...current, normalizedUrl]);
+      setExternalLinkInput("");
+    } catch {
+      toast.error("Informe um link válido, como exemplo.com ou https://exemplo.com.");
+    }
+  };
+
+  const exportCurrentNote = async () => {
+    if (!editor) return;
+    const html = editor.getHTML();
+    if (!titulo.trim() || !html || html === "<p></p>") {
+      toast.error("Preencha o título e o texto antes de exportar.");
+      return;
+    }
+    try {
+      await exportNotePdf({
+        title: titulo,
+        html,
+        author: createdByName || user?.email || "Usuário",
+      });
+      toast.success("PDF exportado");
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error);
+      toast.error("Não foi possível exportar o PDF.");
     }
   };
 
@@ -689,7 +924,10 @@ const EditorNota = () => {
       variant={isActive ? "default" : "outline"}
       size="sm"
       onClick={onClick}
-      className={cn("h-8 w-8 p-0", isActive && "bg-primary text-primary-foreground")}
+      className={cn(
+        "h-8 w-8 rounded-xl p-0 transition-colors",
+        isActive && "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+      )}
       type="button"
       title={title}
       disabled={disabled}
@@ -1307,6 +1545,323 @@ const EditorNota = () => {
     );
   };
 
+  if (!isMobile && !isViewMode) {
+    const currentTextColor = editorUiState.textColor || "hsl(var(--foreground))";
+    const activeFontSize = Number.parseInt(editorUiState.fontSize || "", 10) || fontSize;
+    const activeFontFamily = editorUiState.fontFamily || fontFamily;
+
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col gap-3 overflow-hidden bg-background p-3 lg:p-4">
+        <div className="shrink-0 overflow-x-auto rounded-2xl border border-border/70 bg-card/90 p-1.5 scrollbar-thin">
+          <div className="flex min-w-max items-center gap-1.5">
+            <Input
+              id="desktop-note-title"
+              value={titulo}
+              onChange={(event) => setTitulo(event.target.value)}
+              placeholder="Título da nota"
+              maxLength={120}
+              disabled={!canEditNote}
+              aria-label="Título da nota"
+              aria-invalid={!titulo.trim()}
+              className="h-9 w-52 rounded-xl border-border/70 bg-background/70 font-bold"
+            />
+
+            <span className="mx-0.5 h-6 w-px bg-border" />
+            <ToolbarButton onClick={() => { editor.commands.undo(); editor.commands.focus(); }} title="Desfazer (Ctrl+Z)" disabled={!editorUiState.canUndo}>
+              <Undo className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => { editor.commands.redo(); editor.commands.focus(); }} title="Refazer (Ctrl+Y ou Ctrl+Shift+Z)" disabled={!editorUiState.canRedo}>
+              <Redo className="h-4 w-4" />
+            </ToolbarButton>
+
+            <Select value={activeFontFamily} onValueChange={applyFontFamily}>
+              <SelectTrigger className="h-8 w-36 rounded-xl bg-background/70 text-xs font-semibold" aria-label="Tipo de fonte">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FONT_FAMILIES.map((font) => (
+                  <SelectItem key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                    {font.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex h-8 items-center rounded-xl border border-border/70 bg-background/70">
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => applyFontSize(activeFontSize - 1)} disabled={activeFontSize <= 6} aria-label="Diminuir fonte">
+                <Minus className="h-3.5 w-3.5" />
+              </Button>
+              <Input
+                type="number"
+                min={6}
+                max={72}
+                value={activeFontSize}
+                onChange={(event) => applyFontSize(Number(event.target.value))}
+                className="h-7 w-11 border-0 bg-transparent px-1 text-center text-xs font-bold shadow-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                aria-label="Tamanho da fonte em pixels"
+              />
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => applyFontSize(activeFontSize + 1)} disabled={activeFontSize >= 72} aria-label="Aumentar fonte">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="relative h-8 w-9 overflow-hidden rounded-xl pb-1" title={`Cor do texto: ${editorUiState.textColor || "padrão"}`} aria-label="Cor do texto">
+                  <Type className="h-4 w-4" />
+                  <span className="absolute inset-x-1 bottom-0.5 h-1.5 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: currentTextColor }} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 rounded-2xl p-3">
+                <p className="mb-2 text-xs font-bold text-foreground">Cor do texto</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {TEXT_COLORS.map((color) => (
+                    <button
+                      key={color.color}
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border transition-transform hover:scale-110"
+                      style={{ backgroundColor: color.color === "default" ? "transparent" : color.color }}
+                      title={color.name}
+                      onClick={() => color.color === "default"
+                        ? editor.chain().focus().unsetColor().run()
+                        : editor.chain().focus().setColor(color.color).run()}
+                    >
+                      {color.color === "default" ? <X className="h-3.5 w-3.5" /> : null}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-2">
+                  <span className="text-xs font-medium">Outra cor</span>
+                  <input
+                    type="color"
+                    value={customTextColor}
+                    onChange={(event) => {
+                      setCustomTextColor(event.target.value);
+                      editor.chain().focus().setColor(event.target.value).run();
+                    }}
+                    className="h-8 w-12 cursor-pointer rounded-lg border border-border bg-transparent p-0.5"
+                    aria-label="Selecionar outra cor"
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <ToolbarButton isActive={editorUiState.isBold} onClick={() => editor.chain().focus().toggleBold().run()} title="Negrito (Ctrl+B)">
+              <Bold className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton isActive={editorUiState.isItalic} onClick={() => editor.chain().focus().toggleItalic().run()} title="Itálico (Ctrl+I)">
+              <Italic className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton isActive={editorUiState.isUnderline} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Sublinhado (Ctrl+U)">
+              <UnderlineIcon className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => transformSelectionCase("upper")} title="Transformar em maiúsculas">
+              <CaseUpper className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => transformSelectionCase("lower")} title="Transformar em minúsculas">
+              <CaseLower className="h-4 w-4" />
+            </ToolbarButton>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" variant={editorUiState.isHighlight ? "default" : "outline"} size="icon" className="h-8 w-8 rounded-xl" title="Destaque" aria-label="Destaque do texto">
+                  <Highlighter className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 rounded-2xl p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold">Cor de destaque</p>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 rounded-lg text-xs" onClick={() => editor.chain().focus().unsetHighlight().run()}>
+                    Remover
+                  </Button>
+                </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {HIGHLIGHT_COLORS.map((color) => (
+                    <button
+                      key={color.color}
+                      type="button"
+                      className="h-8 w-8 rounded-full border border-border transition-transform hover:scale-110"
+                      style={{ backgroundColor: hexToRgba(color.color, highlightOpacity) }}
+                      title={color.name}
+                      onClick={() => editor.chain().focus().toggleHighlight({ color: hexToRgba(color.color, highlightOpacity) }).run()}
+                    />
+                  ))}
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex justify-between text-[11px] text-muted-foreground"><span>Transparência</span><span>{highlightOpacity}%</span></div>
+                  <input type="range" min={10} max={100} step={5} value={highlightOpacity} onChange={(event) => setHighlightOpacity(Number(event.target.value))} className="w-full accent-primary" />
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <ToolbarButton isActive={editorUiState.isBulletList} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Lista com marcadores (Ctrl+Shift+8)">
+              <List className="h-4 w-4" />
+            </ToolbarButton>
+            <ToolbarButton isActive={editorUiState.isOrderedList} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Lista numerada (Ctrl+Shift+7)">
+              <ListOrdered className="h-4 w-4" />
+            </ToolbarButton>
+
+            <Button type="button" variant="outline" size="sm" className="h-8 rounded-xl px-3 text-xs font-semibold" onClick={corrigirOrtografia} disabled={checkingSpelling}>
+              <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
+              {checkingSpelling ? "Corrigindo..." : "Corrigir"}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-xl" aria-label="Mais opções">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => void exportCurrentNote()}>
+                  <FileDown className="mr-2 h-4 w-4" /> Exportar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>
+                  <Type className="mr-2 h-4 w-4" /> Limpar formatação
+                </DropdownMenuItem>
+                {id ? <DropdownMenuItem onClick={() => setIsViewMode(true)}><Eye className="mr-2 h-4 w-4" /> Visualizar nota</DropdownMenuItem> : null}
+                <DropdownMenuSeparator />
+                {NOTE_TEMPLATES.map((template) => (
+                  <DropdownMenuItem key={template.label} onClick={() => applyTemplate(template.content)}>
+                    Usar modelo: {template.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_230px] gap-3">
+          <aside className="grid min-h-0 grid-rows-2 gap-3">
+            <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold"><MessageCircle className="h-3.5 w-3.5" /> Comentários</div>
+              {id && visibility === "group" ? (
+                <>
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
+                    {comments.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p> : comments.map((comment) => (
+                      <div key={comment.id} className="rounded-xl border border-border/60 bg-background/55 p-2">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="truncate text-[11px] font-bold">{comment.author_name || "Usuário"}</p>
+                          {(isAdmin || comment.user_id === user?.id) ? <Button type="button" variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => deleteComment(comment)} aria-label="Excluir comentário"><Trash2 className="h-3 w-3" /></Button> : null}
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-4 text-muted-foreground">{comment.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-1.5">
+                    <Textarea value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Comentar..." className="min-h-9 resize-none rounded-xl px-2 py-1.5 text-xs" />
+                    <Button type="button" size="icon" className="h-9 w-9 shrink-0 rounded-xl" onClick={sendComment} disabled={!commentText.trim()} aria-label="Enviar comentário"><Send className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 bg-background/35 p-3 text-center text-xs text-muted-foreground">
+                  {!id ? "Salve a nota para iniciar os comentários." : "Comentários ficam disponíveis em notas públicas."}
+                </div>
+              )}
+            </section>
+
+            <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold"><Link2 className="h-3.5 w-3.5" /> Links</div>
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
+                <Select value={selectedMembroId} onValueChange={setSelectedMembroId} disabled={!canEditNote}>
+                  <SelectTrigger className="h-8 rounded-xl text-xs"><User className="mr-1 h-3.5 w-3.5" /><SelectValue placeholder="Membro" /></SelectTrigger>
+                  <SelectContent><SelectItem value="none">Nenhum membro</SelectItem>{membros.map((member) => <SelectItem key={member.id} value={member.id}>{member.nome}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={selectedReuniaoId} onValueChange={setSelectedReuniaoId} disabled={!canEditNote}>
+                  <SelectTrigger className="h-8 rounded-xl text-xs"><Calendar className="mr-1 h-3.5 w-3.5" /><SelectValue placeholder="Reunião" /></SelectTrigger>
+                  <SelectContent><SelectItem value="none">Nenhuma reunião</SelectItem>{reunioes.map((meeting) => <SelectItem key={meeting.id} value={meeting.id}>{formatDateLocal(meeting.data)} {meeting.tema ? `- ${meeting.tema}` : ""}</SelectItem>)}</SelectContent>
+                </Select>
+                <div className="flex gap-1.5">
+                  <Input value={externalLinkInput} onChange={(event) => setExternalLinkInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addExternalLink(); } }} placeholder="Link externo" className="h-8 rounded-xl text-xs" />
+                  <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0 rounded-xl" onClick={addExternalLink} aria-label="Adicionar link"><Plus className="h-3.5 w-3.5" /></Button>
+                </div>
+                {externalLinks.map((link) => (
+                  <div key={link} className="flex items-center gap-1 rounded-xl border border-border/60 bg-background/55 p-1.5">
+                    <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <a href={link} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[11px] text-primary hover:underline">{link}</a>
+                    <Button type="button" variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setExternalLinks((current) => current.filter((item) => item !== link))} aria-label="Remover link"><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </aside>
+
+          <main className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/85">
+            <EditorContent
+              editor={editor}
+              className="min-h-0 flex-1 overflow-y-auto bg-background/35 scrollbar-thin [&_.ProseMirror]:min-h-full [&_.ProseMirror]:max-w-none [&_.ProseMirror]:px-5 [&_.ProseMirror]:py-4 [&_.ProseMirror]:font-[Poppins] [&_.ProseMirror]:text-sm [&_.ProseMirror]:leading-7 [&_.ProseMirror]:outline-none"
+              onClick={(event) => {
+                const mentionElement = (event.target as HTMLElement).closest(".mention") as HTMLElement | null;
+                if (!mentionElement) { setMentionPopup(null); return; }
+                const member = membros.find((item) => item.id === mentionElement.getAttribute("data-id"));
+                if (!member) return;
+                const rect = mentionElement.getBoundingClientRect();
+                setMentionPopup({ member, x: rect.left, y: rect.bottom + 4 });
+              }}
+            />
+            <footer className="flex h-9 shrink-0 items-center justify-end gap-3 border-t border-border/60 bg-card/95 px-4 text-[11px] font-medium text-muted-foreground">
+              <span>{editorUiState.words} {editorUiState.words === 1 ? "palavra" : "palavras"}</span>
+              <span aria-hidden="true">•</span>
+              <span>{editorUiState.letters} {editorUiState.letters === 1 ? "letra" : "letras"}</span>
+            </footer>
+          </main>
+
+          <aside className="flex min-h-0 flex-col gap-3">
+            <section className="flex min-h-[9rem] max-h-[13rem] flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold"><History className="h-3.5 w-3.5" /> Histórico recente</div>
+              <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin">
+                {versions.length === 0 ? <p className="text-xs text-muted-foreground">O histórico aparecerá após as edições.</p> : versions.map((version) => (
+                  <div key={version.id} className="rounded-xl border border-border/60 bg-background/55 p-2">
+                    <p className="truncate text-[11px] font-semibold">{version.author_name || "Usuário"}</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{new Date(version.created_at).toLocaleString("pt-BR")}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-border/70 bg-card/85 p-3 scrollbar-thin">
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold"><Settings2 className="h-3.5 w-3.5" /> Configurações da nota</div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
+                  <Button type="button" variant={visibility === "group" ? "default" : "ghost"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => setVisibility("group")}><Globe2 className="mr-1 h-3.5 w-3.5" /> Pública</Button>
+                  <Button type="button" variant={visibility === "private" ? "default" : "ghost"} size="sm" className="h-8 rounded-lg text-xs" onClick={() => setVisibility("private")}><Lock className="mr-1 h-3.5 w-3.5" /> Privada</Button>
+                </div>
+                {visibility === "group" ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/45 p-2">
+                    <div><p className="text-[11px] font-semibold">Edição compartilhada</p><p className="text-[10px] text-muted-foreground">Permitir edição pelo grupo</p></div>
+                    <Switch checked={sharedEditingEnabled} onCheckedChange={setSharedEditingEnabled} disabled={!canManageNote} />
+                  </div>
+                ) : null}
+                <div className="space-y-1.5">
+                  <Label htmlFor="desktop-note-tags" className="text-[11px] font-semibold">Etiquetas</Label>
+                  <Input id="desktop-note-tags" value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="reunião, acompanhamento" className="h-8 rounded-xl text-xs" />
+                </div>
+                {canManageNote ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={isPinned ? "default" : "outline"} size="sm" className="h-8 rounded-xl text-xs" onClick={() => setIsPinned((current) => !current)}><Pin className="mr-1 h-3.5 w-3.5" />{isPinned ? "Fixada" : "Fixar"}</Button>
+                    <Button type="button" variant={archivedAt ? "default" : "outline"} size="sm" className="h-8 rounded-xl text-xs" onClick={() => setArchivedAt((current) => current ? null : new Date().toISOString())}><Archive className="mr-1 h-3.5 w-3.5" />{archivedAt ? "Arquivada" : "Arquivar"}</Button>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <div className="grid shrink-0 grid-cols-2 gap-2">
+              <Button type="button" variant="secondary" className="h-10 rounded-xl" onClick={() => id ? setIsViewMode(true) : navigate("/notas")} disabled={loading}>Cancelar</Button>
+              <Button type="button" className="h-10 rounded-xl" onClick={() => void salvarNota()} disabled={loading || !canEditNote} title="Salvar (Ctrl+S)"><Save className="mr-1.5 h-4 w-4" />{loading ? "Salvando..." : "Salvar"}</Button>
+            </div>
+          </aside>
+        </div>
+
+        {mentionPopup ? (
+          <div className="fixed z-50 w-64 rounded-xl border border-border bg-popover p-3 shadow-lg" style={{ left: mentionPopup.x, top: mentionPopup.y }}>
+            <p className="font-bold">{mentionPopup.member.nome}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{mentionPopup.member.faixa_etaria}</p>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full w-full bg-background overflow-hidden">
       <div
@@ -1320,7 +1875,22 @@ const EditorNota = () => {
         <div className="max-w-4xl mx-auto w-full space-y-3 md:space-y-4">
           <Card className="rounded-3xl border-border/50 bg-card/95 shadow-[var(--shadow-soft)]">
             <CardHeader className={cn("border-b border-border/50 space-y-3", isMobile ? "px-3 pb-2 pt-3" : "pb-3")}> 
-              <CardTitle className="text-base font-black md:text-lg">{isViewMode ? "Conteúdo da Nota" : "Editor"}</CardTitle>
+              {isViewMode ? (
+                <CardTitle className="text-xl font-black md:text-2xl">{titulo || "Sem título"}</CardTitle>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="note-title" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Título da nota</Label>
+                  <Input
+                    id="note-title"
+                    value={titulo}
+                    onChange={(event) => setTitulo(event.target.value)}
+                    placeholder="Dê um título para esta nota"
+                    maxLength={120}
+                    disabled={!canEditNote}
+                    className="h-11 rounded-xl text-base font-bold"
+                  />
+                </div>
+              )}
               {!isMobile ? <VisibilityControl /> : null}
 
               {!isViewMode && !isMobile ? (
