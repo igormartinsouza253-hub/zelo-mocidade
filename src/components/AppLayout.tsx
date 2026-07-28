@@ -760,11 +760,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="inline-flex items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors h-10 w-10"
+                            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent p-0 transition-opacity hover:opacity-85"
                             aria-label="Conta"
                           >
-                            <Avatar className="h-8 w-8 rounded-xl">
-                              <AvatarImage className="rounded-xl" src={profile?.avatar_url || undefined} />
+                            <Avatar className="h-10 w-10 rounded-xl">
+                              <AvatarImage className="rounded-xl object-cover" src={profile?.avatar_url || undefined} />
                               <AvatarFallback className="rounded-xl bg-accent text-foreground text-sm font-semibold">
                                 {(profile?.username || user?.email || "U").charAt(0).toUpperCase()}
                               </AvatarFallback>

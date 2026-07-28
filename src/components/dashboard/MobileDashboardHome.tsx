@@ -61,7 +61,7 @@ export function MobileDashboardHome({
 
   // Altura estável por slide (evita “pulo” entre widgets no carrossel).
   // Ajustada para encaixar bem em 390x844 mantendo respiro para header/dock.
-  const slideHeightClass = "h-[clamp(280px,43vh,334px)] md:h-[380px]";
+  const slideHeightClass = "h-[clamp(288px,42vh,328px)] md:h-[380px]";
 
   const [api, setApi] = useState<CarouselApi | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -84,7 +84,7 @@ export function MobileDashboardHome({
 
   return (
     <div className="h-full w-full bg-background overflow-x-hidden">
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-20 space-y-3 scrollbar-none md:grid md:auto-rows-max md:grid-cols-2 md:gap-3 md:space-y-0 md:pb-3">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden px-3 pt-3 pb-20 space-y-2.5 scrollbar-none md:grid md:auto-rows-max md:grid-cols-2 md:gap-3 md:space-y-0 md:pb-3">
         <MobileStatsGrid
           totalMembros={stats.totalMembros}
           totalReunioes={stats.totalReunioes}
@@ -98,7 +98,7 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/membros/novo")}
-              className="flex h-[74px] flex-col items-center justify-center gap-1.5 rounded-3xl border-border/55 bg-card/90 px-2 shadow-[var(--shadow-card)] transition-all hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)]"
+              className="flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[18px] border-border/55 bg-card px-2 shadow-none transition-colors hover:bg-accent/30"
             >
               <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
                 <UserPlus className="h-4 w-4" />
@@ -110,7 +110,7 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/reunioes/nova")}
-              className="flex h-[74px] flex-col items-center justify-center gap-1.5 rounded-3xl border-border/55 bg-card/90 px-2 shadow-[var(--shadow-card)] transition-all hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)]"
+              className="flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[18px] border-border/55 bg-card px-2 shadow-none transition-colors hover:bg-accent/30"
             >
               <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
                 <CalendarPlus className="h-4 w-4" />
@@ -122,7 +122,7 @@ export function MobileDashboardHome({
               type="button"
               variant="outline"
               onClick={() => navigate("/calendario?new=1")}
-              className="flex h-[74px] flex-col items-center justify-center gap-1.5 rounded-3xl border-border/55 bg-card/90 px-2 shadow-[var(--shadow-card)] transition-all hover:bg-accent/30 hover:shadow-[var(--shadow-elevated)]"
+              className="flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[18px] border-border/55 bg-card px-2 shadow-none transition-colors hover:bg-accent/30"
             >
               <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center">
                 <CalendarDays className="h-4 w-4" />
@@ -133,8 +133,8 @@ export function MobileDashboardHome({
         </section>
 
         <section aria-label="Gráficos" className="w-full md:col-span-2">
-          <Card className="overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
-            <div className="px-2.5 pb-2.5 pt-3">
+          <Card className="overflow-hidden rounded-[18px] border-border/55 bg-card text-card-foreground shadow-none">
+            <div className="px-1.5 pb-1.5 pt-1.5">
               <Carousel
                 setApi={(nextApi) => setApi(nextApi)}
                 opts={{ align: "start", loop: false }}
@@ -142,18 +142,18 @@ export function MobileDashboardHome({
               >
                 <CarouselContent className="ml-0">
                   <CarouselItem className="pl-0">
-                    <div className={slideHeightClass + " w-full min-w-0 px-1"}>
+                    <div className={slideHeightClass + " w-full min-w-0"}>
                       <ReunioesChartWidget size="md" reunioesRecentes={frequenciaData.reunioesRecentes} compactMobile />
                     </div>
                   </CarouselItem>
                   <CarouselItem className="pl-0">
-                    <div className={slideHeightClass + " w-full min-w-0 px-1"}>
+                    <div className={slideHeightClass + " w-full min-w-0"}>
                       {/* sm no mobile evita a legenda e melhora o encaixe em 390px */}
                       <FaixaEtariaWidget size="sm" porFaixaEtaria={frequenciaData.porFaixaEtaria} compactMobile />
                     </div>
                   </CarouselItem>
                   <CarouselItem className="pl-0">
-                    <div className={slideHeightClass + " w-full min-w-0 px-1"}>
+                    <div className={slideHeightClass + " w-full min-w-0"}>
                       <TopMembrosWidget
                         size="sm"
                         top5Membros={frequenciaData.top5Membros}
@@ -167,7 +167,7 @@ export function MobileDashboardHome({
                 </CarouselContent>
               </Carousel>
 
-              <div className="mt-2 flex items-center justify-center gap-1.5">
+              <div className="mt-1 flex h-6 items-center justify-center gap-1">
                 {Array.from({ length: slideCount }).map((_, idx) => (
                   <button
                     key={idx}
@@ -175,11 +175,11 @@ export function MobileDashboardHome({
                     aria-label={`Ir para o slide ${idx + 1}`}
                     aria-current={idx === selectedIndex ? "true" : undefined}
                     onClick={() => api?.scrollTo(idx)}
-                    className="flex h-10 min-w-10 items-center justify-center px-1"
+                    className="flex h-6 w-6 items-center justify-center outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   >
                     <span
                       className={`h-1.5 rounded-full transition-all ${
-                        idx === selectedIndex ? "w-8 bg-primary" : "w-3 bg-muted"
+                        idx === selectedIndex ? "w-6 bg-primary" : "w-2 bg-muted-foreground/25"
                       }`}
                     />
                   </button>

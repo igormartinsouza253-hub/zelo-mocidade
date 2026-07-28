@@ -37,7 +37,7 @@ export const FaixaEtariaWidget = ({
   const useBottomLegend = legendPosition === "bottom";
   const order = ["Moças", "Moços", "Meninas", "Meninos", "Crianças"];
   const desktopOrder = ["Crianças", "Meninas", "Meninos", "Moças", "Moços"];
-  const data = order
+  const data = (compactMobile ? desktopOrder : order)
     .map((faixa) => porFaixaEtaria.find((item) => item.faixa === faixa) || { faixa, total: 0 })
     .filter((item) => (item.total ?? 0) > 0);
   const desktopLegendData = desktopOrder.map((faixa) => porFaixaEtaria.find((item) => item.faixa === faixa) || { faixa, total: 0 });
@@ -149,28 +149,28 @@ export const FaixaEtariaWidget = ({
   }
 
   return (
-    <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]">
-      <CardHeader className={WIDGET_HEADER_PADDING[size]}>
-        <CardTitle className={widgetTitleClass(size)}>Distribuição por faixa etária</CardTitle>
+    <Card className={compactMobile ? "flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] border border-primary/45 bg-card text-card-foreground shadow-none" : "flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]"}>
+      <CardHeader className={compactMobile ? "mx-1.5 mt-1.5 rounded-[11px] bg-primary px-3 py-2 text-primary-foreground" : WIDGET_HEADER_PADDING[size]}>
+        <CardTitle className={compactMobile ? "text-[13px] font-semibold leading-none" : widgetTitleClass(size)}>Distribuição por faixa etária</CardTitle>
       </CardHeader>
 
-      <CardContent className={compactMobile ? "flex min-h-0 flex-1 flex-col px-3 pb-2 pt-0" : "flex min-h-0 flex-1 flex-col px-4 pb-3 pt-1"}>
+      <CardContent className={compactMobile ? "flex min-h-0 flex-1 flex-col px-2.5 pb-2 pt-1.5" : "flex min-h-0 flex-1 flex-col px-4 pb-3 pt-1"}>
         {data.length === 0 ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/10 text-sm text-muted-foreground">
             Sem dados para exibir.
           </div>
         ) : (
-          <div className={compactMobile ? "flex h-full min-h-0 flex-col gap-2" : useBottomLegend ? "flex h-full min-h-0 flex-col gap-2" : "grid h-full min-h-0 grid-cols-[minmax(180px,0.95fr)_minmax(180px,1fr)] items-center gap-3"}>
+          <div className={compactMobile ? "grid h-full min-h-0 grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] items-center gap-2" : useBottomLegend ? "flex h-full min-h-0 flex-col gap-2" : "grid h-full min-h-0 grid-cols-[minmax(180px,0.95fr)_minmax(180px,1fr)] items-center gap-3"}>
             <div
               className={
                 compactMobile
-                  ? "mx-auto min-h-0 w-full max-w-[230px] flex-[1.05]"
+                  ? "flex min-h-0 w-full items-center justify-center self-stretch"
                   : useBottomLegend
                     ? "mx-auto min-h-0 w-full max-w-[280px] flex-[1.05]"
                   : "flex min-h-0 items-center justify-center self-stretch"
               }
             >
-              <div className={compactMobile ? "h-full max-h-[150px] w-full max-w-[230px]" : isLarge && !useBottomLegend ? "h-full max-h-[260px] w-full max-w-[340px]" : "h-full max-h-[230px] w-full max-w-[310px]"}>
+              <div className={compactMobile ? "h-full max-h-[170px] w-full max-w-[170px]" : isLarge && !useBottomLegend ? "h-full max-h-[260px] w-full max-w-[340px]" : "h-full max-h-[230px] w-full max-w-[310px]"}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                   <Pie
@@ -230,7 +230,7 @@ export const FaixaEtariaWidget = ({
             <div
               className={
                 compactMobile
-                  ? "grid min-h-0 grid-cols-2 gap-1.5 overflow-y-auto pr-1 scrollbar-none"
+                  ? "grid min-h-0 grid-cols-1 gap-1 overflow-y-auto scrollbar-none"
                   : useBottomLegend
                     ? "grid min-h-0 grid-cols-2 gap-1.5 overflow-y-auto pr-1 scrollbar-none"
                   : "grid max-h-full min-w-0 grid-cols-1 gap-2 overflow-y-auto pr-1 text-xs scrollbar-none"
@@ -254,7 +254,7 @@ export const FaixaEtariaWidget = ({
               {data.map((item) => (
                 <div
                   key={item.faixa}
-                  className={compactMobile ? "flex items-center justify-between gap-2 rounded-xl border border-border/40 bg-muted/20 px-2.5 py-1.5" : "flex items-center justify-between gap-3 rounded-2xl border border-border/40 bg-muted/20 px-3 py-1.5"}
+                  className={compactMobile ? "flex items-center justify-between gap-2 rounded-[9px] border border-border/45 bg-muted/20 px-2 py-1.5" : "flex items-center justify-between gap-3 rounded-2xl border border-border/40 bg-muted/20 px-3 py-1.5"}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span
@@ -265,7 +265,7 @@ export const FaixaEtariaWidget = ({
                     />
                     <span className="truncate text-[10px] font-medium text-foreground">{item.faixa}</span>
                   </div>
-                  <span className="text-[11px] font-semibold tabular-nums text-foreground">{item.total}</span>
+                  <span className="text-[11px] font-semibold tabular-nums text-foreground">{compactMobile ? String(item.total).padStart(2, "0") : item.total}</span>
                 </div>
               ))}
             </div>
