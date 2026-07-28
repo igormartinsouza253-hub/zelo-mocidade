@@ -21,6 +21,7 @@ import {
   UserPlus,
   SlidersHorizontal,
   FileText,
+  type LucideIcon,
 } from "lucide-react";
 import { DockPreferencesProvider } from "@/hooks/useDockPreferences";
 import { useEffect, useRef, useState } from "react";
@@ -28,7 +29,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ZeloLogo } from "@/components/ZeloLogo";
-import { ThemePresetId } from "@/lib/theme-presets";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,12 +42,14 @@ import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { PageHeaderProvider, usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-const routeTitles: Record<string, { title: string; icon: any }> = {
+const routeTitles: Record<string, { title: string; icon: LucideIcon }> = {
   "/": { title: "Início - Reuniões de Jovem", icon: Home },
   "/membros": { title: "Membros", icon: Users },
   "/reunioes": { title: "Reuniões", icon: Handshake },
@@ -123,6 +125,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
   const { activeGroupId, activeGroup, loading: loadingGroup } = useActiveGroup();
+  const { isOffline } = useOfflineMode();
   const isViewportMobile = useIsMobile();
   const heartbeatWarningAtRef = useRef(0);
   // Arquitetura por breakpoint: Mobile (<md) e Desktop/Tablet (md+).
@@ -324,10 +327,10 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       new Notification(incoming.title, notificationOptions);
     };
 
-    void supabase.rpc("generate_today_birthday_notifications" as any, {
+    void supabase.rpc("generate_today_birthday_notifications", {
       _group_id: activeGroupId,
       _recipient_user_id: user.id,
-    } as any);
+    });
 
     const channel = supabase
       .channel(`mobile-notifications:${user.id}`)
@@ -376,7 +379,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               group_id: activeGroupId,
               user_id: user.id,
               last_seen_at: nowIso,
-            } as any,
+            },
             { onConflict: "group_id,user_id" },
           );
         if (error) throw error;
@@ -470,30 +473,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user]);
 
-  // Aplica automaticamente o tema salvo como padrão para o usuário ao entrar no app
-  useEffect(() => {
-    if (!user) return;
-
-    const applyUserTheme = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .select("theme_preset, custom_theme")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (error || !data) return;
-
-        const { applyThemePreset } = await import("@/lib/theme-presets");
-        applyThemePreset("verde");
-      } catch (error) {
-        console.error("Erro ao aplicar tema padrão do usuário:", error);
-      }
-    };
-
-    void applyUserTheme();
-  }, [user]);
-
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -503,6 +482,16 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       toast.error("Erro ao fazer logout");
     }
   };
+
+  useEffect(() => {
+    if (!isOffline) return;
+    const params = new URLSearchParams(location.search);
+    if (location.pathname === "/calendario" && params.has("new")) {
+      params.delete("new");
+      navigate({ pathname: "/calendario", search: params.toString() }, { replace: true });
+      toast.info("A criação de eventos fica indisponível enquanto você está offline.");
+    }
+  }, [isOffline, location.pathname, location.search, navigate]);
 
   const shouldHideMobileDock = (pathname: string) => {
     if (pathname.startsWith("/membros/visualizar/")) return true;
@@ -552,7 +541,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const handleDesktopBack = () => {
     const parentPath = resolveParentPath(location.pathname);
-    navigate(config?.backTo ?? parentPath ?? -1);
+    const target = config?.backTo ?? parentPath;
+    if (target) {
+      navigate(target);
+    } else {
+      navigate(-1);
+    }
   };
 
   const handleMobileBack = () => {
@@ -567,6 +561,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     { label: "Visitas", path: "/visitas" },
     { label: "Notas", path: "/notas" },
     { label: "Estatísticas", path: "/estatisticas" },
+    { label: "Cargos", path: "/cargos" },
   ].find((item) => location.pathname.startsWith(item.path));
   const contextualPageLabel = location.pathname === "/membros/novo"
     ? "Novo Membro"
@@ -591,6 +586,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   return (
     <>
        <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
+        <OfflineBanner />
         {/* Navegação principal desktop */}
         {!isMobileMode && (
           <header className="desktop-topbar relative hidden h-[68px] shrink-0 items-center px-[18px] md:flex">
@@ -614,7 +610,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               ) : contextualCreate ? (
                 <button
                   type="button"
-                  onClick={() => navigate(contextualCreate.href)}
+                  onClick={() => {
+                    if (isOffline) {
+                      toast.info("Esta ação exige conexão. O modo offline é somente leitura.");
+                      return;
+                    }
+                    navigate(contextualCreate.href);
+                  }}
+                  disabled={isOffline}
                   className="flex h-8 items-center justify-center gap-2 rounded-[15px] bg-primary px-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                   aria-label={contextualCreate.label}
                 >
@@ -629,19 +632,19 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" sideOffset={10} className="w-52 rounded-xl p-1.5">
-                    <DropdownMenuItem onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <Handshake className="mr-2 h-4 w-4" /> Nova reunião
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <UserPlus className="mr-2 h-4 w-4" /> Novo membro
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <CalendarPlus className="mr-2 h-4 w-4" /> Novo evento
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <Handshake className="mr-2 h-4 w-4" /> Nova visita
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <FileText className="mr-2 h-4 w-4" /> Nova nota
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -673,11 +676,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                   <DropdownMenuItem onClick={() => navigate("/visitas")}>Visitas</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/notas")}>Notas</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/estatisticas")}>Estatísticas</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/cargos")}>Cargos</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </nav>
 
-            <div className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-[20px] border border-border bg-card px-2">
+            <div className="ml-auto flex h-11 shrink-0 items-center gap-3 rounded-[20px] border border-border bg-card px-2">
               {config?.desktopTopbarActions ? <div className="flex h-9 items-center">{config.desktopTopbarActions}</div> : null}
               <form onSubmit={submitDesktopSearch} className={`relative flex h-8 min-w-0 items-center rounded-[14px] transition-[width,background-color] duration-300 ${desktopSearchOpen ? "w-[230px] bg-secondary px-1" : "w-8"}`}>
                 <button type={desktopSearchOpen ? "submit" : "button"} onClick={() => !desktopSearchOpen && setDesktopSearchOpen(true)} className="topbar-icon h-8 w-8 shrink-0" aria-label={desktopSearchOpen ? "Pesquisar" : "Abrir pesquisa"}><Search /></button>
@@ -712,8 +716,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                 ) : null}
               </form>
               {scopedSearch?.menu ? <div className="topbar-page-tools flex h-9 items-center">{scopedSearch.menu}</div> : null}
-              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action relative ${isNotificationsDrawerOpen ? "is-active" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
-              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
+              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action topbar-square-action relative ${isNotificationsDrawerOpen ? "is-active keep-label" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
+              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action topbar-square-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><button type="button" className="topbar-expand-action" aria-label="Conta"><Avatar className="topbar-action-avatar h-5 w-5"><AvatarImage src={profile?.avatar_url || undefined} /><AvatarFallback className="text-[9px]">{(profile?.username || user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar><span className="topbar-action-label">Conta</span></button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end"><DropdownMenuItem onClick={handleSignOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent>
@@ -756,11 +760,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="inline-flex items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors h-10 w-10"
+                            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent p-0 transition-opacity hover:opacity-85"
                             aria-label="Conta"
                           >
-                            <Avatar className="h-8 w-8 rounded-xl">
-                              <AvatarImage className="rounded-xl" src={profile?.avatar_url || undefined} />
+                            <Avatar className="h-10 w-10 rounded-xl">
+                              <AvatarImage className="rounded-xl object-cover" src={profile?.avatar_url || undefined} />
                               <AvatarFallback className="rounded-xl bg-accent text-foreground text-sm font-semibold">
                                 {(profile?.username || user?.email || "U").charAt(0).toUpperCase()}
                               </AvatarFallback>

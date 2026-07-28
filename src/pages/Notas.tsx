@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { sanitizeRichText } from "@/lib/sanitize-html";
 import { Button } from "@/components/ui/button";
-import { Archive, ArchiveRestore, Copy, Download, Lock, Pin, Plus, MoreVertical, Filter, Tag, UserCircle, Users, StickyNote } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Download, Edit3, Lock, Pin, Plus, MoreVertical, Filter, Tag, Trash2, UserCircle, Users, StickyNote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -16,7 +16,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -26,9 +25,12 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { Badge } from "@/components/ui/badge";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { useAuth } from "@/hooks/useAuth";
+import { noteHtmlToPlainText, resolveNoteTitle } from "@/lib/note-content";
+import { exportNotePdf } from "@/lib/export-note-pdf";
 
 interface Nota {
   id: string;
+  titulo: string;
   conteudo: string;
   created_at: string;
   user_id: string;
@@ -48,6 +50,8 @@ interface Nota {
   reuniao_tema?: string | null;
 }
 
+type FiltroVinculo = "todas" | "membro" | "reuniao" | "sem";
+
 export default function Notas() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -60,27 +64,22 @@ export default function Notas() {
   const [selectedNota, setSelectedNota] = useState<Nota | null>(null);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [mobileActionsNota, setMobileActionsNota] = useState<Nota | null>(null);
-  const [filtroVinculo, setFiltroVinculo] = useState<"todas" | "membro" | "reuniao" | "sem">("todas");
+  const [filtroVinculo, setFiltroVinculo] = useState<FiltroVinculo>("todas");
   const [filtroRapido, setFiltroRapido] = useState<"ativas" | "minhas" | "publicas" | "privadas" | "fixadas" | "arquivadas">("ativas");
   const [filtroMembro, setFiltroMembro] = useState<string>("todos");
   const [filtroReuniao, setFiltroReuniao] = useState<string>("todas");
   const [filtroTag, setFiltroTag] = useState<string>("todas");
   const [buscaNotas, setBuscaNotas] = useState("");
 
-  useEffect(() => {
-    if (!loadingActiveGroup && activeGroupId) loadNotas();
-    if (!loadingActiveGroup && !activeGroupId) navigate("/grupo", { replace: true });
-  }, [activeGroupId, loadingActiveGroup]);
-
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFiltroRapido("ativas");
     setFiltroVinculo("todas");
     setFiltroMembro("todos");
     setFiltroReuniao("todas");
     setFiltroTag("todas");
-  };
+  }, []);
 
-  const loadNotas = async () => {
+  const loadNotas = useCallback(async () => {
     if (!activeGroupId) {
       setNotas([]);
       setSelectedNota(null);
@@ -91,7 +90,7 @@ export default function Notas() {
     try {
       const { data, error } = await supabase
         .from("notas")
-        .select("id, conteudo, created_at, user_id, membro_id, reuniao_id, group_id, visibility, is_pinned, archived_at, tags, shared_editing_enabled, updated_at, updated_by")
+        .select("id, titulo, conteudo, created_at, user_id, membro_id, reuniao_id, group_id, visibility, is_pinned, archived_at, tags, shared_editing_enabled, updated_at, updated_by")
         .eq("group_id", activeGroupId)
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
@@ -126,22 +125,23 @@ export default function Notas() {
       if (profilesResp.error) throw profilesResp.error;
 
       const membrosMap = new Map<string, string>();
-      (membrosResp.data || []).forEach((m: any) => {
-        membrosMap.set(m.id, m.nome);
+      (membrosResp.data || []).forEach((membro) => {
+        membrosMap.set(membro.id, membro.nome);
       });
 
       const reunioesMap = new Map<string, { data: string; tema: string | null }>();
-      (reunioesResp.data || []).forEach((r: any) => {
-        reunioesMap.set(r.id, { data: r.data, tema: r.tema });
+      (reunioesResp.data || []).forEach((reuniao) => {
+        reunioesMap.set(reuniao.id, { data: reuniao.data, tema: reuniao.tema });
       });
 
       const profilesMap = new Map<string, string>();
-      (profilesResp.data || []).forEach((p: any) => {
-        profilesMap.set(p.id, p.username);
+      (profilesResp.data || []).forEach((profile) => {
+        profilesMap.set(profile.id, profile.username);
       });
 
       const notasEnriquecidas: Nota[] = notasBase.map((n) => ({
         ...n,
+        titulo: resolveNoteTitle(n.titulo, n.conteudo),
         tags: n.tags || [],
         author_name: profilesMap.get(n.user_id) || null,
         membro_nome: n.membro_id ? membrosMap.get(n.membro_id) || null : null,
@@ -151,22 +151,25 @@ export default function Notas() {
 
       setNotas(notasEnriquecidas);
 
-      if (!isMobile && notasEnriquecidas.length > 0) {
-        setSelectedNota(notasEnriquecidas[0]);
-      }
+      setSelectedNota((current) => current
+        ? notasEnriquecidas.find((nota) => nota.id === current.id) || null
+        : null);
     } catch (error) {
       console.error("Erro ao carregar notas:", error);
       toast.error("Erro ao carregar notas");
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeGroupId]);
 
-  const noteToPlainText = (html: string) => {
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-    return temp.textContent || temp.innerText || "";
-  };
+  useEffect(() => {
+    if (loadingActiveGroup) return;
+    if (!activeGroupId) {
+      navigate("/grupo", { replace: true });
+      return;
+    }
+    void loadNotas();
+  }, [activeGroupId, loadNotas, loadingActiveGroup, navigate]);
 
   const handleDeleteNota = async () => {
     if (!notaParaExcluir) return;
@@ -202,9 +205,7 @@ export default function Notas() {
   };
 
   const getPreviewText = (html: string) => {
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-    const text = temp.textContent || temp.innerText || "";
+    const text = noteHtmlToPlainText(html).replace(/\s+/g, " ");
     return text.length > 140 ? text.slice(0, 140) + "…" : text;
   };
 
@@ -213,7 +214,7 @@ export default function Notas() {
     try {
       const { error } = await supabase
         .from("notas")
-        .update(patch as any)
+        .update(patch)
         .eq("id", nota.id)
         .eq("group_id", activeGroupId);
 
@@ -228,24 +229,29 @@ export default function Notas() {
 
   const copyNota = async (nota: Nota) => {
     try {
-      await navigator.clipboard.writeText(noteToPlainText(nota.conteudo));
+      await navigator.clipboard.writeText(noteHtmlToPlainText(nota.conteudo));
       toast.success("Nota copiada");
     } catch {
       toast.error("Nao foi possivel copiar a nota");
     }
   };
 
-  const exportNota = (nota: Nota) => {
-    const blob = new Blob([noteToPlainText(nota.conteudo)], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${getTituloFromHtml(nota.conteudo).replace(/[^\w\-]+/g, "-").slice(0, 40) || "nota"}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const exportNota = async (nota: Nota) => {
+    try {
+      await exportNotePdf({
+        title: nota.titulo,
+        html: nota.conteudo,
+        author: nota.author_name,
+        createdAt: nota.created_at,
+      });
+      toast.success("PDF exportado");
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error);
+      toast.error("Não foi possível exportar o PDF");
+    }
   };
 
-  const getPlainText = (html: string) => noteToPlainText(html).toLowerCase();
+  const getPlainText = (html: string) => noteHtmlToPlainText(html).toLowerCase();
 
   const formatDate = (iso: string) => {
     const date = new Date(iso);
@@ -256,14 +262,6 @@ export default function Notas() {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const getTituloFromHtml = (html: string) => {
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-    const text = (temp.textContent || temp.innerText || "").trim();
-    if (!text) return "(Sem título)";
-    return text.length > 80 ? text.slice(0, 80) + "…" : text;
   };
 
   const canDeleteNota = (nota: Nota) => isAdmin || nota.user_id === user?.id;
@@ -319,9 +317,9 @@ export default function Notas() {
         <Copy className="mr-2 h-4 w-4" />
         Copiar texto
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => exportNota(nota)}>
+      <DropdownMenuItem onClick={() => void exportNota(nota)}>
         <Download className="mr-2 h-4 w-4" />
-        Exportar .txt
+        Exportar PDF
       </DropdownMenuItem>
       {canOrganizeNota(nota) ? (
         <>
@@ -343,11 +341,11 @@ export default function Notas() {
 
   const isSplitView = !isMobile && !!selectedNota && notas.length > 0;
 
-  const membrosDisponiveis = Array.from(
+  const membrosDisponiveis = useMemo(() => Array.from(
     new Set(notas.map((n) => n.membro_nome).filter((n): n is string => !!n)),
-  );
+  ), [notas]);
 
-  const reunioesDisponiveis = Array.from(
+  const reunioesDisponiveis = useMemo(() => Array.from(
     new Map(
       notas
         .filter((n) => n.reuniao_id && n.reuniao_data)
@@ -360,9 +358,12 @@ export default function Notas() {
           },
         ]),
     ).values(),
-  );
+  ), [notas]);
 
-  const tagsDisponiveis = Array.from(new Set(notas.flatMap((n) => n.tags || []))).sort();
+  const tagsDisponiveis = useMemo(
+    () => Array.from(new Set(notas.flatMap((n) => n.tags || []))).sort(),
+    [notas],
+  );
 
   const notasFiltradas = notas.filter((nota) => {
     if (filtroRapido !== "arquivadas" && nota.archived_at) return false;
@@ -376,6 +377,7 @@ export default function Notas() {
     if (termo) {
       const haystack = [
         getPlainText(nota.conteudo),
+        nota.titulo,
         nota.membro_nome,
         nota.reuniao_tema,
         nota.author_name,
@@ -435,9 +437,9 @@ export default function Notas() {
     </div>
   );
 
-  const FiltersControls = (
+  const FiltersControls = useMemo(() => (
     <div className="grid w-full grid-cols-1 gap-2 text-xs sm:grid-cols-2 md:text-sm">
-      <Select value={filtroVinculo} onValueChange={(v) => setFiltroVinculo(v as any)}>
+      <Select value={filtroVinculo} onValueChange={(value) => setFiltroVinculo(value as FiltroVinculo)}>
         <SelectTrigger className="h-9 w-full rounded-xl">
           <SelectValue placeholder="Vínculo" />
         </SelectTrigger>
@@ -491,7 +493,7 @@ export default function Notas() {
         </SelectContent>
       </Select>
     </div>
-  );
+  ), [filtroMembro, filtroReuniao, filtroTag, filtroVinculo, membrosDisponiveis, reunioesDisponiveis, tagsDisponiveis]);
 
   useEffect(() => {
     setConfig({
@@ -590,7 +592,7 @@ export default function Notas() {
     });
 
     return () => setConfig(null);
-  }, [navigate, setConfig, isMobile, activeFiltersCount, filtroVinculo, filtroMembro, filtroReuniao, filtroTag, membrosDisponiveis.length, reunioesDisponiveis.length, tagsDisponiveis.length, buscaNotas]);
+  }, [FiltersControls, activeFiltersCount, buscaNotas, clearFilters, isMobile, navigate, setConfig]);
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
@@ -635,7 +637,7 @@ export default function Notas() {
                           </div>
                           <div className="mt-1 flex items-center gap-2">
                             <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
-                              {getTituloFromHtml(nota.conteudo)}
+                              {nota.titulo}
                             </p>
                             <VisibilityBadge nota={nota} />
                           </div>
@@ -758,45 +760,32 @@ export default function Notas() {
             {/* Único botão de nova nota (mobile) */}
           </div>
         ) : isSplitView ? (
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <CardTitle>Notas salvas</CardTitle>
-                  <CardDescription>
-                    {loading
-                      ? "Carregando notas..."
-                      : notasFiltradas.length === 0
-                        ? "Nenhuma nota encontrada com os filtros atuais."
-                        : "Clique para visualizar e dê duplo clique para editar uma nota."}
-                  </CardDescription>
-                </div>
-
-                {/* No mobile, mantemos filtros no corpo para não lotar o header */}
-                {isMobile ? FiltersControls : null}
-              </div>
-              {!isMobile ? QuickFilters : null}
-            </CardHeader>
-            <CardContent className="p-0">
-              <ResizablePanelGroup direction="horizontal" className="min-h-[420px] md:min-h-[520px]">
-                <ResizablePanel defaultSize={40} minSize={28}>
-                  <div className="space-y-3 p-3 pr-1 md:pr-2 h-full overflow-y-auto pb-16 md:pb-4 scrollbar-thin">
+          <div className="grid h-[calc(100vh-8.5rem)] min-h-[520px] grid-cols-[minmax(280px,32%)_minmax(0,1fr)] gap-4">
+            <section className="min-h-0 overflow-hidden rounded-2xl border border-border/70 bg-card/80">
+              <div className="h-full space-y-2 overflow-y-auto p-3 scrollbar-thin">
                     {notasFiltradas.map((nota) => (
                       <div
                         key={nota.id}
                         className={cn(
-                          "flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card",
-                          selectedNota?.id === nota.id && "border-primary/60 bg-accent/40",
+                          "group flex min-h-[82px] items-center gap-3 overflow-hidden rounded-2xl border border-border/60 bg-background/35 p-3 transition-all hover:border-primary/35 hover:bg-accent/25",
+                          selectedNota?.id === nota.id && "border-primary/65 bg-primary/10",
                         )}
                       >
                         <div
-                          className="flex-1 cursor-pointer"
+                          className="min-w-0 flex-1 cursor-pointer"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             if (isMobile) {
                               navigate(`/notas/editar/${nota.id}`);
                             } else {
-                              setSelectedNota(nota);
+                              setSelectedNota((current) => current?.id === nota.id ? null : nota);
                             }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            setSelectedNota((current) => current?.id === nota.id ? null : nota);
                           }}
                           onDoubleClick={!isMobile ? () => navigate(`/notas/editar/${nota.id}`) : undefined}
                         >
@@ -805,9 +794,10 @@ export default function Notas() {
                             <NoteAuthor nota={nota} />
                           </div>
                           <div className="flex items-center gap-2">
-                            <p className="min-w-0 flex-1 truncate text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                            <p className="min-w-0 flex-1 truncate text-sm font-bold">{nota.titulo}</p>
                             <VisibilityBadge nota={nota} />
                           </div>
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{getPreviewText(nota.conteudo)}</p>
                           {(nota.membro_nome || nota.reuniao_data) && (
                             <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                               {nota.membro_nome && <p>Membro: {nota.membro_nome}</p>}
@@ -829,94 +819,63 @@ export default function Notas() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setSelectedNota(nota)}>Visualizar ao lado</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setSelectedNota((current) => current?.id === nota.id ? null : nota)}>
+                                {selectedNota?.id === nota.id ? "Fechar visualização" : "Visualizar ao lado"}
+                              </DropdownMenuItem>
                               <NoteMenuItems nota={nota} />
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
                       </div>
                     ))}
-                  </div>
-                </ResizablePanel>
-                <ResizableHandle />
-                <ResizablePanel defaultSize={60} minSize={40}>
-                  <div className="h-full p-4 overflow-y-auto pb-16 md:pb-4 scrollbar-thin">
+              </div>
+            </section>
+            <section className="min-h-0 overflow-hidden">
+              <div className="h-full overflow-hidden">
                     {selectedNota ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">{formatDate(selectedNota.created_at)}</p>
-                            <NoteAuthor nota={selectedNota} />
+                      <article className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card">
+                        <div className="flex items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
+                          <div className="min-w-0 flex-1">
+                            <h2 className="block truncate text-xl font-black text-foreground">{selectedNota.titulo}</h2>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{formatDate(selectedNota.created_at)}</span><span aria-hidden="true">•</span><NoteAuthor nota={selectedNota} />
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            {selectedNota.membro_id && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => navigate(`/membros/visualizar/${selectedNota.membro_id}`)}
-                              >
-                                Membro
-                              </Button>
-                            )}
-                            {selectedNota.reuniao_id && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => navigate(`/reunioes/visualizar/${selectedNota.reuniao_id}`)}
-                              >
-                                Reunião
-                              </Button>
-                            )}
+                          <div className="flex shrink-0 gap-2">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl border border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/10 hover:text-primary" onClick={() => navigate(`/notas/editar/${selectedNota.id}`)} disabled={!canEditNota(selectedNota)} aria-label="Editar nota"><Edit3 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl border border-border/70 transition-all hover:-translate-y-0.5 hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setNotaParaExcluir(selectedNota)} disabled={!canDeleteNota(selectedNota)} aria-label="Excluir nota"><Trash2 className="h-4 w-4" /></Button>
+                            <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl border border-border/70 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent" aria-label="Configurações da nota"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><NoteMenuItems nota={selectedNota} /></DropdownMenuContent></DropdownMenu>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-background/25 px-5 py-2.5">
                           <VisibilityBadge nota={selectedNota} />
                           <NoteBadges nota={selectedNota} />
+                          {selectedNota.membro_id ? <Button variant="outline" size="sm" className="h-7 rounded-full text-xs" onClick={() => navigate(`/membros/visualizar/${selectedNota.membro_id}`)}>Membro: {selectedNota.membro_nome}</Button> : null}
+                          {selectedNota.reuniao_id ? <Button variant="outline" size="sm" className="h-7 rounded-full text-xs" onClick={() => navigate(`/reunioes/visualizar/${selectedNota.reuniao_id}`)}>Reunião: {selectedNota.reuniao_tema || "Ver reunião"}</Button> : null}
                         </div>
-                        <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: selectedNota.conteudo }} />
-                      </div>
+                        <div className="min-h-0 flex-1 overflow-y-auto bg-background/65 px-6 py-5 scrollbar-thin"><div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground" dangerouslySetInnerHTML={{ __html: sanitizeRichText(selectedNota.conteudo) }} /></div>
+                      </article>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Selecione uma nota na lista para visualizar aqui.</p>
+                      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-background/25 p-8 text-center"><div><StickyNote className="mx-auto mb-3 h-8 w-8 text-muted-foreground" /><p className="font-semibold">Selecione uma nota</p><p className="mt-1 text-sm text-muted-foreground">Clique em uma nota da lista para visualizar. Clique novamente para fechar.</p></div></div>
                     )}
-                  </div>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <CardTitle>Notas salvas</CardTitle>
-                  <CardDescription>
-                    {loading
-                      ? "Carregando notas..."
-                      : notasFiltradas.length === 0
-                        ? "Nenhuma nota encontrada com os filtros atuais."
-                        : "Clique para visualizar ou editar uma nota."}
-                  </CardDescription>
-                </div>
-
-                {/* No mobile, mantemos filtros no corpo para não lotar o header */}
-                {isMobile ? FiltersControls : null}
               </div>
-              {!isMobile ? QuickFilters : null}
-            </CardHeader>
-            <CardContent className="space-y-3">
+            </section>
+          </div>
+        ) : (
+          <section className="h-[calc(100vh-8.5rem)] min-h-[520px] w-full overflow-hidden rounded-2xl border border-border/70 bg-card/80 p-4">
+            <div className="grid h-full w-full grid-cols-1 content-start gap-3 overflow-y-auto pr-1 scrollbar-thin">
               {notasFiltradas.map((nota) => (
-                <div key={nota.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card">
-                  <div className="flex-1 cursor-pointer" onClick={() => navigate(`/notas/editar/${nota.id}`)}>
+                <div key={nota.id} className="group flex min-h-[116px] items-start gap-3 rounded-2xl border border-border/60 bg-background/35 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent/25 hover:shadow-[var(--shadow-soft)]">
+                  <div className="min-w-0 flex-1 cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedNota(nota)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedNota(nota); } }} onDoubleClick={() => navigate(`/notas/editar/${nota.id}`)}>
                     <div className="mb-1 flex items-center gap-2">
                       <p className="text-xs text-muted-foreground">{formatDate(nota.created_at)}</p>
                       <NoteAuthor nota={nota} />
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className="min-w-0 flex-1 truncate text-sm font-medium">{getTituloFromHtml(nota.conteudo)}</p>
+                      <p className="min-w-0 flex-1 truncate text-sm font-bold">{nota.titulo}</p>
                       <VisibilityBadge nota={nota} />
                     </div>
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{getPreviewText(nota.conteudo)}</p>
                     {(nota.membro_nome || nota.reuniao_data) && (
                       <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
                         {nota.membro_nome && <p>Membro: {nota.membro_nome}</p>}
@@ -951,8 +910,8 @@ export default function Notas() {
                   Criar primeira nota
                 </Button>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         )}
 
 

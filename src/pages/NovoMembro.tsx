@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -198,10 +198,6 @@ const NovoMembro = () => {
   }, [setConfig]);
 
   useEffect(() => {
-    loadCargos();
-  }, [activeGroupId]);
-
-  useEffect(() => {
     if (!showDateDialog) return;
     const digits = birthInput.replace(/\D/g, "");
     setDateDraft({
@@ -273,7 +269,7 @@ const NovoMembro = () => {
     };
   }, [cameraFacingMode, cameraOpen]);
 
-  const loadCargos = async () => {
+  const loadCargos = useCallback(async () => {
     if (!activeGroupId) {
       setCargosDisponiveis([]);
       setCargosLoading(false);
@@ -295,7 +291,11 @@ const NovoMembro = () => {
     } finally {
       setCargosLoading(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    void loadCargos();
+  }, [loadCargos]);
 
   const toggleCargo = (cargoNome: string) => {
     setFormData((prev) => ({

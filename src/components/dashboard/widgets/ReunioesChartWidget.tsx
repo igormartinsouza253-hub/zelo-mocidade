@@ -538,18 +538,28 @@ export const ReunioesChartWidget = ({
 
   return (
     <Card
-      className={`h-full rounded-3xl bg-card text-card-foreground border-border/55 shadow-[var(--shadow-card)] flex flex-col overflow-hidden ${
+      className={`flex h-full flex-col overflow-hidden bg-card text-card-foreground ${
+        compactMobile
+          ? "rounded-[14px] border border-primary/45 shadow-none"
+          : "rounded-3xl border-border/55 shadow-[var(--shadow-card)]"
+      } ${
         isLarge ? "cursor-pointer transition-shadow hover:shadow-[var(--shadow-elevated)]" : ""
       }`}
       onClick={scheduleNavigate}
       onDoubleClick={cancelScheduledNavigate}
     >
-      <CardHeader className={`${headerPadding} md:px-4`}>
+      <CardHeader
+        className={
+          compactMobile
+            ? "mx-1.5 mt-1.5 rounded-[11px] bg-primary px-3 py-2 text-primary-foreground"
+            : `${headerPadding} md:px-4`
+        }
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className={widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
+            <CardTitle className={compactMobile ? "text-[13px] font-semibold leading-none" : widgetTitleClass(titleTextSize)}>Gráfico de presença</CardTitle>
           </div>
-          <span className="text-[11px] font-medium text-muted-foreground">
+          <span className={compactMobile ? "text-[10px] font-medium text-primary-foreground/80" : "text-[11px] font-medium text-muted-foreground"}>
             Últimas {meetings.length} reuniões
           </span>
         </div>
@@ -572,7 +582,7 @@ export const ReunioesChartWidget = ({
                   : "grid-cols-1"
             }`}
           >
-            <div className="min-h-0 rounded-2xl border border-border/50 bg-muted/15 p-2 md:p-2.5">
+            <div className={compactMobile ? "min-h-0 rounded-[12px] border border-primary/30 bg-muted/20 p-2" : "min-h-0 rounded-2xl border border-border/50 bg-muted/15 p-2 md:p-2.5"}>
               <div className="h-full min-h-0">
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
@@ -654,12 +664,12 @@ export const ReunioesChartWidget = ({
             </div>
 
             {(!compactMobile || compactExpandedIndex !== null) && (
-            <aside className={`min-h-0 overflow-hidden rounded-2xl border border-border/50 bg-[hsl(var(--info-card-bg))] text-[hsl(var(--info-card-foreground))] shadow-[var(--shadow-soft)] md:px-4 ${compactMobile ? "px-2.5 py-2" : "px-3 py-3"}`}>
+            <aside className={`min-h-0 overflow-hidden border bg-card text-card-foreground md:px-4 ${compactMobile ? "rounded-[12px] border-primary/40 px-2 py-2 shadow-none" : "rounded-2xl border-border/50 px-3 py-3 shadow-[var(--shadow-soft)]"}`}>
               {selectedReuniao && (
                 <div className="flex h-full min-h-0 flex-col">
                   <div className={compactMobile ? "flex shrink-0 items-start justify-between gap-2" : "shrink-0 space-y-1"}>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-75">Resumo da reunião</p>
-                    <h4 className={compactMobile ? "inline-flex max-w-[54px] shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-primary-foreground/15 px-1.5 py-1 text-[clamp(9px,2.7vw,12px)] font-semibold leading-none" : "inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-1 text-sm font-semibold"}>
+                    <p className={compactMobile ? "text-[10px] font-semibold uppercase tracking-[0.1em] text-primary" : "text-xs font-semibold uppercase tracking-[0.12em] opacity-75"}>Resumo da reunião</p>
+                    <h4 className={compactMobile ? "inline-flex max-w-[54px] shrink-0 items-center justify-center whitespace-nowrap rounded-[7px] bg-primary px-1.5 py-1 text-[clamp(9px,2.7vw,12px)] font-semibold leading-none text-primary-foreground" : "inline-flex items-center rounded-md bg-primary-foreground/15 px-2.5 py-1 text-sm font-semibold"}>
                       {formatMeetingLabel(selectedReuniao.data)}
                     </h4>
                   </div>
@@ -680,9 +690,9 @@ export const ReunioesChartWidget = ({
                   </div>
 
                   <div className={compactMobile ? "shrink-0 pt-1.5" : "shrink-0 pt-3"}>
-                    <div className={compactMobile ? "flex items-center justify-between border-t border-primary-foreground/20 pt-1.5" : "flex items-center justify-between border-t border-primary-foreground/20 pt-2"}>
-                      <span className={compactMobile ? "text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80" : "text-xs font-semibold uppercase tracking-[0.12em] opacity-80"}>Total geral</span>
-                      <span className={compactMobile ? "text-base font-extrabold leading-none tabular-nums" : "text-xl font-extrabold leading-none tabular-nums"}>{totalSelecionado}</span>
+                    <div className={compactMobile ? "flex items-center justify-between rounded-[8px] bg-primary px-2 py-1.5 text-primary-foreground" : "flex items-center justify-between border-t border-primary-foreground/20 pt-2"}>
+                      <span className={compactMobile ? "text-[9px] font-semibold uppercase tracking-[0.1em]" : "text-xs font-semibold uppercase tracking-[0.12em] opacity-80"}>Total geral</span>
+                      <span className={compactMobile ? "text-base font-bold leading-none tabular-nums" : "text-xl font-extrabold leading-none tabular-nums"}>{totalSelecionado}</span>
                     </div>
                   </div>
                 </div>

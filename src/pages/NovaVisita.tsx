@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,33 +85,7 @@ const NovaVisita = () => {
     return () => setConfig(null);
   }, [editingId, setConfig]);
 
-  useEffect(() => {
-    if (!activeGroupId) return;
-    void loadMembros();
-  }, [activeGroupId]);
-
-  useEffect(() => {
-    const id = searchParams.get("id");
-    const membroId = searchParams.get("membroId");
-    const eventoId = searchParams.get("eventoId");
-    const data = searchParams.get("data");
-
-    if (eventoId) setLinkedEventoId(eventoId);
-
-    if (id) {
-      setEditingId(id);
-      void loadVisita(id);
-    } else if (membroId) {
-      setMembroVisitadoId(membroId);
-    }
-
-    if (!id && data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-      setDataVisitaDate(data);
-      setTipoVisita(isDatePast(data) ? "passada" : "futura");
-    }
-  }, [searchParams, activeGroupId]);
-
-  const loadMembros = async () => {
+  const loadMembros = useCallback(async () => {
     if (!activeGroupId) return;
 
     try {
@@ -130,7 +104,7 @@ const NovaVisita = () => {
     } finally {
       setLoadingMembros(false);
     }
-  };
+  }, [activeGroupId]);
 
   const isoToDateInput = (iso: string) => {
     const d = new Date(iso);
@@ -165,7 +139,7 @@ const NovaVisita = () => {
     return selected.getTime() < todayStart.getTime();
   };
 
-  const loadVisita = async (id: string) => {
+  const loadVisita = useCallback(async (id: string) => {
     if (!activeGroupId) return;
 
     try {
@@ -193,7 +167,32 @@ const NovaVisita = () => {
     } finally {
       setLoadingVisita(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    void loadMembros();
+  }, [loadMembros]);
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const membroId = searchParams.get("membroId");
+    const eventoId = searchParams.get("eventoId");
+    const data = searchParams.get("data");
+
+    if (eventoId) setLinkedEventoId(eventoId);
+
+    if (id) {
+      setEditingId(id);
+      void loadVisita(id);
+    } else if (membroId) {
+      setMembroVisitadoId(membroId);
+    }
+
+    if (!id && data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      setDataVisitaDate(data);
+      setTipoVisita(isDatePast(data) ? "passada" : "futura");
+    }
+  }, [loadVisita, searchParams]);
 
   const toggleMembroPresente = (id: string) => {
     setMembrosPresentesIds((prev) =>

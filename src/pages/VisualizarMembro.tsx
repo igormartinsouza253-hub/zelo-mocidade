@@ -318,7 +318,7 @@ const VisualizarMembro = () => {
     if (creatorId) idsToResolve.add(creatorId);
 
     const { data: groupData } = await supabase
-      .from("groups")
+      .from("management_groups")
       .select("created_by")
       .eq("id", activeGroupId)
       .maybeSingle();

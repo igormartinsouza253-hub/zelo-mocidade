@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { BarChart3, Calendar, FileText, Home, Pin, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "./useAuth";
 
 export type DockItemId =
@@ -145,9 +146,14 @@ export function DockPreferencesProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const layout = data?.dashboard_layout as any;
-        if (layout && Array.isArray(layout.dockPreferences)) {
-          setItems(sanitizeItems(layout.dockPreferences as DockItemConfig[]));
+        const layout = data?.dashboard_layout;
+        if (
+          layout &&
+          typeof layout === "object" &&
+          !Array.isArray(layout) &&
+          Array.isArray(layout.dockPreferences)
+        ) {
+          setItems(sanitizeItems(layout.dockPreferences as unknown as DockItemConfig[]));
           return;
         }
       } catch (error) {
@@ -160,7 +166,7 @@ export function DockPreferencesProvider({ children }: { children: ReactNode }) {
     };
 
     loadDockPreferences();
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     const persist = async () => {
@@ -189,7 +195,7 @@ export function DockPreferencesProvider({ children }: { children: ReactNode }) {
         const dashboardLayout =
           typeof existingData?.dashboard_layout === "object" &&
           existingData.dashboard_layout !== null
-            ? (existingData.dashboard_layout as Record<string, any>)
+            ? (existingData.dashboard_layout as Record<string, Json | undefined>)
             : {};
 
         const updatedLayout = {
@@ -207,14 +213,14 @@ export function DockPreferencesProvider({ children }: { children: ReactNode }) {
           ? await supabase
               .from("user_preferences")
               .update({
-                dashboard_layout: updatedLayout as any,
+                dashboard_layout: updatedLayout as Json,
                 updated_at: new Date().toISOString(),
               })
               .eq("id", existingData.id)
           : await supabase.from("user_preferences").insert([
               {
                 user_id: user.id,
-                dashboard_layout: updatedLayout as any,
+                dashboard_layout: updatedLayout as Json,
                 updated_at: new Date().toISOString(),
               },
             ]);
@@ -228,7 +234,7 @@ export function DockPreferencesProvider({ children }: { children: ReactNode }) {
     };
 
     persist();
-  }, [items, user?.id]);
+  }, [items, user]);
 
   const sanitizedItems = sanitizeItems(items);
   const enabledItems = sanitizedItems.filter((item) => item.enabled).slice(0, 5);

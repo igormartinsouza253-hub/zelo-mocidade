@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Calendar as BigCalendar, dateFnsLocalizer, Views, type View } from "react-big-calendar";
-import withDragAndDrop, {
-  type EventInteractionArgs,
-  type ResizeEventArgs,
+import { Calendar as BigCalendar, dateFnsLocalizer, Views } from "react-big-calendar";
+import withDragAndDropImport from "react-big-calendar/lib/addons/dragAndDrop/withDragAndDrop";
+import type {
+  EventInteractionArgs,
+  ResizeEventArgs,
 } from "react-big-calendar/lib/addons/dragAndDrop";
-import { format, parse, startOfWeek, getDay, addDays, addWeeks, addMonths, isSameDay, isBefore, isAfter, startOfDay } from "date-fns";
+import { format, parse, startOfWeek, getDay, addDays, addWeeks, addMonths, addYears, isSameDay, isBefore, isAfter, startOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,14 +29,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -46,7 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CalendarDays, Filter, Plus, Trash2, Pencil, RefreshCw, Search, Phone, Copy } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Pencil, RefreshCw, Search, Phone, Copy } from "lucide-react";
 import { VisitDetailsDialog, type VisitDetailsDialogData } from "@/components/calendario/VisitDetailsDialog";
 import { EventDetailsDrawer, type EventDetailsDrawerData } from "@/components/calendario/EventDetailsDrawer";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -58,11 +51,24 @@ type AgendaLayer = "eventos" | "aniversarios" | "reunioes" | "visitas";
 
 type LayerState = Record<AgendaLayer, boolean>;
 
+type DesktopCalendarView = "year" | "month" | "week";
+type EventFilterKey = "saida" | "visita_agendada" | "visita_registrada" | "ajuntamento" | "aniversario" | "reuniao";
+type EventFilterState = Record<EventFilterKey, boolean>;
+
 const DEFAULT_LAYERS: LayerState = {
   eventos: true,
   aniversarios: true,
   reunioes: true,
   visitas: true,
+};
+
+const DEFAULT_EVENT_FILTERS: EventFilterState = {
+  saida: true,
+  visita_agendada: true,
+  visita_registrada: true,
+  ajuntamento: true,
+  aniversario: true,
+  reuniao: true,
 };
 
 
@@ -193,13 +199,6 @@ function clampBooleanRecord(raw: any, fallback: LayerState): LayerState {
   return next;
 }
 
-function layerLabel(layer: AgendaLayer) {
-  if (layer === "eventos") return "Eventos";
-  if (layer === "aniversarios") return "Aniversários";
-  if (layer === "reunioes") return "Reuniões";
-  return "Visitas";
-}
-
 const locales = { "pt-BR": ptBR };
 
 const localizer = dateFnsLocalizer({
@@ -209,6 +208,14 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales,
 });
+
+// react-big-calendar publishes this addon as CommonJS. Vite/Rolldown may add a
+// second `default` layer in production builds, so normalize both module shapes.
+const withDragAndDrop = (
+  typeof withDragAndDropImport === "function"
+    ? withDragAndDropImport
+    : (withDragAndDropImport as unknown as { default: typeof withDragAndDropImport }).default
+);
 
 const DnDCalendar = withDragAndDrop<CalendarItem, object>(BigCalendar);
 
@@ -395,23 +402,59 @@ function tipoColorStyle(tipo: EventoTipo) {
   // Aqui a diferenciação é visual e imediata para cada tipo.
   if (tipo === "ajuntamento") {
     return {
-      backgroundColor: `hsl(var(--primary) / 0.9)`,
-      color: `hsl(var(--primary-foreground))`,
-      border: `1px solid hsl(var(--primary) / 0.35)`,
+      backgroundColor: `hsl(var(--faixa-mocas) / 0.92)`,
+      color: "hsl(0 0% 98%)",
+      border: `1px solid hsl(var(--faixa-mocas) / 0.48)`,
     };
   }
   if (tipo === "saida") {
     return {
       backgroundColor: `hsl(var(--faixa-meninos) / 0.92)`,
-      color: `hsl(var(--foreground))`,
+      color: "hsl(0 0% 98%)",
       border: `1px solid hsl(var(--faixa-meninos) / 0.45)`,
     };
   }
   // visita (agenda)
   return {
     backgroundColor: `hsl(var(--faixa-visitas) / 0.92)`,
-    color: `hsl(var(--foreground))`,
+    color: "hsl(0 0% 98%)",
     border: `1px solid hsl(var(--faixa-visitas) / 0.45)`,
+  };
+}
+
+function eventFilterKey(event: CalendarItem): EventFilterKey {
+  if (event.resource.kind === "birthday") return "aniversario";
+  if (event.resource.kind === "reuniao") return "reuniao";
+  if (event.resource.kind === "visita_registrada") return "visita_registrada";
+  if (event.resource.tipo === "saida") return "saida";
+  if (event.resource.tipo === "visita") return "visita_agendada";
+  return "ajuntamento";
+}
+
+const eventFilterLabels: Record<EventFilterKey, string> = {
+  saida: "Saída",
+  visita_agendada: "Visita (agendada)",
+  visita_registrada: "Visita (registrada)",
+  ajuntamento: "Ajuntamento",
+  aniversario: "Aniversário",
+  reuniao: "Reunião",
+};
+
+function eventFilterStyle(filter: EventFilterKey) {
+  if (filter === "saida") return tipoColorStyle("saida");
+  if (filter === "visita_agendada") return tipoColorStyle("visita");
+  if (filter === "ajuntamento") return tipoColorStyle("ajuntamento");
+  if (filter === "aniversario") return {
+    backgroundColor: `hsl(var(--faixa-criancas) / 0.92)`,
+    color: "hsl(60 5% 15%)",
+  };
+  if (filter === "reuniao") return {
+    backgroundColor: `hsl(var(--faixa-mocos) / 0.9)`,
+    color: "hsl(0 0% 98%)",
+  };
+  return {
+    backgroundColor: `hsl(var(--faixa-meninas) / 0.92)`,
+    color: "hsl(0 0% 98%)",
   };
 }
 
@@ -444,7 +487,7 @@ export default function Calendario() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [view, setView] = useState<View>(Views.MONTH);
+  const [view, setView] = useState<DesktopCalendarView>("month");
   const [date, setDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
   const [rawEventos, setRawEventos] = useState<EventoRow[]>([]);
@@ -454,6 +497,7 @@ export default function Calendario() {
   const [creatorNameByUserId, setCreatorNameByUserId] = useState<Record<string, string>>({});
 
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
+  const [eventFilters, setEventFilters] = useState<EventFilterState>(DEFAULT_EVENT_FILTERS);
   const saveLayersTimer = useRef<number | null>(null);
   const handledNewEventParamRef = useRef<string | null>(null);
 
@@ -510,33 +554,6 @@ export default function Calendario() {
   });
 
   useEffect(() => {
-    const LayersDropdown = (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Filtros do calendário" title="Filtros do calendário">
-            <Filter className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="z-50 w-56 bg-popover">
-          <DropdownMenuLabel>Exibir no calendário</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {(Object.keys(DEFAULT_LAYERS) as AgendaLayer[]).map((layer) => (
-            <DropdownMenuCheckboxItem
-              key={layer}
-              checked={layers[layer]}
-              onCheckedChange={(checked) => setLayers((prev) => ({ ...prev, [layer]: Boolean(checked) }))}
-            >
-              {layerLabel(layer)}
-            </DropdownMenuCheckboxItem>
-          ))}
-          <DropdownMenuSeparator />
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            Suas preferências ficam salvas.
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-
     const SearchBox = (
       <div className="relative rounded-lg border border-border/70 bg-card/90 px-2 py-1 shadow-[var(--shadow-card)]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -557,7 +574,6 @@ export default function Calendario() {
         value: searchText,
         onChange: setSearchText,
         placeholder: "Buscar no calendário...",
-        menu: LayersDropdown,
       },
       primaryActions: (
         <Button
@@ -572,7 +588,6 @@ export default function Calendario() {
       secondaryActions: (
         <div className="flex items-center gap-2">
           {SearchBox}
-          {LayersDropdown}
           <Button
             variant="outline"
             size="icon"
@@ -587,7 +602,7 @@ export default function Calendario() {
     });
     return () => setConfig(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layers, searchText]);
+  }, [searchText]);
 
   useEffect(() => {
     void loadAll();
@@ -849,7 +864,7 @@ export default function Calendario() {
         return;
       }
       void loadMeetingStats(reuniaoId);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [reuniaoId]);
 
     const stats = meetingStatsById[reuniaoId];
@@ -901,10 +916,10 @@ export default function Calendario() {
   };
 
   const rangeForView = useMemo(() => {
-    // O react-big-calendar calcula internamente, mas precisamos de um range razoável para expandir recorrência.
-    // Janela ampla (± 45 dias) cobre mês/semana/dia/lista sem reprocessamento excessivo.
-    const start = addDays(new Date(date), -45);
-    const end = addDays(new Date(date), 45);
+    // A visualização anual precisa dos eventos de todo o ano, com margem para
+    // navegar entre dezembro/janeiro sem refazer a coleção durante a troca.
+    const start = startOfYear(addYears(date, -1));
+    const end = endOfYear(addYears(date, 1));
     return { start, end };
   }, [date]);
 
@@ -937,14 +952,13 @@ export default function Calendario() {
     );
 
     const birthdayItems: CalendarItem[] = [];
-    if (layers.aniversarios) {
-      const now = new Date();
-      const year = now.getFullYear();
+    if (eventFilters.aniversario) {
+      const firstYear = rangeForView.start.getFullYear();
+      const lastYear = rangeForView.end.getFullYear();
       membros.forEach((m) => {
         const md = getBirthdayMonthDay(m);
         if (!md) return;
-        // cria evento no ano atual e no próximo pra cobrir a janela
-        [year, year + 1].forEach((y) => {
+        Array.from({ length: lastYear - firstYear + 1 }, (_, index) => firstYear + index).forEach((y) => {
           const d = new Date(y, md.mm - 1, md.dd, 9, 0, 0, 0);
           if (!inRangeInclusive(d, rangeForView.start, rangeForView.end)) return;
           birthdayItems.push({
@@ -964,7 +978,7 @@ export default function Calendario() {
     }
 
     const reunioesItems: CalendarItem[] = [];
-    if (layers.reunioes) {
+    if (eventFilters.reuniao) {
       reunioes.forEach((r) => {
         // data é YYYY-MM-DD (local)
         const [yy, mm, dd] = r.data.split("-").map((n) => Number(n));
@@ -987,7 +1001,7 @@ export default function Calendario() {
     }
 
     const visitasItems: CalendarItem[] = [];
-    if (layers.visitas) {
+    if (eventFilters.visita_registrada) {
       visitasRegistradas.forEach((v) => {
         if (!v.data_visita) return;
         const d = new Date(v.data_visita);
@@ -1010,11 +1024,7 @@ export default function Calendario() {
 
     const all = [...expandedEventos, ...birthdayItems, ...reunioesItems, ...visitasItems];
 
-    // filtro final (camadas)
-    const withLayers = all.filter((ev) => {
-      const layer = ev.resource.layer ?? "eventos";
-      return layers[layer];
-    });
+    const withLayers = all.filter((event) => eventFilters[eventFilterKey(event)]);
 
     const q = searchText.trim().toLowerCase();
     if (!q) return withLayers;
@@ -1052,7 +1062,7 @@ export default function Calendario() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [layers, membros, rawEventos, rangeForView.end, rangeForView.start, reunioes, searchText, visitasRegistradas]);
+  }, [eventFilters, membros, rawEventos, rangeForView.end, rangeForView.start, reunioes, searchText, visitasRegistradas]);
 
   const openCreateDialog = (baseDate: Date) => {
     const start = new Date(baseDate);
@@ -1477,9 +1487,9 @@ export default function Calendario() {
     // visita registrada
     return {
       style: {
-        backgroundColor: `hsl(var(--secondary) / 0.92)`,
-        color: `hsl(var(--secondary-foreground))`,
-        border: `1px solid hsl(var(--secondary) / 0.35)`,
+        backgroundColor: `hsl(var(--faixa-meninas) / 0.92)`,
+        color: `hsl(var(--primary-foreground))`,
+        border: `1px solid hsl(var(--faixa-meninas) / 0.48)`,
       },
     };
   };
@@ -1607,127 +1617,221 @@ export default function Calendario() {
     navigate(`/visitas/nova?${qs.toString()}`);
   };
 
+  const visibleRange = useMemo(() => {
+    if (view === "year") return { start: startOfYear(date), end: endOfYear(date) };
+    if (view === "month") return { start: startOfMonth(date), end: endOfMonth(date) };
+    const start = startOfWeek(date, { locale: ptBR });
+    return { start, end: addDays(start, 6) };
+  }, [date, view]);
+
+  const visibleEvents = useMemo(
+    () => events
+      .filter((event) => inRangeInclusive(event.start, visibleRange.start, visibleRange.end))
+      .sort((a, b) => a.start.getTime() - b.start.getTime()),
+    [events, visibleRange.end, visibleRange.start],
+  );
+
+  const periodLabel = view === "year"
+    ? format(date, "yyyy", { locale: ptBR })
+    : view === "month"
+      ? format(date, "MMMM 'de' yyyy", { locale: ptBR })
+      : `${format(visibleRange.start, "dd MMM", { locale: ptBR })} – ${format(visibleRange.end, "dd MMM yyyy", { locale: ptBR })}`;
+
+  const navigatePeriod = (direction: -1 | 1) => {
+    setDate((current) => {
+      if (view === "year") return addYears(current, direction);
+      if (view === "month") return addMonths(current, direction);
+      return addWeeks(current, direction);
+    });
+  };
+
+  const openCalendarItem = (event: CalendarItem) => {
+    if (event.resource.kind === "visita_registrada" || (event.resource.kind === "evento" && event.resource.tipo === "visita")) {
+      openVisitDetails(event);
+      return;
+    }
+    openEventDetails(event);
+  };
+
+  const displayEventTitle = (event: CalendarItem) => {
+    if (event.resource.kind === "birthday") return `Aniversário de ${event.title}`;
+    if (event.resource.kind === "reuniao") return event.title === "Reunião" ? event.title : `Reunião: ${event.title}`;
+    return event.title;
+  };
+
+  const calendarMonths = useMemo(
+    () => Array.from({ length: 12 }, (_, month) => new Date(date.getFullYear(), month, 1)),
+    [date],
+  );
+
   return (
     <div className="h-full w-full">
-      <Card className="h-full overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
-        <CardContent className="flex h-full flex-col gap-3 p-3 md:p-4">
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge style={tipoColorStyle("ajuntamento")} className="rounded-md">Ajuntamento</Badge>
-                <Badge style={tipoColorStyle("saida")} className="rounded-md">Saída</Badge>
-                <Badge style={tipoColorStyle("visita")} className="rounded-md">Visita (agenda)</Badge>
-                  <Badge
-                    className="rounded-md"
-                    style={{
-                      backgroundColor: `hsl(var(--secondary) / 0.92)`,
-                      color: `hsl(var(--secondary-foreground))`,
-                      border: `1px solid hsl(var(--secondary) / 0.35)`,
-                    }}
-                  >
-                    Visita (registrada)
-                  </Badge>
-                  <Badge
-                    className="rounded-md"
-                    style={{
-                      backgroundColor: `hsl(var(--faixa-criancas) / 0.92)`,
-                      color: `hsl(var(--foreground))`,
-                      border: `1px solid hsl(var(--faixa-criancas) / 0.45)`,
-                    }}
-                  >
-                    Aniversário
-                  </Badge>
-                  <Badge
-                    className="rounded-md"
-                    style={{
-                      backgroundColor: `hsl(var(--faixa-mocos) / 0.9)`,
-                      color: `hsl(var(--primary-foreground))`,
-                      border: `1px solid hsl(var(--faixa-mocos) / 0.45)`,
-                    }}
-                  >
-                    Reunião
-                  </Badge>
-              </div>
-              {loading && <div className="text-xs text-muted-foreground">Carregando…</div>}
-            </div>
+      <div className="flex h-full min-h-0 flex-col gap-2.5">
+        <div className="grid h-10 shrink-0 grid-cols-[170px_1fr_230px] items-center rounded-2xl border border-border/70 bg-card px-1.5 shadow-[var(--shadow-card)]">
+          <div className="flex h-8 items-center justify-between rounded-xl border border-border/70 bg-background/50 px-1">
+            <button type="button" onClick={() => navigatePeriod(-1)} className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-accent" aria-label="Período anterior">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => setDate(new Date())} className="h-7 px-3 text-[11px] font-bold uppercase hover:text-primary">Hoje</button>
+            <button type="button" onClick={() => navigatePeriod(1)} className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-accent" aria-label="Próximo período">
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
+          <h2 className="truncate px-4 text-center text-sm font-bold capitalize text-foreground">{periodLabel}</h2>
+          <div className="grid h-8 grid-cols-3 gap-1 rounded-xl border border-border/70 bg-background/50 p-0.5">
+            {(["year", "month", "week"] as DesktopCalendarView[]).map((calendarView) => (
+              <button
+                key={calendarView}
+                type="button"
+                onClick={() => setView(calendarView)}
+                className={`rounded-[10px] text-xs font-semibold transition-colors ${view === calendarView ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-accent/50"}`}
+              >
+                {calendarView === "year" ? "Ano" : calendarView === "month" ? "Mês" : "Semana"}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          <div className="flex-1 min-h-0 rounded-xl border border-border/70 bg-background/80 p-2 md:p-3 shadow-[var(--shadow-card)] overflow-hidden">
-            <DnDCalendar
-              className="calendar-desktop-modern calendar-desktop-rectangles"
-              localizer={localizer}
-              culture="pt-BR"
-              events={events}
-              startAccessor="start"
-              endAccessor="end"
-              titleAccessor="title"
-              view={view}
-              date={date}
-              onView={(v) => setView(v)}
-              onNavigate={(d) => setDate(d)}
-              selectable
-              onSelectSlot={onSelectSlot}
-              onSelectEvent={(e) => {
-                const ev = e as any as CalendarItem;
-                if (ev.resource.kind === "visita_registrada" || (ev.resource.kind === "evento" && ev.resource.tipo === "visita")) {
-                  openVisitDetails(ev);
-                  return;
-                }
-                openEventDetails(ev);
-              }}
-              draggableAccessor={(e) => canEditEvent(e as any)}
-              resizableAccessor={(e) => canEditEvent(e as any)}
-              onEventDrop={(args: EventInteractionArgs<CalendarItem>) =>
-                requestMoveConfirm(args.event, {
-                  start: args.start,
-                  end: args.end,
-                  allDay: !!args.isAllDay,
-                })
-              }
-              onEventResize={(args: ResizeEventArgs<CalendarItem>) =>
-                requestMoveConfirm(args.event, {
-                  start: args.start,
-                  end: args.end,
-                  allDay: !!args.isAllDay,
-                })
-              }
-              popup
-              views={{ month: true, week: true, day: true, agenda: true }}
-              messages={{
-                today: "Hoje",
-                previous: "Anterior",
-                next: "Próximo",
-                month: "Mês",
-                week: "Semana",
-                day: "Dia",
-                agenda: "Lista",
-                date: "Data",
-                time: "Hora",
-                event: "Evento",
-                noEventsInRange: "Nenhum evento neste período.",
-                showMore: (total) => `+${total} mais`,
-              }}
-              eventPropGetter={eventPropGetter as any}
-              dayPropGetter={dayPropGetter as any}
-              components={{
-                event: ({ event }) => (
-                  <span className="rbc-event-content">
-                    <HighlightedText text={(event as any as CalendarItem).title} query={searchText} />
-                  </span>
-                ),
-                agenda: {
-                  event: ({ event }) => (
-                    <span>
-                      <HighlightedText text={(event as any as CalendarItem).title} query={searchText} />
-                    </span>
-                  ),
-                },
-              }}
-              style={{ height: "100%" }}
-            />
-          </div>
-        </CardContent>
-      </Card>
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(300px,1fr)] gap-2.5">
+          <Card className="min-h-0 overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
+            <CardContent className="h-full p-2">
+              {view === "year" ? (
+                <div className="grid h-full grid-cols-4 grid-rows-3 gap-3 overflow-auto p-1">
+                  {calendarMonths.map((monthDate) => {
+                    const monthStart = startOfMonth(monthDate);
+                    const days = endOfMonth(monthDate).getDate();
+                    const leadingDays = getDay(monthStart);
+                    return (
+                      <section key={monthDate.getMonth()} className="flex min-h-[118px] flex-col rounded-xl border border-border/70 bg-background/35 p-2">
+                        <button type="button" onClick={() => { setDate(monthDate); setView("month"); }} className="mb-1 text-center text-xs font-bold capitalize hover:text-primary">
+                          {format(monthDate, "MMMM", { locale: ptBR })}
+                        </button>
+                        <div className="grid min-h-0 flex-1 grid-cols-7 gap-1">
+                          {Array.from({ length: leadingDays }).map((_, index) => <span key={`blank-${index}`} />)}
+                          {Array.from({ length: days }, (_, index) => {
+                            const day = new Date(monthDate.getFullYear(), monthDate.getMonth(), index + 1);
+                            const dayEvents = visibleEvents.filter((event) => isSameDay(event.start, day));
+                            return (
+                              <button
+                                key={index + 1}
+                                type="button"
+                                onClick={() => { setDate(day); setView("month"); }}
+                                className={`relative flex min-h-4 items-center justify-center rounded-md border text-[9px] font-medium ${isSameDay(day, new Date()) ? "border-primary bg-primary/20" : "border-border/60 bg-card hover:bg-accent/50"}`}
+                              >
+                                {index + 1}
+                                {dayEvents.length ? <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : view === "week" ? (
+                <div className="grid h-full grid-cols-7 gap-1.5">
+                  {Array.from({ length: 7 }, (_, index) => addDays(visibleRange.start, index)).map((day) => {
+                    const dayEvents = visibleEvents.filter((event) => isSameDay(event.start, day));
+                    return (
+                      <section key={day.toISOString()} className={`min-w-0 rounded-xl border p-1.5 ${isSameDay(day, new Date()) ? "border-primary" : "border-border/70"}`}>
+                        <button type="button" onClick={() => openCreateDialog(day)} className="mb-2 flex w-full items-center justify-between px-1 text-xs font-bold hover:text-primary">
+                          <span className="capitalize">{format(day, "EEE", { locale: ptBR })}</span><span>{format(day, "dd")}</span>
+                        </button>
+                        <div className="space-y-1.5">
+                          {dayEvents.map((event) => (
+                            <button key={event.id} type="button" onClick={() => openCalendarItem(event)} style={eventPropGetter(event).style} className="w-full rounded-lg p-2 text-left text-[10px] font-semibold leading-tight shadow-sm">
+                              {displayEventTitle(event)}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <DnDCalendar
+                  className="calendar-desktop-modern calendar-desktop-rectangles calendar-mockup-month"
+                  localizer={localizer}
+                  culture="pt-BR"
+                  events={events}
+                  startAccessor="start"
+                  endAccessor="end"
+                  titleAccessor="title"
+                  view={Views.MONTH}
+                  date={date}
+                  toolbar={false}
+                  onNavigate={(nextDate) => setDate(nextDate)}
+                  selectable
+                  onSelectSlot={onSelectSlot}
+                  onSelectEvent={(event) => openCalendarItem(event as CalendarItem)}
+                  draggableAccessor={(event) => canEditEvent(event as CalendarItem)}
+                  resizableAccessor={(event) => canEditEvent(event as CalendarItem)}
+                  onEventDrop={(args: EventInteractionArgs<CalendarItem>) => requestMoveConfirm(args.event, { start: args.start, end: args.end, allDay: !!args.isAllDay })}
+                  onEventResize={(args: ResizeEventArgs<CalendarItem>) => requestMoveConfirm(args.event, { start: args.start, end: args.end, allDay: !!args.isAllDay })}
+                  popup
+                  messages={{ today: "Hoje", previous: "Anterior", next: "Próximo", month: "Mês", week: "Semana", day: "Dia", agenda: "Lista", date: "Data", time: "Hora", event: "Evento", noEventsInRange: "Nenhum evento neste período.", showMore: (total) => `+${total} mais` }}
+                  eventPropGetter={eventPropGetter as never}
+                  dayPropGetter={dayPropGetter as never}
+                  components={{
+                    event: ({ event }) => (
+                      <span className="sr-only">{displayEventTitle(event as CalendarItem)}</span>
+                    ),
+                  }}
+                  style={{ height: "100%" }}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <aside className="flex min-h-0 flex-col gap-2.5">
+            <Card className="min-h-0 flex-1 overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
+              <CardContent className="flex h-full min-h-0 flex-col p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div><h3 className="text-base font-bold">Eventos do período</h3><p className="text-xs text-muted-foreground">{visibleEvents.length} {visibleEvents.length === 1 ? "evento" : "eventos"}</p></div>
+                  {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : null}
+                </div>
+                <div className="scrollbar-none min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
+                  {visibleEvents.length ? visibleEvents.map((event, index) => {
+                    const showDate = index === 0 || !isSameDay(event.start, visibleEvents[index - 1].start);
+                    return (
+                      <div key={`${event.id}-${event.start.toISOString()}`}>
+                        {showDate ? <p className="mb-1.5 px-1 text-[11px] font-bold capitalize text-muted-foreground">{format(event.start, "dd 'de' MMMM", { locale: ptBR })}</p> : null}
+                        <button type="button" onClick={() => openCalendarItem(event)} className="group flex w-full items-center gap-3 rounded-xl border border-border/80 bg-background/70 px-2.5 py-2 text-left shadow-sm transition-colors hover:border-primary/35 hover:bg-accent/60">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card transition-colors group-hover:border-primary/30"><CalendarDays className="h-4 w-4" /></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 block text-xs font-bold leading-4">{displayEventTitle(event)}</span>
+                            <span className="mt-0.5 block text-[10px] font-medium text-muted-foreground">
+                              {event.allDay ? "Dia inteiro" : format(event.start, "HH:mm", { locale: ptBR })}
+                            </span>
+                          </span>
+                          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: eventPropGetter(event).style?.backgroundColor }} />
+                        </button>
+                      </div>
+                    );
+                  }) : <div className="flex h-full items-center justify-center px-5 text-center text-xs text-muted-foreground">Nenhum evento para os filtros e período selecionados.</div>}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shrink-0 rounded-2xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
+              <CardContent className="grid grid-cols-3 gap-1.5 p-2">
+                {(Object.keys(DEFAULT_EVENT_FILTERS) as EventFilterKey[]).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setEventFilters((current) => ({ ...current, [filter]: !current[filter] }))}
+                    aria-pressed={eventFilters[filter]}
+                    style={eventFilterStyle(filter)}
+                    className={`min-w-0 rounded-full px-2 py-1 text-[9px] font-bold transition-all ${eventFilters[filter] ? "opacity-100" : "grayscale opacity-35 line-through"}`}
+                  >
+                    <span className="block truncate">{eventFilterLabels[filter]}</span>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
+      </div>
 
       <AlertDialog open={confirmMoveOpen} onOpenChange={setConfirmMoveOpen}>
         <AlertDialogContent>

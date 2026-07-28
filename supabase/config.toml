@@ -9,4 +9,4 @@ subject = "Redefina sua senha no Zelo"
 content_path = "./supabase/email-templates/reset-password.html"
 
 [functions.manage-user-access]
-verify_jwt = false
+verify_jwt = true

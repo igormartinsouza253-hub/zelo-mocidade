@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/AppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { PageHeaderProvider } from "@/components/layout/PageHeaderContext";
+import { OfflineWriteRoute } from "@/components/OfflineWriteRoute";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Membros = lazy(() => import("@/pages/Membros"));
@@ -85,20 +86,20 @@ export function AppRoutes() {
       <Route path="/m" element={<Navigate to="/" replace />} />
 
       <Route path="/membros" element={<ProtectedLayout><Membros /></ProtectedLayout>} />
-      <Route path="/membros/novo" element={<ProtectedLayout><NovoMembro /></ProtectedLayout>} />
+      <Route path="/membros/novo" element={<ProtectedLayout><OfflineWriteRoute fallback="/membros"><NovoMembro /></OfflineWriteRoute></ProtectedLayout>} />
       <Route path="/membros/visualizar/:id" element={<ProtectedLayout><VisualizarMembro /></ProtectedLayout>} />
-      <Route path="/membros/editar/:id" element={<ProtectedLayout><DetalhesMembro /></ProtectedLayout>} />
+      <Route path="/membros/editar/:id" element={<ProtectedLayout><OfflineWriteRoute fallback={(params) => `/membros/visualizar/${params.id}`}><DetalhesMembro /></OfflineWriteRoute></ProtectedLayout>} />
       <Route path="/membros/grupo/:faixa" element={<ProtectedLayout><MembrosGrupo /></ProtectedLayout>} />
 
       <Route path="/reunioes" element={<ProtectedLayout><Reunioes /></ProtectedLayout>} />
-      <Route path="/reunioes/nova" element={<ProtectedLayout><NovaReuniao /></ProtectedLayout>} />
-      <Route path="/reunioes/:id" element={<ProtectedLayout><DetalhesReuniao /></ProtectedLayout>} />
+      <Route path="/reunioes/nova" element={<ProtectedLayout><OfflineWriteRoute fallback="/reunioes"><NovaReuniao /></OfflineWriteRoute></ProtectedLayout>} />
+      <Route path="/reunioes/:id" element={<ProtectedLayout><OfflineWriteRoute fallback={(params) => `/reunioes/visualizar/${params.id}`}><DetalhesReuniao /></OfflineWriteRoute></ProtectedLayout>} />
       <Route path="/reunioes/visualizar/:id" element={<ProtectedLayout><VisualizarReuniao /></ProtectedLayout>} />
       <Route path="/reunioes/historico" element={<ProtectedLayout><HistoricoReunioes /></ProtectedLayout>} />
       <Route path="/reunioes/estatisticas" element={<ProtectedLayout><EstatisticasReunioes /></ProtectedLayout>} />
 
       <Route path="/visitas" element={<ProtectedLayout><Visitas /></ProtectedLayout>} />
-      <Route path="/visitas/nova" element={<ProtectedLayout><NovaVisita /></ProtectedLayout>} />
+      <Route path="/visitas/nova" element={<ProtectedLayout><OfflineWriteRoute fallback="/visitas"><NovaVisita /></OfflineWriteRoute></ProtectedLayout>} />
       <Route path="/visitas/:id" element={<ProtectedLayout><VisualizarVisita /></ProtectedLayout>} />
 
       <Route path="/calendario" element={<ProtectedLayout><Calendario /></ProtectedLayout>} />
@@ -111,8 +112,8 @@ export function AppRoutes() {
       <Route path="/grupo/info" element={<ProtectedLayout><GrupoInfo /></ProtectedLayout>} />
 
       <Route path="/notas" element={<ProtectedLayout><Notas /></ProtectedLayout>} />
-      <Route path="/notas/nova" element={<ProtectedLayout><EditorNota /></ProtectedLayout>} />
-      <Route path="/notas/editar/:id" element={<ProtectedLayout><EditorNota /></ProtectedLayout>} />
+      <Route path="/notas/nova" element={<ProtectedLayout><OfflineWriteRoute fallback="/notas"><EditorNota /></OfflineWriteRoute></ProtectedLayout>} />
+      <Route path="/notas/editar/:id" element={<ProtectedLayout><OfflineWriteRoute fallback="/notas"><EditorNota /></OfflineWriteRoute></ProtectedLayout>} />
 
       <Route path="/cargos" element={<ProtectedLayout><Cargos /></ProtectedLayout>} />
       <Route path="/estatisticas" element={<ProtectedLayout><Estatisticas /></ProtectedLayout>} />

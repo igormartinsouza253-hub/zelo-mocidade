@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -135,7 +135,11 @@ function MobileMeetingCard({
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          selectionMode ? onToggleSelected(reuniao.id) : onOpen(reuniao.id);
+          if (selectionMode) {
+            onToggleSelected(reuniao.id);
+          } else {
+            onOpen(reuniao.id);
+          }
         }
       }}
       {...longPress}
@@ -260,18 +264,24 @@ function MobileMeetingCard({
   );
 }
 
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
 const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; __forceDesktop?: boolean } = {}) => {
-  const AGE_GROUP_COLORS: Record<string, string> = {
+  const AGE_GROUP_COLORS = useMemo<Record<string, string>>(() => ({
     "Crianças": resolveHslFromCssVar("--faixa-criancas", "51 100% 50%"),
     "Meninos": resolveHslFromCssVar("--faixa-meninos", "138 62% 38%"),
     "Meninas": resolveHslFromCssVar("--faixa-meninas", "292 100% 32%"),
     "Moços": resolveHslFromCssVar("--faixa-mocos", "207 64% 47%"),
     "Moças": resolveHslFromCssVar("--faixa-mocas", "335 100% 42%"),
     "Recitativos": resolveHslFromCssVar("--faixa-recitativos", "210 5% 44%"),
-  };
+  }), []);
   const AGE_GROUP_LABELS = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
 
-  const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
+  const detectedMobile = useIsMobile();
+  const isMobile = __forceMobile ? true : __forceDesktop ? false : detectedMobile;
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
   const [filteredReunioes, setFilteredReunioes] = useState<Reuniao[]>([]);
   const [selectedReuniao, setSelectedReuniao] = useState<Reuniao | null>(null);
@@ -290,6 +300,10 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     "all",
   );
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
+  const availableYears = useMemo(
+    () => Array.from(new Set(reunioes.map((reuniao) => reuniao.data.substring(0, 4)))).sort().reverse(),
+    [reunioes],
+  );
 
   // seleção por pressão (mobile)
   const [selectionMode, setSelectionMode] = useState(false);
@@ -302,14 +316,6 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
     return `${day} de ${monthCap}`;
   };
-
-  useEffect(() => {
-    loadReunioes();
-  }, [activeGroupId]);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [reunioes, selectedMonth, selectedYear, sortOrder, searchTerm]);
 
   useEffect(() => {
     setExpandedMeetingId(null);
@@ -369,7 +375,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     };
 
     loadDemographics();
-  }, [activeGroupId, selectedReuniao?.id]);
+  }, [AGE_GROUP_COLORS, activeGroupId, selectedReuniao]);
 
   useEffect(() => {
     const now = new Date();
@@ -434,7 +440,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os meses</SelectItem>
-                  {monthNames.map((month, index) => (
+                  {MONTH_NAMES.map((month, index) => (
                     <SelectItem key={index + 1} value={String(index + 1)}>
                       {month}
                     </SelectItem>
@@ -451,7 +457,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os anos</SelectItem>
-                  {getAvailableYears().map((year) => (
+                  {availableYears.map((year) => (
                     <SelectItem key={year} value={year}>
                       {year}
                     </SelectItem>
@@ -632,9 +638,10 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     selectedIds,
     selectedReuniao,
     activeGroupId,
+    availableYears,
   ]);
 
-  const loadReunioes = async () => {
+  const loadReunioes = useCallback(async () => {
     if (!activeGroupId) {
       setReunioes([]);
       setFilteredReunioes([]);
@@ -669,8 +676,8 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
       };
 
       (membrosCadastrados || [])
-        .filter((membro: any) => membro.ativo !== false)
-        .forEach((membro: any) => {
+        .filter((membro) => membro.ativo !== false)
+        .forEach((membro) => {
           const faixa = membro.faixa_etaria;
           if (faixa && ageGroupTotals[faixa] !== undefined) {
             ageGroupTotals[faixa] += 1;
@@ -704,8 +711,8 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
           });
 
           const prayingNames = (presencas || [])
-            .filter((presenca: any) => Boolean(presenca.orou))
-            .map((presenca: any) => presenca.membro_nome)
+            .filter((presenca) => Boolean(presenca.orou))
+            .map((presenca) => presenca.membro_nome)
             .filter(Boolean);
 
           return {
@@ -725,9 +732,9 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeGroupId]);
 
-  const applyFiltersAndSort = () => {
+  const applyFiltersAndSort = useCallback(() => {
     let filtered = [...reunioes];
 
     if (selectedMonth && selectedMonth !== "all") {
@@ -761,7 +768,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
         const day = Number(r.data.substring(8, 10));
         const month = Number(r.data.substring(5, 7));
         const typedNumber = /^\d{1,2}$/.test(term) ? Number(term) : null;
-        const monthName = normalizeSearch(monthNames[month - 1] || "");
+        const monthName = normalizeSearch(MONTH_NAMES[month - 1] || "");
 
         return (
           tema.includes(term) ||
@@ -789,30 +796,15 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
         return filtered.some((reuniao) => reuniao.id === current.id) ? current : null;
       });
     }
-  };
+  }, [isMobile, reunioes, searchTerm, selectedMonth, selectedYear, sortOrder]);
 
-  const getAvailableYears = () => {
-    const years = new Set<string>();
-    reunioes.forEach((r) => {
-      years.add(r.data.substring(0, 4));
-    });
-    return Array.from(years).sort().reverse();
-  };
+  useEffect(() => {
+    void loadReunioes();
+  }, [loadReunioes]);
 
-  const monthNames = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ];
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [applyFiltersAndSort]);
 
   const handleDeleteReuniao = async (id: string) => {
     const confirmDelete = window.confirm(
@@ -1168,7 +1160,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os meses</SelectItem>
-                        {monthNames.map((month, index) => (
+                        {MONTH_NAMES.map((month, index) => (
                           <SelectItem key={index + 1} value={String(index + 1)}>
                             {month}
                           </SelectItem>
@@ -1185,7 +1177,7 @@ const Reunioes = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; 
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos os anos</SelectItem>
-                        {getAvailableYears().map((year) => (
+                        {availableYears.map((year) => (
                           <SelectItem key={year} value={year}>
                             {year}
                           </SelectItem>

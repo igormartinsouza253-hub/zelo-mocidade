@@ -93,7 +93,7 @@ export const NotasWidget = ({ size, notas, desktopDashboard = false }: NotasWidg
 
   useEffect(() => {
     return () => cancelScheduledNavigate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const notasOrdenadas = [...notas].sort(
