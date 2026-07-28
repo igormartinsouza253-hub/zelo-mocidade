@@ -1692,7 +1692,7 @@ export default function Calendario() {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_300px] gap-2.5">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,3fr)_minmax(300px,1fr)] gap-2.5">
           <Card className="min-h-0 overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
             <CardContent className="h-full p-2">
               {view === "year" ? (
@@ -1785,21 +1785,26 @@ export default function Calendario() {
 
           <aside className="flex min-h-0 flex-col gap-2.5">
             <Card className="min-h-0 flex-1 overflow-hidden rounded-2xl border-border/70 bg-card/95 shadow-[var(--shadow-card)]">
-              <CardContent className="flex h-full min-h-0 flex-col p-2.5">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div><h3 className="text-sm font-bold">Eventos do período</h3><p className="text-[10px] text-muted-foreground">{visibleEvents.length} {visibleEvents.length === 1 ? "evento" : "eventos"}</p></div>
+              <CardContent className="flex h-full min-h-0 flex-col p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div><h3 className="text-base font-bold">Eventos do período</h3><p className="text-xs text-muted-foreground">{visibleEvents.length} {visibleEvents.length === 1 ? "evento" : "eventos"}</p></div>
                   {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : null}
                 </div>
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                <div className="scrollbar-none min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
                   {visibleEvents.length ? visibleEvents.map((event, index) => {
                     const showDate = index === 0 || !isSameDay(event.start, visibleEvents[index - 1].start);
                     return (
                       <div key={`${event.id}-${event.start.toISOString()}`}>
-                        {showDate ? <p className="mb-1 text-[10px] font-semibold capitalize text-muted-foreground">{format(event.start, "dd 'de' MMMM", { locale: ptBR })}</p> : null}
-                        <button type="button" onClick={() => openCalendarItem(event)} className="flex w-full items-center gap-2 rounded-xl border border-border/70 bg-background/45 p-1.5 text-left transition-colors hover:bg-accent/45">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border/70"><CalendarDays className="h-3.5 w-3.5" /></span>
-                          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold">{displayEventTitle(event)}</span>
-                          <span className="h-7 w-2 shrink-0 rounded-full" style={{ backgroundColor: eventPropGetter(event).style?.backgroundColor }} />
+                        {showDate ? <p className="mb-1.5 px-1 text-[11px] font-bold capitalize text-muted-foreground">{format(event.start, "dd 'de' MMMM", { locale: ptBR })}</p> : null}
+                        <button type="button" onClick={() => openCalendarItem(event)} className="group flex w-full items-center gap-3 rounded-xl border border-border/80 bg-background/70 px-2.5 py-2 text-left shadow-sm transition-colors hover:border-primary/35 hover:bg-accent/60">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card transition-colors group-hover:border-primary/30"><CalendarDays className="h-4 w-4" /></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 block text-xs font-bold leading-4">{displayEventTitle(event)}</span>
+                            <span className="mt-0.5 block text-[10px] font-medium text-muted-foreground">
+                              {event.allDay ? "Dia inteiro" : format(event.start, "HH:mm", { locale: ptBR })}
+                            </span>
+                          </span>
+                          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: eventPropGetter(event).style?.backgroundColor }} />
                         </button>
                       </div>
                     );

@@ -29,7 +29,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ZeloLogo } from "@/components/ZeloLogo";
-import { ThemePresetId } from "@/lib/theme-presets";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +42,8 @@ import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { PageHeaderProvider, usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -124,6 +125,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
   const { activeGroupId, activeGroup, loading: loadingGroup } = useActiveGroup();
+  const { isOffline } = useOfflineMode();
   const isViewportMobile = useIsMobile();
   const heartbeatWarningAtRef = useRef(0);
   // Arquitetura por breakpoint: Mobile (<md) e Desktop/Tablet (md+).
@@ -471,30 +473,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user]);
 
-  // Aplica automaticamente o tema salvo como padrão para o usuário ao entrar no app
-  useEffect(() => {
-    if (!user) return;
-
-    const applyUserTheme = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .select("theme_preset, custom_theme")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (error || !data) return;
-
-        const { applyThemePreset } = await import("@/lib/theme-presets");
-        applyThemePreset("verde");
-      } catch (error) {
-        console.error("Erro ao aplicar tema padrão do usuário:", error);
-      }
-    };
-
-    void applyUserTheme();
-  }, [user]);
-
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -504,6 +482,16 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       toast.error("Erro ao fazer logout");
     }
   };
+
+  useEffect(() => {
+    if (!isOffline) return;
+    const params = new URLSearchParams(location.search);
+    if (location.pathname === "/calendario" && params.has("new")) {
+      params.delete("new");
+      navigate({ pathname: "/calendario", search: params.toString() }, { replace: true });
+      toast.info("A criação de eventos fica indisponível enquanto você está offline.");
+    }
+  }, [isOffline, location.pathname, location.search, navigate]);
 
   const shouldHideMobileDock = (pathname: string) => {
     if (pathname.startsWith("/membros/visualizar/")) return true;
@@ -598,6 +586,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   return (
     <>
        <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
+        <OfflineBanner />
         {/* Navegação principal desktop */}
         {!isMobileMode && (
           <header className="desktop-topbar relative hidden h-[68px] shrink-0 items-center px-[18px] md:flex">
@@ -621,7 +610,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               ) : contextualCreate ? (
                 <button
                   type="button"
-                  onClick={() => navigate(contextualCreate.href)}
+                  onClick={() => {
+                    if (isOffline) {
+                      toast.info("Esta ação exige conexão. O modo offline é somente leitura.");
+                      return;
+                    }
+                    navigate(contextualCreate.href);
+                  }}
+                  disabled={isOffline}
                   className="flex h-8 items-center justify-center gap-2 rounded-[15px] bg-primary px-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                   aria-label={contextualCreate.label}
                 >
@@ -636,19 +632,19 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" sideOffset={10} className="w-52 rounded-xl p-1.5">
-                    <DropdownMenuItem onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <Handshake className="mr-2 h-4 w-4" /> Nova reunião
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <UserPlus className="mr-2 h-4 w-4" /> Novo membro
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <CalendarPlus className="mr-2 h-4 w-4" /> Novo evento
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <Handshake className="mr-2 h-4 w-4" /> Nova visita
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <FileText className="mr-2 h-4 w-4" /> Nova nota
                     </DropdownMenuItem>
                   </DropdownMenuContent>

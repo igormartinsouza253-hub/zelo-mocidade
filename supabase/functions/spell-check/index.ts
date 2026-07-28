@@ -20,9 +20,11 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const AI_API_KEY = Deno.env.get("AI_API_KEY");
+    const AI_API_URL = Deno.env.get("AI_API_URL");
+    const AI_MODEL = Deno.env.get("AI_MODEL");
+    if (!AI_API_KEY || !AI_API_URL || !AI_MODEL) {
+      throw new Error("AI_API_KEY, AI_API_URL e AI_MODEL devem ser configurados");
     }
 
     const systemPrompt = `Você é um corretor ortográfico multilíngue.
@@ -32,14 +34,14 @@ Corrija somente erros ortográficos e gramaticais claros.
 Mantenha a estrutura HTML intacta.
 Não adicione explicações, apenas retorne o HTML corrigido.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(AI_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${AI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: AI_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: text }
@@ -55,15 +57,8 @@ Não adicione explicações, apenas retorne o HTML corrigido.`;
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em configurações." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("Configured AI provider error:", response.status, errorText);
       return new Response(
         JSON.stringify({ error: "Erro ao processar correção ortográfica" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

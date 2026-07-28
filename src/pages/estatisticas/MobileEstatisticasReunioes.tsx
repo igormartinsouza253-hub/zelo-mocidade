@@ -1019,7 +1019,7 @@ export default function MobileEstatisticasReunioes() {
                                 {stats.mediaPorFaixa.map((entry) => (
                                   <Cell
                                     key={`cell-total-${entry.faixa}`}
-                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "48 30% 34%")}
                                     fillOpacity={0.45}
                                   />
                                 ))}
@@ -1028,7 +1028,7 @@ export default function MobileEstatisticasReunioes() {
                                 {stats.mediaPorFaixa.map((entry) => (
                                   <Cell
                                     key={`cell-media-${entry.faixa}`}
-                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                    fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "48 30% 34%")}
                                   />
                                 ))}
                               </Bar>
@@ -1061,7 +1061,7 @@ export default function MobileEstatisticasReunioes() {
                                     {stats.mediaPorFaixa.map((entry) => (
                                       <Cell
                                         key={`cell-total-${entry.faixa}`}
-                                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "48 30% 34%")}
                                         fillOpacity={0.45}
                                       />
                                     ))}
@@ -1070,7 +1070,7 @@ export default function MobileEstatisticasReunioes() {
                                     {stats.mediaPorFaixa.map((entry) => (
                                       <Cell
                                         key={`cell-media-${entry.faixa}`}
-                                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "48 30% 34%")}
                                       />
                                     ))}
                                   </Bar>

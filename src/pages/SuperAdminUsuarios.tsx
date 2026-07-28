@@ -61,7 +61,11 @@ function formatDate(value?: string | null) {
   });
 }
 
-export default function SuperAdminUsuarios() {
+type SuperAdminUsuariosProps = {
+  embedded?: boolean;
+};
+
+export default function SuperAdminUsuarios({ embedded = false }: SuperAdminUsuariosProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [users, setUsers] = useState<SuperAdminUser[]>([]);
@@ -103,14 +107,14 @@ export default function SuperAdminUsuarios() {
 
   useEffect(() => {
     if (!user) return;
-    if (!isAllowed) {
+    if (!isAllowed && !embedded) {
       toast.error("Acesso restrito ao super administrador.");
       navigate("/configuracoes", { replace: true });
       return;
     }
     void loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAllowed]);
+  }, [user?.id, isAllowed, embedded, navigate]);
 
   const removeFromGroup = async () => {
     if (!removeTarget) return;
@@ -155,11 +159,11 @@ export default function SuperAdminUsuarios() {
   if (!isAllowed) return null;
 
   return (
-    <div className="settings-mobile min-h-screen bg-background px-3 pb-28 pt-3">
-      <div className="mx-auto max-w-md space-y-3">
-        <Card className="border-primary/40 bg-primary/5">
-          <CardHeader className="pb-3 pt-3 px-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
+    <div className={embedded ? "w-full" : "settings-mobile min-h-screen bg-background px-3 pb-28 pt-3"}>
+      <div className={embedded ? "w-full space-y-3" : "mx-auto max-w-md space-y-3"}>
+        <Card className="rounded-2xl border-primary/35 bg-primary/5 shadow-none">
+          <CardHeader className="px-4 pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Crown className="h-4 w-4 text-primary" />
               Super administração
             </CardTitle>
@@ -183,15 +187,15 @@ export default function SuperAdminUsuarios() {
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-2xl border border-border/50 bg-background/60 p-2">
+              <div className="rounded-xl border border-border/50 bg-background/60 p-2">
                 <p className="text-lg font-bold">{users.length}</p>
                 <p className="text-[10px] text-muted-foreground">Usuários</p>
               </div>
-              <div className="rounded-2xl border border-border/50 bg-background/60 p-2">
+              <div className="rounded-xl border border-border/50 bg-background/60 p-2">
                 <p className="text-lg font-bold">{users.filter((item) => item.online).length}</p>
                 <p className="text-[10px] text-muted-foreground">Online</p>
               </div>
-              <div className="rounded-2xl border border-border/50 bg-background/60 p-2">
+              <div className="rounded-xl border border-border/50 bg-background/60 p-2">
                 <p className="text-lg font-bold">{users.reduce((sum, item) => sum + item.groups.length, 0)}</p>
                 <p className="text-[10px] text-muted-foreground">Vínculos</p>
               </div>
@@ -199,7 +203,7 @@ export default function SuperAdminUsuarios() {
           </CardContent>
         </Card>
 
-        <div className="space-y-2">
+        <div className={embedded ? "grid gap-3 xl:grid-cols-2" : "space-y-2"}>
           {loading ? (
             <Card>
               <CardContent className="p-4 text-center text-sm text-muted-foreground">Carregando usuários...</CardContent>
@@ -213,7 +217,7 @@ export default function SuperAdminUsuarios() {
               const name = displayName(item);
               const isSelf = item.id === user?.id;
               return (
-                <Card key={item.id}>
+                <Card key={item.id} className="rounded-2xl border-border/60 shadow-none">
                   <CardContent className="space-y-3 p-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-12 w-12 rounded-2xl">

@@ -14,7 +14,11 @@ async function clearAppCaches() {
 
   if ("caches" in window) {
     const cacheNames = await caches.keys();
-    await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+    await Promise.all(
+      cacheNames
+        .filter((cacheName) => !cacheName.startsWith("zelo-offline-media"))
+        .map((cacheName) => caches.delete(cacheName)),
+    );
   }
 }
 
@@ -33,6 +37,7 @@ function isChunkLoadError(reason: unknown) {
 
 async function recoverFromStaleApp() {
   if (sessionStorage.getItem(RECOVERY_FLAG) === "1") return;
+  if (navigator.onLine === false) return;
 
   sessionStorage.setItem(RECOVERY_FLAG, "1");
   await clearAppCaches();

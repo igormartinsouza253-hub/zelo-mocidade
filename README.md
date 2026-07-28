@@ -1,73 +1,49 @@
-# Welcome to your Lovable project
+# Zelo
 
-## Project info
+Aplicativo de gestão para grupos de mocidade, com membros, reuniões, calendário,
+visitas, notas, estatísticas e suporte offline para consulta.
 
-**URL**: https://lovable.dev/projects/f449b709-2e9e-4a65-99df-25f4dd7ae264
+## Requisitos
 
-## How can I edit this code?
+- Node.js 20 ou superior
+- npm
+- Projeto Supabase configurado
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/f449b709-2e9e-4a65-99df-25f4dd7ae264) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Desenvolvimento local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+O servidor de desenvolvimento utiliza `http://127.0.0.1:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Verificações
 
-**Use GitHub Codespaces**
+```sh
+npm run typecheck
+npm test
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Variáveis do frontend
 
-## What technologies are used for this project?
+Crie um arquivo `.env.local` com as credenciais públicas do Supabase:
 
-This project is built with:
+```env
+VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Funções de IA opcionais
 
-## How can I deploy this project?
+As funções `spell-check` e `ai-assistant` aceitam qualquer provedor compatível
+com o formato Chat Completions. Configure os secrets no Supabase:
 
-Simply open [Lovable](https://lovable.dev/projects/f449b709-2e9e-4a65-99df-25f4dd7ae264) and click on Share -> Publish.
+```env
+AI_API_KEY=
+AI_API_URL=
+AI_MODEL=
+```
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+O projeto não depende de serviços ou ferramentas do Lovable.

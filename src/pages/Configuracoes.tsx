@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -6,14 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown, RotateCcw } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown, RotateCcw, ChevronRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { z } from "zod";
-import ExcelJS from "exceljs";
+import type { CellValue } from "exceljs";
 import { toast } from "sonner";
-import { ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/theme-presets";
+import { applyThemePreset, ThemePresetId, CustomThemeConfig, THEME_PRESETS_META } from "@/lib/theme-presets";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
 import { NotificationSettingsSection } from "@/components/settings/NotificationSettingsSection";
@@ -45,12 +45,17 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { cn } from "@/lib/utils";
 
+const SuperAdminUsuarios = lazy(() => import("@/pages/SuperAdminUsuarios"));
+const ConfiguracoesGrupoAdmin = lazy(() => import("@/pages/ConfiguracoesGrupoAdmin"));
+
 const ENABLE_LEGACY_USER_MANAGEMENT = false;
+
+type DesktopSettingsSection = "users" | "theme" | "group" | "notifications" | "data" | "superAdmin" | "about";
 
 interface UserWithRole {
   id: string;
@@ -73,7 +78,7 @@ function deriveNameFromEmail(email?: string | null) {
 const Configuracoes = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { user } = useAuth();
   const { activeGroup, activeGroupId, isAdmin: isGroupAdmin } = useActiveGroup();
   const isMobile = useIsMobile();
@@ -124,6 +129,7 @@ const Configuracoes = () => {
 
   // Navegação interna mobile para subpáginas de configurações
   const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "notifications" | "data" | "about">("root");
+  const [desktopSection, setDesktopSection] = useState<DesktopSettingsSection | null>(null);
   
   // Importação de membros
   const [importing, setImporting] = useState(false);
@@ -143,10 +149,7 @@ const Configuracoes = () => {
   useEffect(() => {
     checkAdminStatus();
     if (user) {
-      loadUserPreferences();
       loadAccountInfo();
-      const cleanupPresence = subscribeToOnlineUsers();
-      return cleanupPresence;
     }
   }, [user]);
 
@@ -169,21 +172,6 @@ const Configuracoes = () => {
     void loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, canManageRestricted]);
-
-  // Reaplica a identidade visual fixa ao alternar Claro/Escuro/Sistema.
-  useEffect(() => {
-    const modeKey = resolvedTheme ?? theme;
-    if (!modeKey) return;
-
-    // Defer para garantir que a classe (dark) já foi atualizada pelo next-themes
-    const t = window.setTimeout(() => {
-      import("@/lib/theme-presets").then(({ applyThemePreset }) => {
-        applyThemePreset("verde");
-      });
-    }, 0);
-
-    return () => window.clearTimeout(t);
-  }, [theme, resolvedTheme]);
 
   const checkAdminStatus = async () => {
     if (!user) return;
@@ -243,9 +231,7 @@ const Configuracoes = () => {
       if (data) {
         setThemePreset("verde");
         setCustomTheme(null);
-        import("@/lib/theme-presets").then(({ applyThemePreset }) => {
-          applyThemePreset("verde");
-        });
+        applyThemePreset("verde");
       }
     } catch (error) {
       console.error('Erro ao carregar preferências de usuário:', error);
@@ -288,7 +274,7 @@ const Configuracoes = () => {
   const subscribeToOnlineUsers = () => {
     if (!user) return undefined;
 
-    const channel = supabase.channel('online-users');
+    const channel = supabase.channel(`online-users:${user.id}:${crypto.randomUUID()}`);
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -579,6 +565,7 @@ const Configuracoes = () => {
   };
 
   const handleDownloadTemplate = async () => {
+    const { default: ExcelJS } = await import("exceljs");
     const header = [
       "nome",
       "faixa_etaria",
@@ -615,6 +602,7 @@ const Configuracoes = () => {
     setImportSummary(null);
 
     try {
+      const { default: ExcelJS } = await import("exceljs");
       if (file.size > 5 * 1024 * 1024) {
         throw new Error("A planilha deve ter no máximo 5 MB.");
       }
@@ -625,7 +613,7 @@ const Configuracoes = () => {
       const worksheet = workbook.worksheets[0];
       if (!worksheet) throw new Error("A planilha não contém abas.");
 
-      const headers = worksheet.getRow(1).values as ExcelJS.CellValue[];
+      const headers = worksheet.getRow(1).values as CellValue[];
       const rows: Record<string, string>[] = [];
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1 || rows.length >= 5000) return;
@@ -873,187 +861,21 @@ const Configuracoes = () => {
   };
 
 
-  type HslColor = { h: number; s: number; l: number };
-
-  const parseHslString = (value?: string | null): HslColor => {
-    if (!value) return { h: 158, s: 64, l: 52 };
-    const parts = value
-      .toString()
-      .trim()
-      .split(/[\s,]+/)
-      .filter(Boolean);
-    if (parts.length < 3) return { h: 158, s: 64, l: 52 };
-    const [hRaw, sRaw, lRaw] = parts;
-    const h = Number.parseFloat(hRaw) || 0;
-    const s = Number.parseFloat(sRaw) || 0;
-    const l = Number.parseFloat(lRaw) || 0;
-    return {
-      h: Math.min(360, Math.max(0, h)),
-      s: Math.min(100, Math.max(0, s)),
-      l: Math.min(100, Math.max(0, l)),
-    };
-  };
-
-  const formatHslString = ({ h, s, l }: HslColor): string => {
-    return `${Math.round(h)} ${Math.round(s)}% ${Math.round(l)}%`;
-  };
-
-  interface HslPickerProps {
-    label: string;
-    value?: string | null;
-    onChange: (value: string) => void;
-  }
-
-  const HslColorPicker = ({ label, value, onChange }: HslPickerProps) => {
-    const { h, s, l } = parseHslString(value);
-
-    const update = (partial: Partial<HslColor>) => {
-      const next = { h, s, l, ...partial };
-      onChange(formatHslString(next));
-    };
-
-    return (
-      <div className="space-y-1">
-        <Label className="text-xs md:text-sm">{label}</Label>
-        <div className="flex items-center gap-3">
-          <div
-            className="relative h-14 w-14 rounded-full border border-border flex-shrink-0"
-            style={{
-              backgroundImage:
-                "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)",
-            }}
-          >
-            <div
-              className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background shadow"
-              style={{
-                transform: `translate(-50%, -50%) rotate(${h}deg) translateY(-24px)`,
-              }}
-            />
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground">
-              <span className="w-10">Matiz</span>
-              <input
-                type="range"
-                min={0}
-                max={360}
-                value={h}
-                onChange={(e) => update({ h: Number(e.target.value) })}
-                className="w-full"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground">
-              <span className="w-10">Sat.</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={s}
-                onChange={(e) => update({ s: Number(e.target.value) })}
-                className="w-full"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground">
-              <span className="w-10">Lum.</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={l}
-                onChange={(e) => update({ l: Number(e.target.value) })}
-                className="w-full"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const applyPresetInstant = (preset: ThemePresetId) => {
+    setThemePreset(preset);
+    applyThemePreset(preset);
   };
 
   const handleSaveTheme = async () => {
-    if (!user) {
-      toast.error("É necessário estar autenticado para salvar o tema.");
-      return;
-    }
-
-    setSavingTheme(true);
-    try {
-      const customConfig: CustomThemeConfig | null = customTheme;
-
-      const payload = {
-        user_id: user.id,
-        theme_preset: themePreset,
-        custom_theme: customConfig ? ({ ...customConfig } as Json) : null,
-      };
-
-      const { error } = await supabase
-        .from("user_preferences")
-        .upsert(payload, { onConflict: "user_id" });
-
-      if (error) throw error;
-
-      const { applyThemePreset } = await import("@/lib/theme-presets");
-      applyThemePreset(themePreset, customConfig || undefined);
-
-      toast.success(
-        makeDefaultTheme
-          ? "Tema salvo e definido como padrão para a sua conta!"
-          : "Tema salvo com sucesso!",
-      );
-    } catch (error) {
-      console.error("Erro ao salvar tema:", error);
-      toast.error("Erro ao salvar tema");
-    } finally {
-      setSavingTheme(false);
-    }
+    toast.info("A identidade visual do Zelo agora é única.");
   };
 
   const handleResetTheme = async () => {
-    if (!user) {
-      toast.error("É necessário estar autenticado para restaurar o tema.");
-      return;
-    }
-
-    setSavingTheme(true);
-    try {
-      const defaultPreset: ThemePresetId = "verde";
-      const { error } = await supabase
-        .from("user_preferences")
-        .upsert(
-          {
-            user_id: user.id,
-            theme_preset: defaultPreset,
-            custom_theme: null,
-          },
-          { onConflict: "user_id" },
-        );
-
-      if (error) throw error;
-
-      setThemePreset(defaultPreset);
-      setCustomTheme(null);
-      setTheme("system");
-
-      const { applyThemePreset } = await import("@/lib/theme-presets");
-      applyThemePreset(defaultPreset);
-
-      toast.success("Tema padrão restaurado.");
-    } catch (error) {
-      console.error("Erro ao restaurar tema padrão:", error);
-      toast.error("Não foi possível restaurar o tema padrão.");
-    } finally {
-      setSavingTheme(false);
-    }
+    setThemePreset("verde");
+    setTheme("system");
+    applyThemePreset("verde");
+    toast.success("Modo de exibição restaurado.");
   };
-
-  const applyPresetInstant = (preset: ThemePresetId) => {
-    const customConfig: CustomThemeConfig | null = customTheme;
-
-    import("@/lib/theme-presets").then(({ applyThemePreset }) => {
-      applyThemePreset(preset, customConfig || undefined);
-    });
-  };
-
 
   if (isMobile) {
     return (
@@ -1214,32 +1036,98 @@ const Configuracoes = () => {
                 </CardHeader>
                 <CardContent className="pb-3 px-3 space-y-3">
                   <div className="space-y-2">
-                    <Label className="text-xs">Modo de exibição</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        variant={theme === "light" ? "default" : "outline"}
-                        onClick={() => setTheme("light")}
-                        className="gap-1.5 h-8 text-xs"
-                      >
-                        <Sun className="h-3.5 w-3.5" />
-                        Claro
-                      </Button>
-                      <Button
-                        variant={theme === "dark" ? "default" : "outline"}
-                        onClick={() => setTheme("dark")}
-                        className="gap-1.5 h-8 text-xs"
-                      >
-                        <Moon className="h-3.5 w-3.5" />
-                        Escuro
-                      </Button>
-                      <Button
-                        variant={theme === "system" ? "default" : "outline"}
-                        onClick={() => setTheme("system")}
-                        className="gap-1.5 h-8 text-xs"
-                      >
-                        <Monitor className="h-3.5 w-3.5" />
-                        Sistema
-                      </Button>
+                    <Label className="text-xs font-semibold">Modo de exibição</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Veja uma prévia da interface antes de escolher.
+                    </p>
+                    <div className="grid gap-3">
+                      {[
+                        {
+                          id: "light",
+                          title: "Claro",
+                          description: "Superfícies claras e contraste suave.",
+                          icon: Sun,
+                          previewClass: "bg-[#f4f1e8]",
+                          panelClass: "bg-white border-[#d6d1c5]",
+                          mutedClass: "bg-[#e5e1d7]",
+                          accentClass: "bg-[#d8cfae]",
+                        },
+                        {
+                          id: "dark",
+                          title: "Escuro",
+                          description: "Menos brilho para ambientes escuros.",
+                          icon: Moon,
+                          previewClass: "bg-[#171916]",
+                          panelClass: "bg-[#292b27] border-[#464842]",
+                          mutedClass: "bg-[#3a3c37]",
+                          accentClass: "bg-[#d8cfae]",
+                        },
+                        {
+                          id: "system",
+                          title: "Sistema",
+                          description: "Acompanha automaticamente seu dispositivo.",
+                          icon: Monitor,
+                          previewClass: "bg-[linear-gradient(110deg,#f4f1e8_0%,#f4f1e8_49%,#171916_50%,#171916_100%)]",
+                          panelClass: "bg-[linear-gradient(110deg,#fff_0%,#fff_49%,#292b27_50%,#292b27_100%)] border-[#77776f]",
+                          mutedClass: "bg-[linear-gradient(90deg,#e5e1d7_0%,#e5e1d7_49%,#3a3c37_50%,#3a3c37_100%)]",
+                          accentClass: "bg-[#d8cfae]",
+                        },
+                      ].map((mode) => {
+                        const Icon = mode.icon;
+                        const active = theme === mode.id;
+                        return (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => setTheme(mode.id)}
+                            aria-pressed={active}
+                            style={{ borderRadius: "12px" }}
+                            className={`overflow-hidden rounded-xl border text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/70 ${
+                              active
+                                ? "border-primary bg-primary/5 ring-1 ring-inset ring-primary/45"
+                                : "border-border/60 bg-background/50"
+                            }`}
+                          >
+                            <span className={`block h-32 border-b border-border/45 p-3 ${mode.previewClass}`}>
+                              <span className={`block h-full overflow-hidden rounded-xl border p-2 shadow-sm ${mode.panelClass}`}>
+                                <span className="mb-2 flex items-center gap-1.5">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${mode.accentClass}`} />
+                                  <span className={`h-2.5 flex-1 rounded-full ${mode.mutedClass}`} />
+                                </span>
+                                <span className="grid h-[4.75rem] grid-cols-[1.1fr_0.75fr] gap-2">
+                                  <span className={`rounded-lg p-2 ${mode.mutedClass}`}>
+                                    <span className={`block h-2 w-3/4 rounded-full ${mode.accentClass}`} />
+                                    <span className="mt-2 flex h-9 items-end gap-1">
+                                      {[45, 72, 58, 88].map((height, index) => (
+                                        <span
+                                          key={index}
+                                          className={`flex-1 rounded-t-sm ${mode.accentClass}`}
+                                          style={{ height: `${height}%`, opacity: 0.55 + index * 0.12 }}
+                                        />
+                                      ))}
+                                    </span>
+                                  </span>
+                                  <span className="space-y-1.5">
+                                    <span className={`block h-5 rounded-md ${mode.mutedClass}`} />
+                                    <span className={`block h-5 rounded-md ${mode.mutedClass}`} />
+                                    <span className={`block h-5 rounded-md ${mode.accentClass}`} />
+                                  </span>
+                                </span>
+                              </span>
+                            </span>
+                            <span className="flex items-start gap-2.5 p-3">
+                              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-foreground">{mode.title}</span>
+                                  {active ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Atual</span> : null}
+                                </span>
+                                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{mode.description}</span>
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </CardContent>
@@ -1734,50 +1622,200 @@ const Configuracoes = () => {
     );
   }
 
+  const desktopSettingsItems: {
+    value: DesktopSettingsSection;
+    title: string;
+    description: string;
+    icon: typeof Monitor;
+  }[] = [
+    {
+      value: "users",
+      title: "Usuário",
+      description: "Foto, nome de usuário, email e senha da sua conta.",
+      icon: User,
+    },
+    {
+      value: "theme",
+      title: "Aparência",
+      description: "Modo claro, escuro e preferências visuais do app.",
+      icon: Monitor,
+    },
+    {
+      value: "group",
+      title: "Grupo gestor",
+      description: "Nome, senha, membros e solicitações de entrada.",
+      icon: Shield,
+    },
+    {
+      value: "notifications",
+      title: "Notificações",
+      description: "Escolha quais alertas e lembretes deseja receber.",
+      icon: Bell,
+    },
+    ...(canManageRestricted
+      ? [
+          {
+            value: "data" as const,
+            title: "Importação e backup",
+            description: "Importe membros e proteja os dados do grupo.",
+            icon: FileSpreadsheet,
+          },
+        ]
+      : []),
+    ...(isSuperAdmin
+      ? [
+          {
+            value: "superAdmin" as const,
+            title: "Super administração",
+            description: "Gerencie usuários e permissões globais do Zelo.",
+            icon: Crown,
+          },
+        ]
+      : []),
+    {
+      value: "about",
+      title: "Sobre o Zelo",
+      description: "Objetivo, funcionamento e compromisso do aplicativo.",
+      icon: Info,
+    },
+  ];
+
+  const selectedDesktopSetting = desktopSettingsItems.find((item) => item.value === desktopSection) ?? null;
+  const SelectedDesktopIcon = selectedDesktopSetting?.icon ?? Monitor;
+  const desktopTabValue =
+    desktopSection === "theme"
+      ? "tema"
+      : desktopSection === "users"
+        ? "usuarios"
+      : desktopSection === "data"
+          ? "dados"
+          : desktopSection ?? "";
+
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <div className="container mx-auto px-3 md:px-4 py-4 md:py-8 max-w-4xl w-full">
- 
-        <div className="space-y-4 md:space-y-6">
-          <GroupSettingsSection />
-          {/* Card de acesso rápido à administração do grupo (se for admin do grupo) */}
-          {isGroupAdmin && activeGroup && (
-            <Card>
-              <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
-                <CardTitle className="text-sm md:text-lg flex items-center gap-2">
-                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
-                  Administração do Grupo
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Gerencie as configurações do grupo {activeGroup.name}
-                </CardDescription>
+    <div className="h-full w-full overflow-hidden bg-background">
+      <Tabs value={desktopTabValue} className="h-full w-full">
+        <div className={`grid h-full min-h-0 gap-3 p-3 ${
+          selectedDesktopSetting
+            ? "grid-cols-[minmax(20rem,0.86fr)_minmax(36rem,1.7fr)]"
+            : "grid-cols-1"
+        }`}>
+          <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+            <CardHeader className="px-4 pb-3 pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-lg font-semibold">Configurações</CardTitle>
+                  <CardDescription className="mt-0.5 text-sm">
+                    Personalize o app e gerencie seu grupo.
+                  </CardDescription>
+                </div>
+                <span className="flex h-9 min-w-9 items-center justify-center rounded-full bg-secondary px-3 text-sm font-semibold tabular-nums text-foreground">
+                  {desktopSettingsItems.length}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="min-h-0 flex-1 px-4 pb-4 pt-1">
+              <div className="h-full min-h-0 space-y-2.5 overflow-y-auto p-1 scrollbar-none">
+                {desktopSettingsItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = desktopSection === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setDesktopSection((current) => current === item.value ? null : item.value)}
+                      className={`group flex min-h-[5.35rem] w-full items-center gap-4 rounded-2xl border p-3 text-left outline-none transition-all hover:border-primary/50 hover:bg-secondary/45 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70 ${
+                        active
+                          ? "border-primary bg-primary/10 ring-1 ring-inset ring-primary/55"
+                          : "border-border/55 bg-background/50"
+                      }`}
+                    >
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-base font-semibold text-foreground">{item.title}</span>
+                        <span className="mt-1 block truncate text-sm text-muted-foreground">{item.description}</span>
+                      </span>
+                      <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${active ? "rotate-180 text-primary" : "group-hover:translate-x-0.5"}`} />
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedDesktopSetting ? (
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="flex-none border-b border-border/45 px-4 pb-3 pt-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary">
+                    <SelectedDesktopIcon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-xl font-semibold">{selectedDesktopSetting.title}</CardTitle>
+                    <CardDescription className="mt-0.5 truncate text-sm">{selectedDesktopSetting.description}</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="pb-3 md:pb-6 px-3 md:px-6">
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => navigate("/configuracoes/grupo-admin")}
-                  className="gap-2 h-8 md:h-10 text-xs md:text-sm"
-                >
-                  <Shield className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  Acessar painel de administração
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+              <CardContent className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 scrollbar-none">
+                <TabsContent value="group" className="mt-0 space-y-3">
+                  <GroupSettingsSection />
+                  {isGroupAdmin && activeGroup ? (
+                    <Suspense
+                      fallback={
+                        <div className="rounded-2xl border border-border/60 p-6 text-sm text-muted-foreground">
+                          Carregando administração avançada...
+                        </div>
+                      }
+                    >
+                      <ConfiguracoesGrupoAdmin embedded advancedOnly />
+                    </Suspense>
+                  ) : null}
+                </TabsContent>
 
-          <Tabs defaultValue="tema" className="w-full">
-            <TabsList className="mb-4 flex flex-wrap gap-2">
-              <TabsTrigger value="tema">Aparência</TabsTrigger>
-              {canManageRestricted && (
-                <>
-                  <TabsTrigger value="usuarios">Usuários e cargos</TabsTrigger>
-                  <TabsTrigger value="dados">Importação e backup</TabsTrigger>
-                </>
-              )}
-            </TabsList>
+                <TabsContent value="notifications" className="mt-0">
+                  <NotificationSettingsSection />
+                </TabsContent>
 
-            <TabsContent value="tema" className="space-y-4 md:space-y-6">
+                <TabsContent value="about" className="mt-0">
+                  <Card className="rounded-2xl border-border/60 shadow-none">
+                    <CardHeader className="px-4 pb-3 pt-4">
+                      <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                        <Info className="h-5 w-5" />
+                        Sobre o Zelo
+                      </CardTitle>
+                      <CardDescription>
+                        Tecnologia a serviço do cuidado com a mocidade.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 px-4 pb-4 pt-0 lg:grid-cols-3">
+                      {[
+                        ["Nosso objetivo", "Reunir membros, reuniões, visitas, notas, cargos e estatísticas em um só lugar para apoiar o grupo gestor."],
+                        ["Como o app ajuda", "O Zelo reduz retrabalho, organiza históricos e facilita decisões com informações claras e protegidas por grupo."],
+                        ["Nosso compromisso", "Manter uma experiência discreta, rápida e segura para que a tecnologia ajude sem atrapalhar a rotina."],
+                      ].map(([title, description]) => (
+                        <div key={title} className="rounded-2xl border border-border/55 bg-background/50 p-4">
+                          <h3 className="font-semibold text-foreground">{title}</h3>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="superAdmin" className="mt-0">
+                  <Suspense
+                    fallback={
+                      <div className="rounded-2xl border border-border/60 p-6 text-sm text-muted-foreground">
+                        Carregando super administração...
+                      </div>
+                    }
+                  >
+                    <SuperAdminUsuarios embedded />
+                  </Suspense>
+                </TabsContent>
+
+            <TabsContent value="tema" className="mt-0 space-y-4 md:space-y-6">
               {/* Appearance & Theme Presets */}
               <Card>
                 <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
@@ -1788,32 +1826,93 @@ const Configuracoes = () => {
                 </CardHeader>
                 <CardContent className="pb-3 md:pb-6 px-3 md:px-6 space-y-4">
                   <div className="space-y-3 md:space-y-4">
-                    <Label className="text-xs md:text-sm">Modo (claro/escuro)</Label>
-                    <div className="grid grid-cols-3 gap-2 md:gap-4">
-                      <Button
-                        variant={theme === "light" ? "default" : "outline"}
-                        onClick={() => setTheme("light")}
-                        className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
-                      >
-                        <Sun className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                        Claro
-                      </Button>
-                      <Button
-                        variant={theme === "dark" ? "default" : "outline"}
-                        onClick={() => setTheme("dark")}
-                        className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
-                      >
-                        <Moon className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                        Escuro
-                      </Button>
-                      <Button
-                        variant={theme === "system" ? "default" : "outline"}
-                        onClick={() => setTheme("system")}
-                        className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
-                      >
-                        <Monitor className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                        Sistema
-                      </Button>
+                    <div>
+                      <Label className="text-sm font-semibold">Modo de exibição</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Escolha um modo e veja uma prévia da interface antes de aplicar.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        {
+                          id: "light",
+                          title: "Claro",
+                          description: "Superfícies claras e contraste suave.",
+                          icon: Sun,
+                          previewClass: "bg-[#f4f1e8]",
+                          panelClass: "bg-white border-[#d6d1c5]",
+                          mutedClass: "bg-[#e5e1d7]",
+                          accentClass: "bg-[#d8cfae]",
+                        },
+                        {
+                          id: "dark",
+                          title: "Escuro",
+                          description: "Menos brilho para ambientes escuros.",
+                          icon: Moon,
+                          previewClass: "bg-[#171916]",
+                          panelClass: "bg-[#292b27] border-[#464842]",
+                          mutedClass: "bg-[#3a3c37]",
+                          accentClass: "bg-[#d8cfae]",
+                        },
+                        {
+                          id: "system",
+                          title: "Sistema",
+                          description: "Acompanha automaticamente seu dispositivo.",
+                          icon: Monitor,
+                          previewClass: "bg-[linear-gradient(110deg,#f4f1e8_0%,#f4f1e8_49%,#171916_50%,#171916_100%)]",
+                          panelClass: "bg-[linear-gradient(110deg,#fff_0%,#fff_49%,#292b27_50%,#292b27_100%)] border-[#77776f]",
+                          mutedClass: "bg-[linear-gradient(90deg,#e5e1d7_0%,#e5e1d7_49%,#3a3c37_50%,#3a3c37_100%)]",
+                          accentClass: "bg-[#d8cfae]",
+                        },
+                      ].map((mode) => {
+                        const Icon = mode.icon;
+                        const active = theme === mode.id;
+                        return (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => setTheme(mode.id)}
+                            aria-pressed={active}
+                            className={`overflow-hidden rounded-2xl border text-left outline-none transition-all hover:border-primary/55 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-primary/70 ${
+                              active ? "border-primary bg-primary/5 ring-1 ring-primary/55" : "border-border/60 bg-background/45"
+                            }`}
+                          >
+                            <span className={`block h-32 border-b border-border/45 p-3 ${mode.previewClass}`}>
+                              <span className={`block h-full overflow-hidden rounded-xl border p-2 shadow-sm ${mode.panelClass}`}>
+                                <span className="mb-2 flex items-center gap-1.5">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${mode.accentClass}`} />
+                                  <span className={`h-2.5 flex-1 rounded-full ${mode.mutedClass}`} />
+                                </span>
+                                <span className="grid h-[4.75rem] grid-cols-[1.1fr_0.75fr] gap-2">
+                                  <span className={`rounded-lg p-2 ${mode.mutedClass}`}>
+                                    <span className={`block h-2 w-3/4 rounded-full ${mode.accentClass}`} />
+                                    <span className="mt-2 flex h-9 items-end gap-1">
+                                      {[45, 72, 58, 88].map((height, index) => (
+                                        <span key={index} className={`flex-1 rounded-t-sm ${mode.accentClass}`} style={{ height: `${height}%`, opacity: 0.55 + index * 0.12 }} />
+                                      ))}
+                                    </span>
+                                  </span>
+                                  <span className="space-y-1.5">
+                                    <span className={`block h-5 rounded-md ${mode.mutedClass}`} />
+                                    <span className={`block h-5 rounded-md ${mode.mutedClass}`} />
+                                    <span className={`block h-5 rounded-md ${mode.accentClass}`} />
+                                  </span>
+                                </span>
+                              </span>
+                            </span>
+                            <span className="flex items-start gap-2.5 p-3">
+                              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-foreground">{mode.title}</span>
+                                  {active ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Atual</span> : null}
+                                </span>
+                                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{mode.description}</span>
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -2137,7 +2236,7 @@ const Configuracoes = () => {
                       </Button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="hidden flex-col sm:flex-row gap-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -2154,7 +2253,7 @@ const Configuracoes = () => {
                </Card>
 
                {/* Minha conta - disponível para todos os usuários */}
-               <Card>
+               <Card className="hidden">
                  <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
                    <CardTitle className="flex items-center gap-1.5 md:gap-2 text-sm md:text-lg">
                      <User className="h-4 w-4 md:h-5 md:w-5" />
@@ -2293,46 +2392,51 @@ const Configuracoes = () => {
                )}
              </TabsContent>
 
-            {isAdmin && (
+            {(canManageRestricted || desktopSection === "users") && (
               <>
                 <TabsContent value="usuarios" className="space-y-4 md:space-y-6">
                   {/* Account Management for current user */}
-                  <Card>
-                    <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
-                      <CardTitle className="flex items-center gap-1.5 md:gap-2 text-sm md:text-lg">
-                        <User className="h-4 w-4 md:h-5 md:w-5" />
+                  <Card className="rounded-2xl border-border/60 bg-card/80 shadow-none">
+                    <CardHeader className="border-b border-border/45 px-4 pb-4 pt-4">
+                      <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                        <User className="h-5 w-5" />
                         Minha conta
                       </CardTitle>
-                      <CardDescription className="text-xs md:text-sm">
-                        Atualize seu username e, se necessário, a senha de acesso.
+                      <CardDescription className="text-sm">
+                        Gerencie sua identidade e as credenciais usadas para acessar o Zelo.
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3 md:space-y-4 pb-3 md:pb-6 px-3 md:px-6">
-                       <div className="flex items-center gap-4">
-                         <Avatar className="h-14 w-14 md:h-16 md:w-16">
+                    <CardContent className="space-y-5 px-4 pb-4 pt-4">
+                       <div className="flex items-center gap-4 rounded-xl border border-border/55 bg-secondary/35 p-4">
+                         <Avatar className="h-20 w-20 shrink-0 rounded-xl border border-border/60">
                            {accountAvatarUrl ? (
-                             <AvatarImage src={accountAvatarUrl} alt="Foto de perfil" />
+                             <AvatarImage src={accountAvatarUrl} alt="Foto de perfil" className="rounded-xl object-cover" />
                            ) : (
-                             <AvatarFallback>
+                             <AvatarFallback className="rounded-xl text-xl font-semibold">
                                {(accountUsername || 'U').charAt(0).toUpperCase()}
                              </AvatarFallback>
                            )}
                          </Avatar>
-                         <div className="space-y-1">
+                         <div className="min-w-0 flex-1 space-y-2">
+                           <div>
+                             <p className="truncate text-base font-semibold text-foreground">
+                               {accountUsername || "Minha conta"}
+                             </p>
+                             <p className="truncate text-sm text-muted-foreground">
+                               {accountEmail || "Email não informado"}
+                             </p>
+                           </div>
                            <Button
                              type="button"
                              variant="outline"
                              size="sm"
-                             className="gap-1.5 md:gap-2 h-8 md:h-9 text-xs md:text-sm"
+                             className="h-9 gap-2 rounded-lg text-sm"
                              disabled={avatarSaving}
                              onClick={() => fileInputRef.current?.click()}
                            >
-                             <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                             {avatarSaving ? 'Salvando foto...' : 'Alterar foto de perfil'}
+                             <Camera className="h-4 w-4" />
+                             {avatarSaving ? 'Salvando foto...' : 'Alterar foto'}
                            </Button>
-                           <p className="text-[11px] md:text-xs text-muted-foreground">
-                             Ajuste a imagem como na foto de perfil do WhatsApp.
-                           </p>
                          </div>
                          <input
                            ref={fileInputRef}
@@ -2343,24 +2447,29 @@ const Configuracoes = () => {
                          />
                        </div>
  
-                       <div className="space-y-2">
-                         <Label className="text-xs md:text-sm">Email</Label>
-                         <Input value={accountEmail ?? ''} disabled className="text-xs md:text-sm" />
+                       <div className="grid gap-3 lg:grid-cols-2">
+                         <div className="space-y-2 rounded-xl border border-border/55 bg-background/45 p-3">
+                           <Label className="text-sm font-medium">Email</Label>
+                           <Input value={accountEmail ?? ''} disabled className="h-10 rounded-lg text-sm" />
+                           <p className="text-xs text-muted-foreground">O email de acesso não pode ser alterado aqui.</p>
+                         </div>
+ 
+                         <div className="space-y-2 rounded-xl border border-border/55 bg-background/45 p-3">
+                           <Label className="text-sm font-medium">Nome de exibição</Label>
+                           <Input
+                             value={accountUsername}
+                             onChange={(e) => setAccountUsername(e.target.value)}
+                             placeholder="Seu nome"
+                             disabled={accountLoading}
+                             className="h-10 rounded-lg"
+                           />
+                           <p className="text-xs text-muted-foreground">Este nome aparece para os outros membros.</p>
+                         </div>
                        </div>
  
-                       <div className="space-y-2">
-                         <Label className="text-xs md:text-sm">Username</Label>
-                         <Input
-                           value={accountUsername}
-                           onChange={(e) => setAccountUsername(e.target.value)}
-                           placeholder="Seu username"
-                           disabled={accountLoading}
-                         />
-                       </div>
- 
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                       <div className="grid gap-3 rounded-xl border border-border/55 bg-background/45 p-3 md:grid-cols-2">
                          <div className="space-y-2">
-                           <Label className="text-xs md:text-sm">Nova senha</Label>
+                           <Label className="text-sm font-medium">Nova senha</Label>
                            <div className="relative">
                              <Input
                                type={showNewPassword ? 'text' : 'password'}
@@ -2368,7 +2477,7 @@ const Configuracoes = () => {
                                onChange={(e) => setAccountNewPassword(e.target.value)}
                                placeholder="Deixe em branco para manter"
                                disabled={accountLoading}
-                               className="pr-10"
+                               className="h-10 rounded-lg pr-10"
                              />
                              <button
                                type="button"
@@ -2385,7 +2494,7 @@ const Configuracoes = () => {
                            </div>
                          </div>
                          <div className="space-y-2">
-                           <Label className="text-xs md:text-sm">Confirmar nova senha</Label>
+                           <Label className="text-sm font-medium">Confirmar nova senha</Label>
                            <div className="relative">
                              <Input
                                type={showConfirmPassword ? 'text' : 'password'}
@@ -2393,7 +2502,7 @@ const Configuracoes = () => {
                                onChange={(e) => setAccountConfirmPassword(e.target.value)}
                                placeholder="Repita a nova senha"
                                disabled={accountLoading}
-                               className="pr-10"
+                               className="h-10 rounded-lg pr-10"
                              />
                              <button
                                type="button"
@@ -2411,12 +2520,12 @@ const Configuracoes = () => {
                          </div>
                        </div>
  
-                       <div className="flex justify-end">
+                       <div className="flex justify-end border-t border-border/45 pt-4">
                          <Button
                            type="button"
                            onClick={handleUpdateAccount}
                            disabled={accountLoading}
-                           className="gap-1.5 md:gap-2 h-8 md:h-10 text-xs md:text-sm"
+                           className="h-10 gap-2 rounded-lg px-5 text-sm"
                          >
                            {accountLoading ? 'Salvando...' : 'Salvar alterações'}
                          </Button>
@@ -2433,8 +2542,8 @@ const Configuracoes = () => {
                     />
                   )}
  
-                   {/* User Management Section - Only visible to admins */}
-                  <Card>
+                   {/* Gerenciamento legado removido da interface atual */}
+                  <Card className="hidden">
                     <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
                       <CardTitle className="flex items-center gap-1.5 md:gap-2 text-sm md:text-lg">
                         <Shield className="h-4 w-4 md:h-5 md:w-5" />
@@ -2552,7 +2661,7 @@ const Configuracoes = () => {
 
 
                   {/* Usuários Online em tempo real */}
-                  <Card>
+                  <Card className="hidden">
                     <CardHeader>
                       <CardTitle>Usuários online (tempo real)</CardTitle>
                       <CardDescription>
@@ -2715,9 +2824,11 @@ const Configuracoes = () => {
                 </TabsContent>
               </>
             )}
-          </Tabs>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
-      </div>
+      </Tabs>
 
       {/* Delete User Dialog */}
       <AlertDialog

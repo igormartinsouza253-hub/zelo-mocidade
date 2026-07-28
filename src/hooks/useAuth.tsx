@@ -1,6 +1,31 @@
 import { useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isOfflineReadOnly } from "@/offline/connectivity";
+import {
+  clearOfflineData,
+  getCachedOfflineUser,
+  getOfflineIdentity,
+  setCachedOfflineUser,
+} from "@/offline/offlineDb";
+import { subscribeConnectivity } from "@/offline/connectivity";
+
+function cacheAuthenticatedUser(user: User) {
+  setCachedOfflineUser({
+    id: user.id,
+    email: user.email,
+    aud: user.aud,
+    created_at: user.created_at,
+    app_metadata: user.app_metadata ?? {},
+    user_metadata: user.user_metadata ?? {},
+  });
+}
+
+function cachedUserForOffline() {
+  if (!isOfflineReadOnly()) return null;
+  const cached = getCachedOfflineUser();
+  return cached?.id === getOfflineIdentity() ? cached as User : null;
+}
 
 function toUsernameCandidate(input: string) {
   const normalized = input
@@ -27,7 +52,12 @@ export const useAuth = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setSession(session);
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        cacheAuthenticatedUser(session.user);
+        setUser(session.user);
+      } else {
+        setUser(cachedUserForOffline());
+      }
       setLoading(false);
     });
 
@@ -39,7 +69,12 @@ export const useAuth = () => {
         } = await supabase.auth.getSession();
         if (!mounted) return;
         setSession(session);
-        setUser(session?.user ?? null);
+        if (session?.user) {
+          cacheAuthenticatedUser(session.user);
+          setUser(session.user);
+        } else {
+          setUser(cachedUserForOffline());
+        }
       } catch (err) {
         console.error("Erro ao obter sessão:", err);
       } finally {
@@ -59,6 +94,37 @@ export const useAuth = () => {
     };
   }, []);
 
+  useEffect(() => subscribeConnectivity((status) => {
+    if (status !== "online") {
+      const cached = cachedUserForOffline();
+      if (cached) {
+        setSession(null);
+        setUser(cached);
+        setLoading(false);
+      }
+      return;
+    }
+    void (async () => {
+      const current = await supabase.auth.getSession();
+      let nextSession = current.data.session;
+      if (nextSession?.expires_at && nextSession.expires_at * 1000 <= Date.now()) {
+        const refreshed = await supabase.auth.refreshSession();
+        nextSession = refreshed.data.session;
+      }
+      setSession(nextSession);
+      if (nextSession?.user) {
+        cacheAuthenticatedUser(nextSession.user);
+        setUser(nextSession.user);
+      } else {
+        setUser(null);
+      }
+    })().catch((error) => {
+      console.warn("Não foi possível revalidar a sessão ao voltar para o modo online:", error);
+      setSession(null);
+      setUser(null);
+    });
+  }), []);
+
   // Garantir que usuários vindos de OAuth (ex.: Google) tenham profile para o app.
   useEffect(() => {
     if (!user || !session?.access_token) return;
@@ -66,6 +132,7 @@ export const useAuth = () => {
     let cancelled = false;
 
     const ensureProfile = async () => {
+      if (isOfflineReadOnly()) return;
       try {
         // Garantir que o usuário tenha o role base 'user' (necessário para listar grupos).
         // Isso não concede privilégios elevados; apenas cria o role se estiver faltando.
@@ -148,7 +215,9 @@ export const useAuth = () => {
   }, [user, session?.access_token]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    const currentUserId = user?.id ?? null;
+    await supabase.auth.signOut({ scope: isOfflineReadOnly() ? "local" : "global" });
+    await clearOfflineData(currentUserId);
   };
 
   return {

@@ -42,6 +42,7 @@ type GroupDetails = {
   description: string | null;
   photo_url: string | null;
   created_by: string | null;
+  offline_photo_url?: string | null;
 };
 
 type GroupMember = {
@@ -195,7 +196,11 @@ export default function GrupoInfo() {
     }
   }, [activeGroupId, isAdmin]);
 
-  const refreshGroupPhotoUrl = useCallback(async (path: string | null) => {
+  const refreshGroupPhotoUrl = useCallback(async (path: string | null, offlineUrl?: string | null) => {
+    if (offlineUrl) {
+      setGroupPhotoUrl(offlineUrl);
+      return;
+    }
     if (!path) {
       setGroupPhotoUrl(null);
       return;
@@ -228,7 +233,7 @@ export default function GrupoInfo() {
     setGroup(nextGroup);
     setDraftName(nextGroup?.name ?? "");
     setDraftDescription(nextGroup?.description ?? "");
-    await refreshGroupPhotoUrl(nextGroup?.photo_url ?? null);
+    await refreshGroupPhotoUrl(nextGroup?.photo_url ?? null, (nextGroup as GroupDetails | null)?.offline_photo_url);
     return nextGroup as GroupDetails | null;
   }, [activeGroupId, refreshGroupPhotoUrl]);
 

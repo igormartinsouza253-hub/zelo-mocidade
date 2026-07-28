@@ -251,7 +251,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   }, [user]);
 
   return (
-    <Card className={compact ? "overflow-hidden rounded-3xl border-border/50 shadow-[var(--shadow-card)]" : undefined}>
+    <Card className={compact ? "overflow-hidden rounded-xl border-border/60 shadow-none" : undefined}>
       <CardHeader className={compact ? "pb-3 pt-3 px-3" : undefined}>
         <CardTitle className={compact ? "text-sm flex items-center gap-2" : "flex items-center gap-2"}>
           <Bell className={compact ? "h-4 w-4" : "h-5 w-5"} />
@@ -264,7 +264,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
       </CardHeader>
 
       <CardContent className={compact ? "space-y-4 pb-3 px-3" : "space-y-4"}>
-        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/10 p-3">
+        <div className={`${compact ? "rounded-lg" : "rounded-xl"} space-y-3 border border-border/50 bg-muted/10 p-3`}>
           <div className="flex items-center justify-between">
             <Label className={compact ? "text-xs" : "text-sm"}>Ativar notificações</Label>
             <Switch checked={prefs.enabled} disabled={saving} onCheckedChange={(checked) => void savePreference({ enabled: checked })} />
@@ -342,7 +342,8 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
                       if (!item.read_at) void markOneAsRead(item.id);
                       navigate(resolveNotificationHref(item));
                     }}
-                    className="w-full rounded-2xl border border-border/50 bg-muted/10 p-3 text-left transition-colors hover:bg-accent/40"
+                    style={{ borderRadius: compact ? "10px" : "12px" }}
+                    className={`${compact ? "rounded-lg" : "rounded-xl"} w-full border border-border/50 bg-muted/10 p-3 text-left transition-colors hover:bg-accent/40`}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <p className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>{item.title}</p>
