@@ -1183,3 +1183,46 @@ All colors MUST be HSL.
   }
 }
 
+/* Poppins ganha mais contraste de hierarquia quando textos compactos usam
+   pesos moderados e os pesos fortes ficam reservados aos títulos. */
+:where(
+  .text-sm,
+  .text-xs,
+  .text-\[12px\],
+  .text-\[11px\],
+  .text-\[10px\],
+  .text-\[9px\],
+  .text-\[8px\]
+).font-black,
+:where(
+  .text-sm,
+  .text-xs,
+  .text-\[12px\],
+  .text-\[11px\],
+  .text-\[10px\],
+  .text-\[9px\],
+  .text-\[8px\]
+).font-extrabold,
+:where(
+  .text-sm,
+  .text-xs,
+  .text-\[12px\],
+  .text-\[11px\],
+  .text-\[10px\],
+  .text-\[9px\],
+  .text-\[8px\]
+).font-bold {
+  font-weight: 600;
+}
+
+:where(
+  .text-xs,
+  .text-\[12px\],
+  .text-\[11px\],
+  .text-\[10px\],
+  .text-\[9px\],
+  .text-\[8px\]
+).font-semibold {
+  font-weight: 500;
+}
+

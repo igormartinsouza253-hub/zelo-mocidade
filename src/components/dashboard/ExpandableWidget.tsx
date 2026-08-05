@@ -5,11 +5,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface ExpandableWidgetProps {
   title: string;
   children: ReactNode;
   renderExpanded: () => ReactNode;
+  expandedContentClassName?: string;
 }
 
 const ExpandableWidgetContext = createContext<{ openExpanded: () => void } | null>(null);
@@ -18,7 +20,12 @@ export function useExpandableWidget() {
   return useContext(ExpandableWidgetContext);
 }
 
-export function ExpandableWidget({ title, children, renderExpanded }: ExpandableWidgetProps) {
+export function ExpandableWidget({
+  title,
+  children,
+  renderExpanded,
+  expandedContentClassName,
+}: ExpandableWidgetProps) {
   const [open, setOpen] = useState(false);
   const lastTapMsRef = useRef<number>(0);
 
@@ -54,8 +61,8 @@ export function ExpandableWidget({ title, children, renderExpanded }: Expandable
               {title}
             </DialogTitle>
           </DialogHeader>
-          <div className="p-4 bg-background">
-            <div className="w-full min-h-[70vh]">{expanded}</div>
+          <div className="bg-background p-4">
+            <div className={cn("w-full min-h-[70vh]", expandedContentClassName)}>{expanded}</div>
           </div>
         </DialogContent>
       </Dialog>

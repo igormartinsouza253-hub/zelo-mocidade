@@ -516,6 +516,23 @@ const NovaReuniao = () => {
                     </p>
                   </div>
 
+                  {!isMobile && (
+                    <div className="grid w-full grid-cols-2 gap-3 border-t border-border/45 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full rounded-xl"
+                        onClick={() => navigate("/reunioes")}
+                        disabled={loading}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" className="w-full rounded-xl" disabled={loading}>
+                        {loading ? "Salvando..." : "Salvar reunião"}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Input de oração removido: agora é marcado diretamente na lista de presença */}
                 </CardContent>
               </Card>
@@ -774,10 +791,7 @@ const NovaReuniao = () => {
             </div>
           </div>
 
-          {/* Espaçador para não esconder o fim do formulário atrás da barra fixa */}
           <div className="h-[calc(env(safe-area-inset-bottom)+12rem)] md:hidden" aria-hidden="true" />
-
-          {/* Ações movidas para a barra superior */}
         </form>
       </div>
 

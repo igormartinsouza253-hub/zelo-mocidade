@@ -519,6 +519,23 @@ const DetalhesReuniao = () => {
                     </p>
                   </div>
 
+                  {!isMobile && (
+                    <div className="grid w-full grid-cols-2 gap-3 border-t border-border/45 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full rounded-xl"
+                        onClick={() => navigate("/reunioes")}
+                        disabled={loading}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" className="w-full rounded-xl" disabled={loading}>
+                        {loading ? "Salvando..." : "Salvar alterações"}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Input de oração removido: agora é marcado diretamente na lista de presença */}
                 </CardContent>
               </Card>
