@@ -70,7 +70,7 @@ if (import.meta.env.PROD && !isPreviewHost) {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      void updateSW(true);
+      window.dispatchEvent(new CustomEvent("zelo-update-ready", { detail: { update: updateSW } }));
     },
     onOfflineReady() {
       sessionStorage.removeItem(RECOVERY_FLAG);

@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       includeAssets: ["favicon.ico", "robots.txt", "placeholder.svg"],
       workbox: {
         // O bundle atual passa de 2MiB; aumentamos o limite para evitar falha no build.

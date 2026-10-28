@@ -120,7 +120,17 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const currentRoute = resolveRoute(location.pathname);
   const { config } = usePageHeader();
+  const [pendingUpdate, setPendingUpdate] = useState<(() => void) | null>(null);
   const effectiveTitle = (config?.title ?? currentRoute.title).split(" - ")[0];
+
+  useEffect(() => {
+    const onUpdateReady = (event: Event) => {
+      const update = (event as CustomEvent<{ update?: () => void }>).detail?.update;
+      if (update) setPendingUpdate(() => update);
+    };
+    window.addEventListener("zelo-update-ready", onUpdateReady);
+    return () => window.removeEventListener("zelo-update-ready", onUpdateReady);
+  }, []);
 
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
@@ -587,6 +597,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     <>
        <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
         <OfflineBanner />
+        {pendingUpdate && <div className="flex items-center justify-center gap-3 bg-primary px-3 py-2 text-xs text-primary-foreground" role="status"><span>Atualização pronta. Seus rascunhos são salvos neste dispositivo.</span><button type="button" className="font-semibold underline" onClick={() => pendingUpdate()}>Atualizar agora</button><button type="button" aria-label="Adiar atualização" onClick={() => setPendingUpdate(null)}>Depois</button></div>}
         {/* Navegação principal desktop */}
         {!isMobileMode && (
           <header className="desktop-topbar relative hidden h-[68px] shrink-0 items-center px-[18px] md:flex">

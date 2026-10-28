@@ -25,6 +25,10 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DesktopMemberForm, MEMBER_NOTES_LIMIT } from "@/components/members/DesktopMemberForm";
+import { useAuth } from "@/hooks/useAuth";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
+import { OfflineFormStatus } from "@/components/OfflineFormStatus";
+import { deleteOfflineDraft, enqueueOfflineMutation, readOfflineDraft, saveOfflineDraft } from "@/offline/offlineDb";
 
 interface Cargo {
   id: string;
@@ -144,6 +148,8 @@ const NovoMembro = () => {
   const navigate = useNavigate();
   const { setConfig } = usePageHeader();
   const { activeGroupId } = useActiveGroup();
+  const { user } = useAuth();
+  const { status } = useOfflineMode();
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -174,6 +180,49 @@ const NovoMembro = () => {
     telefone: "",
     status_telefone: "",
   });
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [queued, setQueued] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId) return;
+    let cancelled = false;
+    void readOfflineDraft(user.id, activeGroupId, "member").then((draft) => {
+      if (cancelled) return;
+      if (!draft) { setDraftReady(true); return; }
+      const value = draft.value as { formData?: typeof formData; birthInput?: string; manualFaixa?: boolean; photoDataUrl?: string };
+      if (value.formData) setFormData(value.formData);
+      if (value.birthInput) setBirthInput(value.birthInput);
+      if (value.manualFaixa) setManualFaixa(value.manualFaixa);
+      if (value.photoDataUrl) {
+        setPhotoPreview(value.photoDataUrl);
+        fetch(value.photoDataUrl).then((response) => response.blob()).then((blob) => setPhotoFile(new File([blob], "foto-membro.jpg", { type: blob.type || "image/jpeg" }))).catch((error) => console.warn("Não foi possível recuperar a foto do rascunho:", error));
+      }
+      setDraftSaved(true);
+      setDraftReady(true);
+    }).catch((error) => console.warn("Não foi possível restaurar o membro salvo:", error));
+    return () => { cancelled = true; };
+  }, [activeGroupId, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId || !draftReady) return;
+    const timeout = window.setTimeout(() => {
+      const saveDraft = async () => {
+        let photoDataUrl: string | undefined;
+        if (photoFile) photoDataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(photoFile);
+        });
+        await saveOfflineDraft(user.id, activeGroupId, "member", { formData, birthInput, manualFaixa, photoDataUrl });
+      };
+      void saveDraft()
+        .then(() => setDraftSaved(true))
+        .catch((error) => console.warn("Não foi possível salvar o membro neste dispositivo:", error));
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [activeGroupId, birthInput, draftReady, formData, manualFaixa, photoFile, user?.id]);
 
   const nameInfo = useMemo(() => splitName(formData.nome), [formData.nome]);
   const inferredGender = useMemo(() => inferGenderFromName(formData.nome), [formData.nome]);
@@ -485,6 +534,7 @@ const NovoMembro = () => {
     setLoading(true);
 
     try {
+      if (!activeGroupId || !user?.id) throw new Error("Grupo ou usuário indisponível.");
       let foto_url = "";
 
       // Upload da foto se selecionada
@@ -512,6 +562,7 @@ const NovoMembro = () => {
         .from("membros")
         .insert([
           {
+            id: crypto.randomUUID(),
             ...formData,
             group_id: activeGroupId,
             created_by_user_id: authData.user?.id ?? null,
@@ -526,11 +577,44 @@ const NovoMembro = () => {
 
       if (error) throw error;
 
+      await deleteOfflineDraft(user.id, activeGroupId, "member");
       toast.success("Membro cadastrado com sucesso!");
       navigate(-1);
     } catch (error) {
       console.error("Erro ao cadastrar membro:", error);
-      toast.error("Erro ao cadastrar membro");
+      if (user?.id && activeGroupId && (status !== "online" || !navigator.onLine)) {
+        {
+          const memberId = crypto.randomUUID();
+          const telefoneLimpo = formData.telefone.replace(/\D/g, "");
+          await enqueueOfflineMutation({
+            key: `${user.id}:${memberId}`,
+            userId: user.id,
+            groupId: activeGroupId,
+            createdAt: new Date().toISOString(),
+            steps: [{
+              table: "membros",
+              rows: [{
+                id: memberId,
+                ...formData,
+                group_id: activeGroupId,
+                created_by_user_id: user.id,
+                foto_url: "",
+                data_nascimento: formData.data_nascimento || null,
+                data_aniversario: formData.data_aniversario || null,
+                observacoes: formData.observacoes || null,
+                telefone: telefoneLimpo || null,
+                status_telefone: formData.status_telefone || null,
+              }],
+            }],
+          });
+          await deleteOfflineDraft(user.id, activeGroupId, "member");
+          setQueued(true);
+          toast.info("Membro salvo no dispositivo e aguardando publicação.");
+          navigate(-1);
+        }
+      } else {
+        toast.error("Erro ao cadastrar membro. O rascunho foi mantido neste dispositivo.");
+      }
     } finally {
       setLoading(false);
       setUploadingPhoto(false);
@@ -593,6 +677,7 @@ const NovoMembro = () => {
             </CardHeader>
             <CardContent className="member-form-content px-4 pb-5 md:px-5">
               <form id="member-upsert-form" onSubmit={handleSubmit} className="member-upsert-grid space-y-4">
+                    <OfflineFormStatus saved={draftSaved} queued={queued} />
                 <div className="member-form-photo rounded-3xl border border-border/55 bg-background/55 p-3">
                   <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Foto do perfil</Label>
                   <div className="mt-3 flex items-stretch gap-3">
