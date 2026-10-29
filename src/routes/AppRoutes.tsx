@@ -35,6 +35,8 @@ const GrupoGestor = lazy(() => import("@/pages/GrupoGestor"));
 const GrupoInfo = lazy(() => import("@/pages/GrupoInfo"));
 const ConfiguracoesGrupoAdmin = lazy(() => import("@/pages/ConfiguracoesGrupoAdmin"));
 const GrupoConvite = lazy(() => import("@/pages/GrupoConvite"));
+const AbrirNotificacao = lazy(() => import("@/pages/AbrirNotificacao"));
+const TutorialDemo = lazy(() => import("@/pages/TutorialDemo"));
 
 function RouteFallback() {
   return (
@@ -79,6 +81,8 @@ function ProtectedStandalone({ children }: { children: ReactNode }) {
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/tutorial-demo/:screen" element={import.meta.env.DEV ? <PublicRoute><TutorialDemo /></PublicRoute> : <Navigate to="/" replace />} />
+        <Route path="/notificacoes/abrir" element={<ProtectedLayout><AbrirNotificacao /></ProtectedLayout>} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       <Route path="/convite/:token" element={<PublicRoute><GrupoConvite /></PublicRoute>} />
 

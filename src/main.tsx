@@ -72,6 +72,26 @@ if (import.meta.env.PROD && !isPreviewHost) {
     onNeedRefresh() {
       window.dispatchEvent(new CustomEvent("zelo-update-ready", { detail: { update: updateSW } }));
     },
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+
+      const checkForUpdate = () => {
+        if (document.visibilityState !== "visible" || navigator.onLine === false) return;
+        void registration.update().catch((error) => {
+          console.warn("Não foi possível verificar atualizações agora.", error);
+        });
+      };
+
+      const intervalId = window.setInterval(checkForUpdate, 60 * 60 * 1000);
+      window.addEventListener("focus", checkForUpdate);
+      document.addEventListener("visibilitychange", checkForUpdate);
+      window.addEventListener("pagehide", () => {
+        window.clearInterval(intervalId);
+        window.removeEventListener("focus", checkForUpdate);
+        document.removeEventListener("visibilitychange", checkForUpdate);
+      }, { once: true });
+      checkForUpdate();
+    },
     onOfflineReady() {
       sessionStorage.removeItem(RECOVERY_FLAG);
     },

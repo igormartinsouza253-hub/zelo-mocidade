@@ -1,4 +1,5 @@
 # Logs
+.secrets/
 logs
 *.log
 npm-debug.log*
@@ -29,3 +30,4 @@ dist-ssr
 .env*
 playwright-report/
 test-results/
+.secrets/

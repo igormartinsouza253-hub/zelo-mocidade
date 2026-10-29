@@ -174,8 +174,8 @@ export function MobileEventUpsertDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "left-0 top-auto bottom-0 max-h-[92svh] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl border-border/60 bg-background p-0 shadow-[var(--shadow-card)]",
-          "sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:max-w-md sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-3xl",
+          "left-3 right-3 top-auto bottom-[max(env(safe-area-inset-bottom),0.75rem)] w-auto max-h-[92svh] max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-2xl border-border/60 bg-background p-0 shadow-[var(--shadow-elevated)]",
+          "sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:max-w-md sm:translate-x-[-50%] sm:translate-y-[-50%]",
         )}
       >
         <DialogHeader className="px-4 pb-2 pt-4 text-left">

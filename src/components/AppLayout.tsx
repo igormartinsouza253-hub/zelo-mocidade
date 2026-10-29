@@ -44,6 +44,8 @@ import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { useOfflineMode } from "@/hooks/useOfflineMode";
+import { MobileAppPrompt } from "@/components/MobileAppPrompt";
+import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -126,7 +128,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   useEffect(() => {
     const onUpdateReady = (event: Event) => {
       const update = (event as CustomEvent<{ update?: () => void }>).detail?.update;
-      if (update) setPendingUpdate(() => update);
+      if (update) {
+        setPendingUpdate(() => update);
+        toast("Nova versão do Zelo disponível", {
+          description: "Uma nova versão foi baixada com melhorias e correções.",
+          action: { label: "Atualizar agora", onClick: update },
+          duration: 12000,
+        });
+      }
     };
     window.addEventListener("zelo-update-ready", onUpdateReady);
     return () => window.removeEventListener("zelo-update-ready", onUpdateReady);
@@ -194,6 +203,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState(false);
+  const [activeNotification, setActiveNotification] = useState<{ id: string; title: string; message: string; entity_type: string | null; entity_id: string | null } | null>(null);
+  const promptedNotificationsRef = useRef(new Set<string>());
   const [desktopSearchOpen, setDesktopSearchOpen] = useState(false);
   const [desktopSearchQuery, setDesktopSearchQuery] = useState("");
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
@@ -269,6 +280,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
+        .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
         .is("read_at", null);
 
       if (!error && mounted) {
@@ -298,43 +310,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   useEffect(() => {
     if (!user?.id || !activeGroupId) return;
 
-    const showDeviceNotification = async (incoming: { id?: string; title?: string; message?: string; entity_type?: string | null; entity_id?: string | null }) => {
-      if (
-        typeof window === "undefined" ||
-        !("Notification" in window) ||
-        Notification.permission !== "granted" ||
-        !incoming.title ||
-        !incoming.message
-      ) {
-        return;
-      }
-
-      const notificationOptions: NotificationOptions = {
-        body: incoming.message,
-        tag: incoming.id ? `notification-${incoming.id}` : undefined,
-        icon: "/pwa-192.png",
-        badge: "/pwa-192.png",
-        data: {
-          url:
-            incoming.entity_type === "group_join_request"
-              ? "/grupo/info"
-              : incoming.entity_type === "visita" && incoming.entity_id
-                ? `/visitas/${incoming.entity_id}`
-                : "/configuracoes",
-        },
-      };
-
-      try {
-        if ("serviceWorker" in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          await registration.showNotification(incoming.title, notificationOptions);
-          return;
-        }
-      } catch (error) {
-        console.warn("Falha ao exibir notificação via Service Worker:", error);
-      }
-
-      new Notification(incoming.title, notificationOptions);
+    const resolveHref = (incoming: { id?: string; entity_type?: string | null; entity_id?: string | null }) => {
+      if (incoming.entity_type === "user_feedback") return "/configuracoes/super-admin";
+      if (incoming.entity_type === "group_join_request") return "/grupo/info";
+      if (incoming.entity_type === "nota" && incoming.entity_id) return `/notas/editar/${encodeURIComponent(incoming.entity_id)}`;
+      if (incoming.entity_type === "evento" && incoming.entity_id) return `/calendario?eventId=${encodeURIComponent(incoming.entity_id)}`;
+      if (incoming.entity_type === "visita" && incoming.entity_id) return `/visitas/${encodeURIComponent(incoming.entity_id)}`;
+      if ((incoming.entity_type === "birthday" || incoming.entity_type?.startsWith("absence_")) && incoming.id) return `/notificacoes/abrir?id=${encodeURIComponent(incoming.id)}`;
+      return `/notificacoes/abrir?id=${encodeURIComponent(incoming.id ?? "")}`;
     };
 
     void supabase.rpc("generate_today_birthday_notifications", {
@@ -357,10 +340,15 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           if (!incoming?.title || !incoming?.message) return;
 
           if (document.visibilityState === "visible") {
-            toast(incoming.title, { description: incoming.message });
+            toast(incoming.title, {
+              description: incoming.message,
+              action: { label: "Ver", onClick: () => navigate(resolveHref(incoming)) },
+            });
+            return;
           }
 
-          void showDeviceNotification(incoming);
+          // A fila no banco é o emissor único de push. O Cron a processa mesmo
+          // quando o app está fechado, evitando push duplicado com Realtime.
         },
       )
       .subscribe();
@@ -368,7 +356,30 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, activeGroupId]);
+  }, [user?.id, activeGroupId, navigate]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let mounted = true;
+    const checkUnread = async () => {
+      const { data } = await supabase.from("notifications").select("id,title,message,entity_type,entity_id")
+        .eq("user_id", user.id).gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()).is("read_at", null).order("created_at", { ascending: false }).limit(20);
+      if (!mounted || !data?.length) return;
+      const next = data.find((item) => !promptedNotificationsRef.current.has(item.id));
+      if (!next) return;
+      promptedNotificationsRef.current.add(next.id);
+      setActiveNotification(next);
+    };
+    void checkUnread();
+    const onFocus = () => void checkUnread();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [user?.id]);
 
   // Heartbeat (presença por grupo): atualiza last_seen_at periodicamente no DB
   useEffect(() => {
@@ -597,7 +608,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     <>
        <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
         <OfflineBanner />
-        {pendingUpdate && <div className="flex items-center justify-center gap-3 bg-primary px-3 py-2 text-xs text-primary-foreground" role="status"><span>Atualização pronta. Seus rascunhos são salvos neste dispositivo.</span><button type="button" className="font-semibold underline" onClick={() => pendingUpdate()}>Atualizar agora</button><button type="button" aria-label="Adiar atualização" onClick={() => setPendingUpdate(null)}>Depois</button></div>}
+        {pendingUpdate && <div className="flex items-center justify-center gap-3 bg-primary px-3 py-2 text-xs text-primary-foreground" role="status"><span>Nova versão pronta. Atualize quando for conveniente.</span><button type="button" className="font-semibold underline" onClick={() => pendingUpdate()}>Atualizar agora</button><button type="button" aria-label="Adiar atualização" onClick={() => setPendingUpdate(null)}>Depois</button></div>}
         {/* Navegação principal desktop */}
         {!isMobileMode && (
           <header className="desktop-topbar relative hidden h-[68px] shrink-0 items-center px-[18px] md:flex">
@@ -863,6 +874,26 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           userId={user.id}
         />
       ) : null}
+
+      {activeNotification && (
+        <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[70] mx-auto max-w-lg rounded-2xl border border-border bg-card p-4 shadow-xl" role="status">
+          <div className="flex items-start gap-3">
+            <Bell className="mt-1 h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{activeNotification.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{activeNotification.message}</p>
+              <div className="mt-3 flex gap-2">
+                <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground" onClick={() => { const href = activeNotification.entity_type === "user_feedback" ? "/configuracoes/super-admin" : activeNotification.entity_type === "nota" && activeNotification.entity_id ? `/notas/editar/${activeNotification.entity_id}` : activeNotification.entity_type === "evento" && activeNotification.entity_id ? `/calendario?eventId=${activeNotification.entity_id}` : activeNotification.entity_type === "group_join_request" ? "/grupo/info" : `/notificacoes/abrir?id=${activeNotification.id}`; navigate(href); setActiveNotification(null); }}>Ver agora</button>
+                <button type="button" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted" onClick={() => setActiveNotification(null)}>Depois</button>
+              </div>
+            </div>
+            <button type="button" aria-label="Fechar notificação" className="rounded p-1 text-muted-foreground" onClick={() => setActiveNotification(null)}>×</button>
+          </div>
+        </div>
+      )}
+
+      <MobileAppPrompt userId={user?.id} isMobile={isMobileMode} />
+      <OnboardingTutorial />
 
     </>
   );

@@ -1,0 +1,169 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e51]:
+    - banner [ref=e52]:
+      - generic [ref=e53]:
+        - img "Zelo" [ref=e55]
+        - button "Criar novo item" [ref=e56] [cursor=pointer]
+      - navigation "Navegação principal" [ref=e58]:
+        - button "Início" [ref=e59] [cursor=pointer]
+        - button "Membros" [ref=e60] [cursor=pointer]
+        - button "Reuniões" [ref=e61] [cursor=pointer]
+        - button "Calendário" [ref=e62] [cursor=pointer]
+        - button "Mais" [ref=e63] [cursor=pointer]
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - button "Abrir pesquisa" [ref=e68] [cursor=pointer]
+          - textbox "Pesquisar no Zelo":
+            - /placeholder: Buscar páginas e dados...
+        - button "Notificações" [ref=e72] [cursor=pointer]
+        - button "Configurações" [ref=e76] [cursor=pointer]
+        - button "Conta" [ref=e80] [cursor=pointer]
+    - main [ref=e84]:
+      - generic [ref=e86]:
+        - region "Estatísticas" [ref=e87]:
+          - generic [ref=e88]:
+            - generic [ref=e97]:
+              - generic [ref=e98]: "9"
+              - generic [ref=e100]: Membros
+            - generic [ref=e106]:
+              - generic [ref=e107]: "2"
+              - generic [ref=e109]: Reuniões
+            - generic [ref=e116]:
+              - generic [ref=e117]: "6"
+              - generic [ref=e119]: Média
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: "28"
+                - generic [ref=e129]: OUT
+              - generic [ref=e130]: Última
+        - region "Atalhos" [ref=e131]:
+          - generic [ref=e132]:
+            - button "Novo membro" [ref=e133] [cursor=pointer]
+            - button "Reunião" [ref=e136] [cursor=pointer]
+            - button "Novo evento" [ref=e139] [cursor=pointer]
+        - region "Gráficos" [ref=e142]:
+          - generic [ref=e144]:
+            - region [ref=e145]:
+              - generic [ref=e147]:
+                - group [ref=e148]:
+                  - generic [ref=e150]:
+                    - generic [ref=e152]:
+                      - heading "Gráfico de presença" [level=3] [ref=e154]
+                      - generic [ref=e155]: Últimas 2 reuniões
+                    - img [ref=e162]:
+                      - generic [ref=e166]:
+                        - button "Selecionar reunião 10-07" [ref=e170] [cursor=pointer]: 10-07
+                        - button "Selecionar reunião 28-10" [ref=e174] [cursor=pointer]: 28-10
+                - group [ref=e202]:
+                  - generic [ref=e204]:
+                    - heading "Distribuição por faixa etária" [level=3] [ref=e206]
+                    - generic [ref=e208]:
+                      - img [ref=e213]:
+                        - generic [ref=e214]: 9pessoas
+                      - generic [ref=e224]:
+                        - generic [ref=e225]:
+                          - generic [ref=e226]: Meninas
+                          - generic [ref=e229]: "02"
+                        - generic [ref=e230]:
+                          - generic [ref=e231]: Meninos
+                          - generic [ref=e234]: "02"
+                        - generic [ref=e235]:
+                          - generic [ref=e236]: Moças
+                          - generic [ref=e239]: "01"
+                        - generic [ref=e240]:
+                          - generic [ref=e241]: Moços
+                          - generic [ref=e244]: "04"
+                - group [ref=e245]:
+                  - generic [ref=e247]:
+                    - generic [ref=e249]:
+                      - generic [ref=e250]:
+                        - heading "Mais frequentes" [level=3] [ref=e251]
+                        - paragraph [ref=e252]: Nas Reuniões
+                      - button "Expandir filtros" [ref=e253] [cursor=pointer]
+                    - generic [ref=e257]:
+                      - button "Lu 01 Lucas Henrique Teste 1444 1" [ref=e258] [cursor=pointer]:
+                        - generic [ref=e259]:
+                          - generic [ref=e260]:
+                            - generic [ref=e261]: Lu
+                            - generic [ref=e262]: "01"
+                          - generic "Lucas Henrique Teste 1444" [ref=e263]
+                        - generic [ref=e264]: "1"
+                      - button "Cl 02 Clara Souza Teste 1444 1" [ref=e265] [cursor=pointer]:
+                        - generic [ref=e266]:
+                          - generic [ref=e267]:
+                            - generic [ref=e268]: Cl
+                            - generic [ref=e269]: "02"
+                          - generic "Clara Souza Teste 1444" [ref=e270]
+                        - generic [ref=e271]: "1"
+                      - button "Ma 03 Maria 1" [ref=e272] [cursor=pointer]:
+                        - generic [ref=e273]:
+                          - generic [ref=e274]:
+                            - generic [ref=e275]: Ma
+                            - generic [ref=e276]: "03"
+                          - generic "Maria" [ref=e277]
+                        - generic [ref=e278]: "1"
+                      - button "Ma 04 Matheus 1" [ref=e279] [cursor=pointer]:
+                        - generic [ref=e280]:
+                          - generic [ref=e281]:
+                            - generic [ref=e282]: Ma
+                            - generic [ref=e283]: "04"
+                          - generic "Matheus" [ref=e284]
+                        - generic [ref=e285]: "1"
+                      - button "An 05 Ana Beatriz Teste 1444 1" [ref=e286] [cursor=pointer]:
+                        - generic [ref=e287]:
+                          - generic [ref=e288]:
+                            - generic [ref=e289]: An
+                            - generic [ref=e290]: "05"
+                          - generic "Ana Beatriz Teste 1444" [ref=e291]
+                        - generic [ref=e292]: "1"
+            - generic [ref=e293]:
+              - button "Ir para o slide 1" [ref=e294] [cursor=pointer]
+              - button "Ir para o slide 2" [ref=e296] [cursor=pointer]
+              - button "Ir para o slide 3" [ref=e298] [cursor=pointer]
+        - region "Aniversariantes" [ref=e300]:
+          - generic [ref=e301]:
+            - generic "Clique duas vezes para alternar a exibição" [ref=e302]:
+              - generic [ref=e303]:
+                - generic [ref=e304]:
+                  - heading "Aniversariantes" [level=3] [ref=e305]
+                  - paragraph [ref=e306]: Próximos aniversários
+                - generic [ref=e307]:
+                  - button "Mês anterior" [ref=e308] [cursor=pointer]
+                  - generic [ref=e311]: OUT.
+                  - button "Próximo mês" [ref=e312] [cursor=pointer]
+            - generic [ref=e315]:
+              - generic [ref=e317]:
+                - button "Lucas 17 anos 29" [ref=e318] [cursor=pointer]:
+                  - generic [ref=e325]:
+                    - paragraph [ref=e326]: Lucas
+                    - paragraph [ref=e327]: 17 anos
+                  - generic [ref=e328]: "29"
+                - button "Vitor Vitor 7 anos 30" [ref=e329] [cursor=pointer]:
+                  - generic [ref=e330]:
+                    - img "Vitor" [ref=e332]
+                    - generic [ref=e333]:
+                      - paragraph [ref=e334]: Vitor
+                      - paragraph [ref=e335]: 7 anos
+                  - generic [ref=e336]: "30"
+              - generic [ref=e337]:
+                - button "Exibir em carrossel" [ref=e338] [cursor=pointer]
+                - button "Exibir em lista" [ref=e340] [cursor=pointer]
+        - region "Notas rápidas" [ref=e342]:
+          - generic [ref=e343]:
+            - generic [ref=e345]:
+              - generic [ref=e346]:
+                - heading "Notas rápidas" [level=3] [ref=e347]
+                - paragraph [ref=e348]: Anotações recentes
+              - button "Criar nota" [ref=e349] [cursor=pointer]
+            - generic [ref=e352]:
+              - button "Nota teste, para saber se o app funciona p... 10 de Julho Nota teste, para saber se o app funciona perfeitamente e se precisa de alterações" [ref=e353] [cursor=pointer]:
+                - generic [ref=e354]:
+                  - heading "Nota teste, para saber se o app funciona p..." [level=4] [ref=e355]
+                  - generic [ref=e356]: 10 de Julho
+                - paragraph [ref=e357]: Nota teste, para saber se o app funciona perfeitamente e se precisa de alterações
+              - button "Criar próxima nota Use este espaço para registrar lembretes rápidos." [ref=e358] [cursor=pointer]:
+                - generic [ref=e359]: Criar próxima nota
+                - generic [ref=e360]: Use este espaço para registrar lembretes rápidos.

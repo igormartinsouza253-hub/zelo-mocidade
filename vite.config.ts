@@ -2,9 +2,18 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
+import packageJson from "./package.json";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+    __APP_BUILD_ID__: JSON.stringify(
+      process.env.VERCEL_DEPLOYMENT_ID?.slice(-7) ||
+      process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+      `local-${new Date().toISOString().slice(0, 10)}`,
+    ),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -17,13 +26,15 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         // O bundle atual passa de 2MiB; aumentamos o limite para evitar falha no build.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Mantém um ponto de entrada estável para notificações push em segundo plano.
+        importScripts: ["/push-sw.js"],
         navigateFallback: "index.html",
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\//i,
             handler: "CacheFirst",
             options: {
-              cacheName: "zelo-offline-media-v1",
+              cacheName: "zelo-offline-media-v2",
               expiration: {
                 maxEntries: 1000,
                 maxAgeSeconds: 60 * 60 * 24 * 180,
@@ -50,11 +61,13 @@ export default defineConfig(({ mode }) => ({
             src: "/pwa-192.png",
             sizes: "192x192",
             type: "image/png",
+            purpose: "any",
           },
           {
             src: "/pwa-512.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "any maskable",
           },
         ],
       },

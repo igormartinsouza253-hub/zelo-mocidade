@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, RefreshCw, Search, ShieldAlert, Trash2, UserX, Users } from "lucide-react";
+import { Crown, RefreshCw, Search, ShieldAlert, Trash2, UserX, Users, MessageSquareText, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type FeedbackItem = { id: string; user_id: string; group_id: string | null; category: string; title: string; description: string; reproduction_steps: string | null; status: string; created_at: string; profiles?: { username: string | null; email: string | null } | null };
 
 type SuperAdminGroup = {
   id: string;
@@ -73,6 +76,8 @@ export default function SuperAdminUsuarios({ embedded = false }: SuperAdminUsuar
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<SuperAdminUser | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ user: SuperAdminUser; group: SuperAdminGroup } | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const isAllowed = user?.app_metadata?.super_admin === true;
 
   const filteredUsers = useMemo(() => {
@@ -105,6 +110,22 @@ export default function SuperAdminUsuarios({ embedded = false }: SuperAdminUsuar
     }
   };
 
+  const loadFeedback = async () => {
+    if (!isAllowed) return;
+    setFeedbackLoading(true);
+    const { data, error } = await supabase.from("user_feedback" as any).select("*").order("created_at", { ascending: false }).limit(100);
+    if (error) { console.error("[SuperAdminUsuarios] feedback", error); toast.error("Não foi possível carregar os feedbacks."); }
+    setFeedback((data ?? []) as unknown as FeedbackItem[]);
+    setFeedbackLoading(false);
+  };
+
+  const updateFeedbackStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from("user_feedback" as any).update({ status }).eq("id", id);
+    if (error) { toast.error("Não foi possível atualizar o status."); return; }
+    setFeedback((items) => items.map((item) => item.id === id ? { ...item, status } : item));
+    toast.success("Status atualizado.");
+  };
+
   useEffect(() => {
     if (!user) return;
     if (!isAllowed && !embedded) {
@@ -113,6 +134,7 @@ export default function SuperAdminUsuarios({ embedded = false }: SuperAdminUsuar
       return;
     }
     void loadUsers();
+    void loadFeedback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAllowed, embedded, navigate]);
 
@@ -285,6 +307,16 @@ export default function SuperAdminUsuarios({ embedded = false }: SuperAdminUsuar
             })
           )}
         </div>
+
+        <Card className="rounded-2xl border-border/60 shadow-none">
+          <CardHeader className="px-4 pb-3 pt-4"><CardTitle className="flex items-center gap-2 text-base"><MessageSquareText className="h-4 w-4" />Feedbacks recebidos <Badge variant="secondary">{feedback.length}</Badge></CardTitle><CardDescription className="text-xs">Ideias, erros e relatos enviados por usuários.</CardDescription></CardHeader>
+          <CardContent className="space-y-2 px-3 pb-3">
+            {feedbackLoading ? <p className="p-3 text-sm text-muted-foreground">Carregando feedbacks…</p> : feedback.length === 0 ? <p className="p-3 text-sm text-muted-foreground">Nenhum feedback recebido ainda.</p> : feedback.map((item) => <div key={item.id} className="space-y-2 rounded-xl border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={item.category === "bug" ? "destructive" : "secondary"}>{item.category === "bug" ? "Bug ou erro" : item.category === "idea" ? "Ideia" : "Outro"}</Badge><span className="text-xs text-muted-foreground">{formatDate(item.created_at)}</span></div><Select value={item.status} onValueChange={(value) => void updateFeedbackStatus(item.id, value)}><SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="new">Novo</SelectItem><SelectItem value="in_progress">Em andamento</SelectItem><SelectItem value="resolved">Resolvido</SelectItem><SelectItem value="closed">Fechado</SelectItem></SelectContent></Select></div>
+              <h3 className="text-sm font-semibold">{item.title}</h3><p className="whitespace-pre-wrap text-sm text-muted-foreground">{item.description}</p>{item.reproduction_steps && <p className="whitespace-pre-wrap rounded-lg bg-muted/30 p-2 text-xs"><strong>Como reproduzir:</strong> {item.reproduction_steps}</p>}<p className="text-[11px] text-muted-foreground">Usuário: {item.user_id}{item.group_id ? ` · Grupo: ${item.group_id}` : ""}</p>
+            </div>)}
+          </CardContent>
+        </Card>
       </div>
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>

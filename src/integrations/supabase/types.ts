@@ -895,6 +895,7 @@ export type Database = {
       }
       notification_preferences: {
         Row: {
+          absences_enabled: boolean
           birthdays_enabled: boolean
           chat_enabled: boolean
           created_at: string
@@ -906,6 +907,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          absences_enabled?: boolean
           birthdays_enabled?: boolean
           chat_enabled?: boolean
           created_at?: string
@@ -917,6 +919,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          absences_enabled?: boolean
           birthdays_enabled?: boolean
           chat_enabled?: boolean
           created_at?: string

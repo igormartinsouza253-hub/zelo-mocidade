@@ -10,3 +10,9 @@ content_path = "./supabase/email-templates/reset-password.html"
 
 [functions.manage-user-access]
 verify_jwt = true
+
+[functions.send-web-push]
+verify_jwt = false
+
+[functions.submit-feedback]
+verify_jwt = true

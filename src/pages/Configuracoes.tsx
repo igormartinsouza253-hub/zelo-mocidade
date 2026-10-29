@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown, RotateCcw, ChevronRight } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Trash2, UserPlus, Shield, User, Download, FileSpreadsheet, Upload, Edit3, MoreHorizontal, Eye, EyeOff, Camera, Bell, Info, Crown, RotateCcw, ChevronRight, Smartphone, CircleHelp, Lightbulb } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -17,6 +17,9 @@ import { applyThemePreset, ThemePresetId, CustomThemeConfig, THEME_PRESETS_META 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GroupSettingsSection } from "@/components/settings/GroupSettingsSection";
 import { NotificationSettingsSection } from "@/components/settings/NotificationSettingsSection";
+import { AppSettingsSection } from "@/components/settings/AppSettingsSection";
+import { HelpCenterSection } from "@/components/settings/HelpCenterSection";
+import { FeedbackSection } from "@/components/settings/FeedbackSection";
 
 const userEmailSchema = z.object({
   email: z.string()
@@ -55,7 +58,7 @@ const ConfiguracoesGrupoAdmin = lazy(() => import("@/pages/ConfiguracoesGrupoAdm
 
 const ENABLE_LEGACY_USER_MANAGEMENT = false;
 
-type DesktopSettingsSection = "users" | "theme" | "group" | "notifications" | "data" | "superAdmin" | "about";
+type DesktopSettingsSection = "users" | "theme" | "group" | "notifications" | "data" | "superAdmin" | "about" | "app" | "help" | "feedback";
 
 interface UserWithRole {
   id: string;
@@ -128,7 +131,7 @@ const Configuracoes = () => {
   
 
   // Navegação interna mobile para subpáginas de configurações
-  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "notifications" | "data" | "about">("root");
+  const [mobileSection, setMobileSection] = useState<"root" | "theme" | "users" | "notifications" | "data" | "about" | "app" | "help" | "feedback">("root");
   const [desktopSection, setDesktopSection] = useState<DesktopSettingsSection | null>(null);
   
   // Importação de membros
@@ -159,8 +162,8 @@ const Configuracoes = () => {
   useEffect(() => {
     if (!isMobile) return;
     const section = new URLSearchParams(location.search).get("section");
-    if (section === "theme" || section === "users" || section === "notifications" || section === "data" || section === "about") {
-      setMobileSection(section);
+    if (["theme", "users", "notifications", "data", "about", "app", "help", "feedback"].includes(section ?? "")) {
+      setMobileSection(section as "theme" | "users" | "notifications" | "data" | "about" | "app" | "help" | "feedback");
     } else {
       setMobileSection("root");
     }
@@ -889,7 +892,7 @@ const Configuracoes = () => {
           )}
         >
           {mobileSection === "root" && (
-            <div className="grid h-full grid-rows-[repeat(7,minmax(0,1fr))] gap-2.5">
+            <div className="grid h-full grid-rows-[repeat(10,minmax(0,1fr))] gap-2.5">
               <Card
                 className="hover-scale cursor-pointer"
                 onClick={() => navigate("/configuracoes?section=users")}
@@ -1021,6 +1024,11 @@ const Configuracoes = () => {
                   <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" />
                 </CardHeader>
               </Card>
+              {([ ["app", "Aplicativo", "Versão e instalação neste dispositivo", Smartphone], ["help", "Ajuda e tutoriais", "Pesquise respostas e veja o guia passo a passo", CircleHelp], ["feedback", "Enviar feedback", "Compartilhe uma ideia ou relate um erro", Lightbulb] ] as const).map(([section, title, description, Icon]) => (
+                <Card key={section} className="hover-scale cursor-pointer" onClick={() => navigate(`/configuracoes?section=${section}`)}>
+                  <CardHeader className="flex h-full flex-row items-center gap-3 px-4 py-2.5"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground"><Icon className="h-4 w-4" /></div><div className="flex-1 text-left"><CardTitle className="text-sm">{title}</CardTitle><CardDescription className="line-clamp-2 text-xs">{description}</CardDescription></div><ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground" /></CardHeader>
+                </Card>
+              ))}
             </div>
           )}
 
@@ -1472,6 +1480,9 @@ const Configuracoes = () => {
               <NotificationSettingsSection compact />
             </div>
           )}
+          {mobileSection === "app" && <AppSettingsSection />}
+          {mobileSection === "help" && <HelpCenterSection />}
+          {mobileSection === "feedback" && <FeedbackSection />}
 
           {mobileSection === "about" && (
             <div className="space-y-4">
@@ -1652,6 +1663,9 @@ const Configuracoes = () => {
       description: "Escolha quais alertas e lembretes deseja receber.",
       icon: Bell,
     },
+    { value: "app", title: "Aplicativo", description: "Versão, instalação e atualizações do Zelo.", icon: Smartphone },
+    { value: "help", title: "Ajuda e tutoriais", description: "Pesquise como usar os recursos do aplicativo.", icon: CircleHelp },
+    { value: "feedback", title: "Enviar feedback", description: "Envie ideias, bugs e erros para a equipe.", icon: Lightbulb },
     ...(canManageRestricted
       ? [
           {
@@ -1776,6 +1790,9 @@ const Configuracoes = () => {
                 <TabsContent value="notifications" className="mt-0">
                   <NotificationSettingsSection />
                 </TabsContent>
+                <TabsContent value="app" className="mt-0"><AppSettingsSection /></TabsContent>
+                <TabsContent value="help" className="mt-0"><HelpCenterSection /></TabsContent>
+                <TabsContent value="feedback" className="mt-0"><FeedbackSection /></TabsContent>
 
                 <TabsContent value="about" className="mt-0">
                   <Card className="rounded-2xl border-border/60 shadow-none">

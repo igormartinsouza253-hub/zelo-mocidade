@@ -34,6 +34,7 @@ type Props = {
 };
 
 function resolveNotificationHref(item: NotificationRow) {
+  if (item.entity_type === "user_feedback") return "/configuracoes/super-admin";
   if (item.entity_type === "group_join_request") {
     return "/grupo/info";
   }
@@ -48,6 +49,10 @@ function resolveNotificationHref(item: NotificationRow) {
 
   if (item.entity_type === "visita" && item.entity_id) {
     return `/visitas/${encodeURIComponent(item.entity_id)}`;
+  }
+
+  if (item.entity_type === "birthday" || item.entity_type?.startsWith("absence_")) {
+    return `/notificacoes/abrir?id=${encodeURIComponent(item.id)}`;
   }
 
   return "/configuracoes?section=notifications";
@@ -145,6 +150,7 @@ export function HomeNotificationsDrawer({ open, onOpenChange, userId }: Props) {
         .from("notifications")
         .select("id, title, message, created_at, read_at, entity_type, entity_id, metadata")
         .eq("user_id", userId)
+        .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(50);
 
