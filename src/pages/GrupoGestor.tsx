@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Camera,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  LogIn,
   LogOut,
   Loader2,
   Plus,
@@ -55,9 +56,10 @@ type JoinRequestRow = {
   created_at: string;
 };
 
-function getGroupErrorMessage(error: any, fallback: string) {
-  const code = String(error?.code ?? "");
-  const message = String(error?.message ?? error ?? "").toLowerCase();
+function getGroupErrorMessage(error: unknown, fallback: string) {
+  const details = error && typeof error === "object" ? error as { code?: unknown; message?: unknown } : null;
+  const code = String(details?.code ?? "");
+  const message = String(details?.message ?? error ?? "").toLowerCase();
 
   if (message.includes("not_authenticated") || code === "401") return "Sua sessão expirou. Faça login novamente.";
   if (message.includes("invalid_password")) return "Senha do grupo incorreta.";
@@ -90,6 +92,7 @@ export default function GrupoGestor() {
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [joining, setJoining] = useState(false);
+  const [enteringGroupId, setEnteringGroupId] = useState<string | null>(null);
 
   const [groupName, setGroupName] = useState("");
   const [groupDesc, setGroupDesc] = useState("");
@@ -118,6 +121,13 @@ export default function GrupoGestor() {
   const canContinueToApp = !!activeGroupId;
   const selectedGroup = useMemo(() => groups.find((group) => group.id === selectedGroupId) ?? null, [groups, selectedGroupId]);
   const userGroupIds = useMemo(() => new Set(userGroups.map((group) => group.id)), [userGroups]);
+  const accessibleGroupIds = useMemo(() => {
+    const next = new Set(userGroupIds);
+    Object.values(myJoinRequests).forEach((request) => {
+      if (request.status === "approved") next.add(request.group_id);
+    });
+    return next;
+  }, [myJoinRequests, userGroupIds]);
   const filteredGroups = useMemo(() => {
     const term = groupSearch.trim().toLowerCase();
     return groups
@@ -129,16 +139,16 @@ export default function GrupoGestor() {
         const aActive = a.id === activeGroupId ? 1 : 0;
         const bActive = b.id === activeGroupId ? 1 : 0;
         if (aActive !== bActive) return bActive - aActive;
-        const aMine = userGroupIds.has(a.id) ? 1 : 0;
-        const bMine = userGroupIds.has(b.id) ? 1 : 0;
+        const aMine = accessibleGroupIds.has(a.id) ? 1 : 0;
+        const bMine = accessibleGroupIds.has(b.id) ? 1 : 0;
         if (aMine !== bMine) return bMine - aMine;
         return a.name.localeCompare(b.name, "pt-BR");
       });
-  }, [activeGroupId, groupSearch, groups, userGroupIds]);
+  }, [accessibleGroupIds, activeGroupId, groupSearch, groups]);
   const profileName = profile?.username || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Conta";
   const profileInitial = (profileName || user?.email || "U").charAt(0).toUpperCase();
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     setLoadingGroups(true);
     try {
       const { data, error } = await supabase
@@ -147,12 +157,12 @@ export default function GrupoGestor() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      const nextGroups = ((data as any) ?? []).filter((group: GroupRow) => Boolean(group.id && group.name));
+      const nextGroups = (data ?? []).filter((group) => Boolean(group.id && group.name));
       const groupIds = nextGroups.map((group: GroupRow) => group.id);
       let counts: Record<string, number> = {};
       if (groupIds.length > 0) {
         const { data: memberRows } = await supabase.from("group_members").select("group_id").in("group_id", groupIds);
-        counts = ((memberRows as any) ?? []).reduce((acc: Record<string, number>, row: { group_id: string }) => {
+        counts = (memberRows ?? []).reduce<Record<string, number>>((acc, row) => {
           acc[row.group_id] = (acc[row.group_id] ?? 0) + 1;
           return acc;
         }, {});
@@ -170,9 +180,9 @@ export default function GrupoGestor() {
     } finally {
       setLoadingGroups(false);
     }
-  };
+  }, []);
 
-  const loadMyJoinRequests = async () => {
+  const loadMyJoinRequests = useCallback(async () => {
     if (!user) {
       setMyJoinRequests({});
       return;
@@ -185,25 +195,25 @@ export default function GrupoGestor() {
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    const latestByGroup = ((data as any) ?? []).reduce((acc: Record<string, JoinRequestRow>, request: JoinRequestRow) => {
+    const latestByGroup = (data ?? []).reduce<Record<string, JoinRequestRow>>((acc, request) => {
       if (!acc[request.group_id]) acc[request.group_id] = request;
       return acc;
     }, {});
     setMyJoinRequests(latestByGroup);
-  };
+  }, [user]);
 
   useEffect(() => {
     void loadGroups().catch((error) => {
       console.error(error);
       toast.error("Não foi possível carregar os grupos.");
     });
-  }, []);
+  }, [loadGroups]);
 
   useEffect(() => {
     void loadMyJoinRequests().catch((error) => {
       console.error(error);
     });
-  }, [user?.id]);
+  }, [loadMyJoinRequests]);
 
   useEffect(() => {
     if (!user || activeGroupId || changeMode) return;
@@ -212,7 +222,7 @@ export default function GrupoGestor() {
     const id = window.setInterval(async () => {
       try {
         const hasGroup = await refresh();
-        if (!cancelled && hasGroup) toast.success("Grupo confirmado! Toque em Ir para o app.");
+        if (!cancelled && hasGroup) toast.success("Grupo confirmado! Toque em “Entrar no grupo”.");
       } catch (error) {
         console.error("[GrupoGestor] Erro ao atualizar grupos do usuário", error);
       }
@@ -262,7 +272,7 @@ export default function GrupoGestor() {
     });
     if (uploadError) throw uploadError;
 
-    const { error: updateError } = await supabase.from("management_groups").update({ photo_url: filePath } as any).eq("id", groupId);
+    const { error: updateError } = await supabase.from("management_groups").update({ photo_url: filePath }).eq("id", groupId);
     if (updateError) throw updateError;
   };
 
@@ -312,17 +322,15 @@ export default function GrupoGestor() {
   const handleRequestJoin = async () => {
     if (!user) return;
     if (!selectedGroupId) return toast.error("Selecione um grupo");
-    if (userGroupIds.has(selectedGroupId)) {
-      await setActiveGroupById(selectedGroupId);
-      toast.success("Grupo alternado com sucesso.");
-      navigate("/", { replace: true });
+    if (accessibleGroupIds.has(selectedGroupId)) {
+      await handleEnterGroup(selectedGroupId);
       return;
     }
     if (!joinPassword.trim()) return toast.error("Informe a senha do grupo");
 
     setJoining(true);
     try {
-      const { data: requestStatus, error } = await supabase.rpc("request_group_join" as any, {
+      const { data: requestStatus, error } = await supabase.rpc("request_group_join", {
         _group_id: selectedGroupId,
         _password: joinPassword.trim(),
       });
@@ -344,6 +352,26 @@ export default function GrupoGestor() {
       toast.error(getGroupErrorMessage(error, "Não foi possível solicitar entrada no grupo."));
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleEnterGroup = async (groupId: string) => {
+    if (!accessibleGroupIds.has(groupId)) {
+      handleSelectGroup(groupId);
+      return;
+    }
+
+    setEnteringGroupId(groupId);
+    try {
+      if (activeGroupId !== groupId) await setActiveGroupById(groupId);
+      toast.success("Grupo acessado com sucesso.");
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("[GrupoGestor] Não foi possível acessar o grupo", error);
+      toast.error(getGroupErrorMessage(error, "Não foi possível entrar no grupo."));
+      await refresh();
+    } finally {
+      setEnteringGroupId(null);
     }
   };
 
@@ -466,7 +494,7 @@ export default function GrupoGestor() {
                 groups={filteredGroups}
                 totalGroups={groups.length}
                 activeGroupId={activeGroupId}
-                userGroupIds={userGroupIds}
+                accessibleGroupIds={accessibleGroupIds}
                 selectedGroupId={selectedGroupId}
                 groupPhotoUrls={groupPhotoUrls}
                 myJoinRequests={myJoinRequests}
@@ -474,13 +502,15 @@ export default function GrupoGestor() {
                 setGroupSearch={setGroupSearch}
                 loadingGroups={loadingGroups}
                 onSelect={handleSelectGroup}
+                onEnter={handleEnterGroup}
+                enteringGroupId={enteringGroupId}
                 onRefresh={() => void loadGroups()}
               />
               <EnhancedJoinGroupCard
                 refTarget={joinFormRef}
                 selectedGroup={selectedGroup}
                 activeGroupId={activeGroupId}
-                isMember={selectedGroup ? userGroupIds.has(selectedGroup.id) : false}
+                isMember={selectedGroup ? accessibleGroupIds.has(selectedGroup.id) : false}
                 request={selectedGroup ? myJoinRequests[selectedGroup.id] : undefined}
                 joinPassword={joinPassword}
                 setJoinPassword={setJoinPassword}
@@ -539,7 +569,7 @@ export default function GrupoGestor() {
               refTarget={joinFormRef}
               selectedGroup={selectedGroup}
               activeGroupId={activeGroupId}
-              isMember={selectedGroup ? userGroupIds.has(selectedGroup.id) : false}
+              isMember={selectedGroup ? accessibleGroupIds.has(selectedGroup.id) : false}
               request={selectedGroup ? myJoinRequests[selectedGroup.id] : undefined}
               joinPassword={joinPassword}
               setJoinPassword={setJoinPassword}
@@ -552,7 +582,7 @@ export default function GrupoGestor() {
             groups={filteredGroups}
             totalGroups={groups.length}
             activeGroupId={activeGroupId}
-            userGroupIds={userGroupIds}
+            accessibleGroupIds={accessibleGroupIds}
             selectedGroupId={selectedGroupId}
             groupPhotoUrls={groupPhotoUrls}
             myJoinRequests={myJoinRequests}
@@ -560,6 +590,8 @@ export default function GrupoGestor() {
             setGroupSearch={setGroupSearch}
             loadingGroups={loadingGroups}
             onSelect={handleSelectGroup}
+            onEnter={handleEnterGroup}
+            enteringGroupId={enteringGroupId}
             onRefresh={() => void loadGroups()}
           />
         </div>
@@ -761,7 +793,7 @@ function EnhancedGroupListCard({
   groups,
   totalGroups,
   activeGroupId,
-  userGroupIds,
+  accessibleGroupIds,
   selectedGroupId,
   groupPhotoUrls,
   myJoinRequests,
@@ -769,12 +801,14 @@ function EnhancedGroupListCard({
   setGroupSearch,
   loadingGroups,
   onSelect,
+  onEnter,
+  enteringGroupId,
   onRefresh,
 }: {
   groups: GroupRow[];
   totalGroups: number;
   activeGroupId: string | null;
-  userGroupIds: Set<string>;
+  accessibleGroupIds: Set<string>;
   selectedGroupId: string;
   groupPhotoUrls: Record<string, string>;
   myJoinRequests: Record<string, JoinRequestRow>;
@@ -782,6 +816,8 @@ function EnhancedGroupListCard({
   setGroupSearch: (value: string) => void;
   loadingGroups: boolean;
   onSelect: (groupId: string) => void;
+  onEnter: (groupId: string) => void;
+  enteringGroupId: string | null;
   onRefresh: () => void;
 }) {
   return (
@@ -789,7 +825,7 @@ function EnhancedGroupListCard({
       <CardHeader className="px-4 pb-3 pt-4 md:px-6 md:pt-6">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-base leading-tight md:text-2xl">Grupos disponiveis</CardTitle>
+            <CardTitle className="text-base leading-tight md:text-2xl">Grupos disponíveis</CardTitle>
             <CardDescription>{loadingGroups ? "Carregando grupos..." : `${groups.length} de ${totalGroups} grupo(s)`}</CardDescription>
           </div>
           <Button size="icon" variant="outline" disabled={loadingGroups} onClick={onRefresh} className="h-10 w-10 rounded-2xl md:rounded-md" aria-label="Atualizar lista">
@@ -809,44 +845,65 @@ function EnhancedGroupListCard({
       <CardContent className="space-y-2.5 px-4 pb-4 md:px-6 md:pb-6">
         {!loadingGroups && groups.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
-            {groupSearch.trim() ? "Nenhum grupo encontrado nessa busca." : "Nenhum grupo disponivel no momento."}
+            {groupSearch.trim() ? "Nenhum grupo encontrado nessa busca." : "Nenhum grupo disponível no momento."}
           </div>
         ) : null}
 
         {groups.map((group) => {
           const selected = selectedGroupId === group.id;
           const isActive = activeGroupId === group.id;
-          const isMine = userGroupIds.has(group.id);
+          const canEnter = accessibleGroupIds.has(group.id);
           const request = myJoinRequests[group.id];
+          const isPending = request?.status === "pending" && !canEnter;
+          const isEntering = enteringGroupId === group.id;
           return (
-            <button
+            <div
               key={group.id}
-              type="button"
-              onClick={() => onSelect(group.id)}
-              className={`flex min-h-[4.8rem] w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors md:rounded-lg ${
+              className={`w-full rounded-2xl border p-3 text-left transition-colors md:rounded-lg ${
                 selected ? "border-primary bg-primary/10 ring-1 ring-primary/20" : "border-border bg-background/65 hover:bg-accent/45"
               }`}
             >
-              <Avatar className="h-11 w-11 rounded-2xl border border-border/60">
-                <AvatarImage className="rounded-2xl object-cover" src={groupPhotoUrls[group.id] || undefined} />
-                <AvatarFallback className="rounded-2xl bg-primary/10 font-semibold text-primary">{group.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
-                  {isActive ? <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> : null}
+              <button type="button" onClick={() => onSelect(group.id)} className="flex min-h-[3.5rem] w-full items-center gap-3 text-left">
+                <Avatar className="h-11 w-11 rounded-2xl border border-border/60">
+                  <AvatarImage className="rounded-2xl object-cover" src={groupPhotoUrls[group.id] || undefined} />
+                  <AvatarFallback className="rounded-2xl bg-primary/10 font-semibold text-primary">{group.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-foreground">{group.name}</p>
+                    {isActive ? <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> : null}
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{group.description || "Sem descrição"}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {isActive ? <Badge className="rounded-full px-2 py-0 text-[0.65rem]">Grupo atual</Badge> : null}
+                    {!isActive && canEnter ? <Badge variant="secondary" className="rounded-full px-2 py-0 text-[0.65rem]">Você participa</Badge> : null}
+                    {typeof group.member_count === "number" ? (
+                      <Badge variant="outline" className="rounded-full px-2 py-0 text-[0.65rem]">{group.member_count} membro(s)</Badge>
+                    ) : null}
+                    {request ? <RequestStatusBadge status={request.status} /> : null}
+                  </div>
                 </div>
-                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{group.description || "Sem descricao"}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {isActive ? <Badge className="rounded-full px-2 py-0 text-[0.65rem]">Grupo atual</Badge> : null}
-                  {!isActive && isMine ? <Badge variant="secondary" className="rounded-full px-2 py-0 text-[0.65rem]">Voce participa</Badge> : null}
-                  {typeof group.member_count === "number" ? (
-                    <Badge variant="outline" className="rounded-full px-2 py-0 text-[0.65rem]">{group.member_count} membro(s)</Badge>
-                  ) : null}
-                  {request ? <RequestStatusBadge status={request.status} /> : null}
-                </div>
-              </div>
-            </button>
+              </button>
+              <Button
+                type="button"
+                size="sm"
+                variant={canEnter ? "default" : "outline"}
+                disabled={isPending || isEntering}
+                onClick={() => canEnter ? void onEnter(group.id) : onSelect(group.id)}
+                className="mt-3 h-9 w-full rounded-xl md:rounded-md"
+              >
+                {isEntering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : canEnter ? <LogIn className="mr-2 h-4 w-4" /> : <Users className="mr-2 h-4 w-4" />}
+                {isEntering
+                  ? "Entrando..."
+                  : canEnter
+                    ? "Entrar no grupo"
+                    : isPending
+                      ? "Aguardando aprovação"
+                      : request?.status === "rejected"
+                        ? "Solicitar novamente"
+                        : "Solicitar entrada"}
+              </Button>
+            </div>
           );
         })}
       </CardContent>
@@ -880,13 +937,21 @@ function EnhancedJoinGroupCard({
   const isCurrentGroup = !!selectedGroup && selectedGroup.id === activeGroupId;
   const isPending = request?.status === "pending";
   const canSwitchGroup = !!selectedGroup && isMember && !isCurrentGroup;
-  const buttonLabel = isCurrentGroup ? "Grupo atual" : canSwitchGroup ? "Alternar para este grupo" : isPending ? "Solicitacao enviada" : "Solicitar entrada";
+  const buttonLabel = isCurrentGroup ? "Grupo atual" : canSwitchGroup ? "Entrar no grupo" : isPending ? "Solicitação enviada" : "Solicitar entrada";
 
   return (
     <Card ref={refTarget} className="overflow-hidden rounded-3xl border-border/60 bg-card/95 shadow-[var(--shadow-card)] md:rounded-xl">
       <CardHeader className="px-4 pb-2 pt-4 md:px-6 md:pt-6">
         <CardTitle className="text-base leading-tight md:text-2xl">Entrar no grupo</CardTitle>
-        <CardDescription>{selectedGroup ? "Confirme o grupo escolhido e informe a senha." : "Selecione um grupo na lista."}</CardDescription>
+        <CardDescription>
+          {!selectedGroup
+            ? "Selecione um grupo na lista."
+            : isMember
+              ? "Você já participa deste grupo e pode acessá-lo diretamente."
+              : isPending
+                ? "Sua solicitação está aguardando a aprovação de um administrador."
+                : "Confirme o grupo escolhido e informe a senha."}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 px-4 pb-4 md:px-6 md:pb-6">
         <div className="rounded-2xl border border-border bg-background/60 p-3 md:rounded-lg">
@@ -963,7 +1028,7 @@ function EnhancedCreateGroupCard({
               <Input value={groupName} onChange={(event) => setGroupName(event.target.value)} className="h-11 rounded-2xl md:rounded-md" />
             </div>
             <div className="space-y-2">
-              <Label>Descricao (opcional)</Label>
+              <Label>Descrição (opcional)</Label>
               <Textarea value={groupDesc} onChange={(event) => setGroupDesc(event.target.value)} className="rounded-2xl md:rounded-md" />
             </div>
           </>
@@ -997,7 +1062,7 @@ function EnhancedCreateGroupCard({
           <div className="space-y-2">
             <Label>Senha do grupo</Label>
             <PasswordInput value={groupPassword} onChange={(event) => setGroupPassword(event.target.value)} />
-            <p className="text-xs leading-relaxed text-muted-foreground">Essa senha sera usada somente para entrada manual. Convites por link continuam temporarios.</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">Essa senha será usada somente para entrada manual. Convites por link continuam temporários.</p>
           </div>
         ) : null}
 
@@ -1007,7 +1072,7 @@ function EnhancedCreateGroupCard({
           </Button>
           {createStep < 3 ? (
             <Button type="button" onClick={onNextStep} className="h-11 rounded-2xl md:rounded-md">
-              Proximo
+              Próximo
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
@@ -1053,7 +1118,7 @@ function GroupPreview({ name, description, photoUrl }: { name: string; descripti
       </Avatar>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-foreground">{name.trim() || "Nome do grupo"}</p>
-        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{description.trim() || "Sem descricao"}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{description.trim() || "Sem descrição"}</p>
       </div>
     </div>
   );

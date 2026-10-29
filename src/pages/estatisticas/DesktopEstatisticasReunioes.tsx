@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, BarChart3, Users } from "lucide-react";
+import { Activity, ArrowUpRight, Award, BarChart3, BookOpen, CalendarDays, Heart, TrendingUp, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { resolveHslFromCssVar } from "@/lib/resolve-color";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
 
 interface Stats {
   mediaPorFaixa: { faixa: string; media: number; total: number; percentual: number }[];
@@ -43,7 +51,8 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   };
 
   const navigate = useNavigate();
-  const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
+  const detectedMobile = useIsMobile();
+  const isMobile = __forceMobile ? true : __forceDesktop ? false : detectedMobile;
   const { setConfig } = usePageHeader();
   const { activeGroupId } = useActiveGroup();
   const [stats, setStats] = useState<Stats>({
@@ -78,6 +87,8 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
   const [endPeriod, setEndPeriod] = useState<string>("");
   const [avgStartPeriod, setAvgStartPeriod] = useState<string>("");
   const [avgEndPeriod, setAvgEndPeriod] = useState<string>("");
+  const [desktopCarouselApi, setDesktopCarouselApi] = useState<CarouselApi | null>(null);
+  const [desktopCarouselIndex, setDesktopCarouselIndex] = useState(0);
 
   useEffect(() => {
     setConfig({
@@ -114,6 +125,20 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
       setAvgEndPeriod(dates[dates.length - 1]);
     }
   }, [availableDates]);
+
+  useEffect(() => {
+    if (!desktopCarouselApi) return;
+
+    const updateIndex = () => setDesktopCarouselIndex(desktopCarouselApi.selectedScrollSnap());
+    updateIndex();
+    desktopCarouselApi.on("select", updateIndex);
+    desktopCarouselApi.on("reInit", updateIndex);
+
+    return () => {
+      desktopCarouselApi.off("select", updateIndex);
+      desktopCarouselApi.off("reInit", updateIndex);
+    };
+  }, [desktopCarouselApi]);
 
   const loadRecentMeetings = async () => {
     if (!activeGroupId) {
@@ -456,6 +481,285 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
       cat => visibleCategories[cat]
     );
   };
+
+  const dashboardChartData = getFilteredChartData();
+  // Keep six stable slots so a period with only a few meetings does not
+  // stretch each column across the whole chart. Empty slots stay blank.
+  const dashboardChartSlots: MainChartData[] = Array.from({ length: 6 }, (_, index) => (
+    dashboardChartData[index] || { data: "" }
+  ));
+  const dashboardMeetingCount = dashboardChartData.length || mainChartData.length;
+  const dashboardVisits = (dashboardChartData.length ? dashboardChartData : mainChartData)
+    .reduce((sum, item) => sum + (Number(item.Visitas) || 0), 0);
+  const dashboardRecitativos = (dashboardChartData.length ? dashboardChartData : mainChartData)
+    .reduce((sum, item) => sum + (Number(item["Recitativos Individuais"]) || 0), 0);
+  const dashboardRate = stats.mediaPorFaixa.length
+    ? Math.round(stats.mediaPorFaixa.reduce((sum, item) => sum + item.percentual, 0) / stats.mediaPorFaixa.length)
+    : 0;
+  const dashboardTopFaixa = stats.mediaPorFaixa.length
+    ? stats.mediaPorFaixa.reduce((top, item) => item.percentual > top.percentual ? item : top)
+    : null;
+  const dashboardLowFaixa = stats.mediaPorFaixa.length
+    ? stats.mediaPorFaixa.reduce((low, item) => item.percentual < low.percentual ? item : low)
+    : null;
+
+  if (!isMobile) {
+    return (
+      <div className="h-full min-h-0 w-full overflow-hidden bg-background p-3 md:p-4">
+        <div className="grid h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-3">
+          <section className="flex min-h-[4.25rem] items-center justify-between gap-4 rounded-[20px] border border-border/60 bg-card/90 px-5 py-3 shadow-none">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Visão geral do grupo</p>
+              <h1 className="truncate text-xl font-extrabold text-foreground">Estatísticas e insights</h1>
+              <p className="truncate text-xs text-muted-foreground">Acompanhe participação, reuniões e evolução do grupo em um só lugar.</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Select value={startPeriod} onValueChange={setStartPeriod}>
+                <SelectTrigger className="h-9 w-[6.75rem] rounded-xl bg-background/70 text-xs">
+                  <SelectValue placeholder="Início" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set(availableDates.map(d => `${d.year}-${d.month}`))).map(date => (
+                    <SelectItem key={date} value={date}>{formatMonth(date)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">até</span>
+              <Select value={endPeriod} onValueChange={setEndPeriod}>
+                <SelectTrigger className="h-9 w-[6.75rem] rounded-xl bg-background/70 text-xs">
+                  <SelectValue placeholder="Fim" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set(availableDates.map(d => `${d.year}-${d.month}`))).map(date => (
+                    <SelectItem key={date} value={date}>{formatMonth(date)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </section>
+
+          <Card className="h-[4.75rem] min-h-0 rounded-[18px] border-border/60 bg-card/90 shadow-none">
+            <CardContent className="grid h-full grid-cols-4 p-0">
+              {[
+                { label: "Reuniões no período", value: dashboardMeetingCount, helper: "encontros registrados", icon: CalendarDays, tone: "bg-secondary" },
+                { label: "Média por reunião", value: stats.mediaTotal, helper: "participantes em média", icon: Users, tone: "bg-primary/15" },
+                { label: "Presença média", value: `${dashboardRate}%`, helper: dashboardTopFaixa ? `${dashboardTopFaixa.faixa} lidera` : "sem dados por faixa", icon: Activity, tone: "bg-emerald-500/15" },
+                { label: "Orações registradas", value: prayerStats.totalOracoes, helper: `${prayerStats.mediaPorReuniao} por reunião`, icon: Heart, tone: "bg-rose-500/15" },
+              ].map((metric, index) => {
+                const Icon = metric.icon;
+                return (
+                  <div key={metric.label} className={`flex min-w-0 items-center justify-between gap-3 px-4 py-2 ${index ? "border-l border-border/50" : ""}`}>
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-medium text-muted-foreground">{metric.label}</p>
+                      <p className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">{metric.value}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{metric.helper}</p>
+                    </div>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${metric.tone}`}>
+                      <Icon className="h-4 w-4 text-foreground" />
+                    </span>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <section className="grid min-h-0 grid-cols-[minmax(0,1.75fr)_minmax(21rem,0.85fr)] gap-3 max-[1180px]:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)]">
+            <Card className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+              <CardHeader className="flex-none px-4 pb-2 pt-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                      <BarChart3 className="h-4 w-4 text-primary" />
+                      Participação por reunião
+                    </CardTitle>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Presença, visitas e recitativos ao longo do período selecionado.</p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-semibold text-foreground">{dashboardMeetingCount} encontros</span>
+                </div>
+                <div className="mt-2 flex max-w-full gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[...allFaixas, "Visitas", "Recitativos Individuais"].map((category) => {
+                    const active = visibleCategories[category];
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => toggleCategory(category)}
+                        className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${active ? "border-primary/40 bg-secondary text-foreground" : "border-border/50 bg-background/40 text-muted-foreground line-through"}`}
+                      >
+                        {category}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 px-3 pb-3 pt-0">
+                <div className="h-full min-h-0 rounded-2xl border border-border/35 bg-background/45 p-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dashboardChartSlots} barCategoryGap="26%" margin={{ top: 12, right: 12, left: -8, bottom: 4 }}>
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" opacity={0.3} />
+                      <XAxis dataKey="data" interval={0} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} tickMargin={10} style={{ fontSize: "11px" }} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} width={34} style={{ fontSize: "11px" }} />
+                      <Tooltip
+                        cursor={{ fill: "hsl(var(--secondary) / 0.35)" }}
+                        contentStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.8rem", color: "hsl(var(--popover-foreground))" }}
+                      />
+                      {getVisibleCategories().map((category, index, array) => (
+                        <Bar key={category} dataKey={category} stackId="presence" barSize={46} maxBarSize={46} fill={FAIXA_COLORS[category] || "hsl(var(--primary))"} name={category} radius={index === array.length - 1 ? [7, 7, 0, 0] : [0, 0, 0, 0]} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Carousel
+              setApi={setDesktopCarouselApi}
+              opts={{ align: "start", loop: false }}
+              className="h-full min-h-0 overflow-hidden rounded-[20px] [&>div]:h-full"
+              aria-label="Painéis complementares de estatísticas"
+            >
+              <CarouselContent className="ml-0 h-full">
+                <CarouselItem className="h-full pl-0">
+                  <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+                    <CardHeader className="flex-none px-4 pb-3 pt-3 pr-24">
+                      <CardTitle className="flex items-center gap-2 text-lg font-semibold"><Award className="h-4 w-4 text-primary" />Insights rápidos</CardTitle>
+                      <p className="text-xs text-muted-foreground">Leituras automáticas dos dados atuais.</p>
+                    </CardHeader>
+                    <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-10 pt-0 scrollbar-none">
+                      <div className="rounded-2xl bg-secondary/75 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-muted-foreground">Faixa com melhor presença</span>
+                          <ArrowUpRight className="h-4 w-4 text-primary" />
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold text-foreground">{dashboardTopFaixa?.faixa || "Sem dados"}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{dashboardTopFaixa ? `${dashboardTopFaixa.percentual.toFixed(0)}% de presença média` : "Registre reuniões para gerar insights."}</p>
+                      </div>
+
+                      <div className="rounded-2xl border border-border/60 bg-background/50 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-muted-foreground">Ponto de atenção</span>
+                          <Activity className="h-4 w-4 text-primary" />
+                        </div>
+                        <p className="mt-2 text-xl font-semibold text-foreground">{dashboardLowFaixa?.faixa || "Aguardando dados"}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{dashboardLowFaixa ? `${dashboardLowFaixa.percentual.toFixed(0)}% de presença média no período` : "Não há faixa suficiente para comparar."}</p>
+                      </div>
+
+                      <div className="mt-auto grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-border/60 bg-background/50 p-3">
+                          <p className="text-xs text-muted-foreground">Visitas</p>
+                          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{dashboardVisits}</p>
+                        </div>
+                        <div className="rounded-2xl border border-border/60 bg-background/50 p-3">
+                          <p className="text-xs text-muted-foreground">Recitativos</p>
+                          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{dashboardRecitativos}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+
+                <CarouselItem className="h-full pl-0">
+                  <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+                    <CardHeader className="flex-none px-4 pb-3 pt-3 pr-24">
+                      <CardTitle className="flex items-center gap-2 text-lg font-semibold"><BookOpen className="h-4 w-4 text-primary" />Orações e palavras</CardTitle>
+                      <p className="text-xs text-muted-foreground">Participação ativa e temas recentes.</p>
+                    </CardHeader>
+                    <CardContent className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-10 pt-0">
+                      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/60 bg-background/50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Quem mais orou</p>
+                          <Heart className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-h-0 space-y-1.5 overflow-y-auto scrollbar-none">
+                          {topPrayerMembers.slice(0, 4).map((member, index) => (
+                            <div key={member.id} className="flex items-center justify-between gap-2 rounded-xl bg-secondary/65 px-3 py-2">
+                              <span className="min-w-0 truncate text-xs font-medium text-foreground"><span className="mr-1.5 text-primary">{index + 1}.</span>{member.nome}</span>
+                              <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">{member.total}</span>
+                            </div>
+                          ))}
+                          {!topPrayerMembers.length ? <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma oração vinculada a membro.</p> : null}
+                        </div>
+                      </section>
+
+                      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/60 bg-background/50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Palavras recentes</p>
+                          <BookOpen className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-h-0 space-y-1.5 overflow-y-auto scrollbar-none">
+                          {recentWords.slice(0, 4).map((item) => (
+                            <button key={item.id} type="button" onClick={() => navigate(`/reunioes/visualizar/${item.id}`)} className="w-full rounded-xl bg-secondary/65 px-3 py-2 text-left transition-colors hover:bg-secondary">
+                              <span className="block truncate text-xs font-medium text-foreground">{item.palavra_referencia}</span>
+                              <span className="block truncate text-[10px] text-muted-foreground">{formatDate(item.data)}{item.tema ? ` · ${item.tema}` : ""}</span>
+                            </button>
+                          ))}
+                          {!recentWords.length ? <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma palavra registrada.</p> : null}
+                        </div>
+                      </section>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+
+                <CarouselItem className="h-full pl-0">
+                  <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border-border/60 bg-card/90 shadow-none">
+                    <CardHeader className="flex-none px-4 pb-3 pt-3 pr-24">
+                      <CardTitle className="flex items-center gap-2 text-lg font-semibold"><Users className="h-4 w-4 text-primary" />Presença por faixa etária</CardTitle>
+                      <p className="text-xs text-muted-foreground">Média de presentes comparada ao total cadastrado.</p>
+                    </CardHeader>
+                    <CardContent className="min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-0 scrollbar-none">
+                      {stats.mediaPorFaixa.length ? (
+                        <div className="space-y-3">
+                          {stats.mediaPorFaixa.map((item) => {
+                            const color = FAIXA_COLORS[item.faixa] || "hsl(var(--primary))";
+                            const percent = Math.max(0, Math.min(100, item.percentual));
+                            return (
+                              <div key={item.faixa} className="rounded-2xl border border-border/55 bg-background/50 p-3">
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <span className="h-4 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                                    <span className="truncate text-sm font-medium text-foreground">{item.faixa}</span>
+                                  </div>
+                                  <span className="text-sm font-semibold tabular-nums text-foreground">{percent.toFixed(0)}%</span>
+                                </div>
+                                <div className="h-2.5 overflow-hidden rounded-full bg-muted/45">
+                                  <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${percent}%`, backgroundColor: color }} />
+                                </div>
+                                <p className="mt-2 text-right text-[11px] text-muted-foreground">{item.media} presentes em média · {item.total} cadastrados</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/60 px-5 text-center text-sm text-muted-foreground">
+                          Sem dados de presença por faixa.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+              </CarouselContent>
+
+              <CarouselPrevious className="left-auto right-12 top-4 z-20 h-8 w-8 translate-y-0 border-border/60 bg-background/75" />
+              <CarouselNext className="right-3 top-4 z-20 h-8 w-8 translate-y-0 border-border/60 bg-background/75" />
+
+              <span className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1.5 backdrop-blur">
+                {[0, 1, 2].map((index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    aria-label={`Mostrar painel ${index + 1}`}
+                    aria-current={desktopCarouselIndex === index ? "true" : undefined}
+                    onClick={() => desktopCarouselApi?.scrollTo(index)}
+                    className={`h-1.5 rounded-full transition-all ${desktopCarouselIndex === index ? "w-5 bg-primary" : "w-1.5 bg-muted-foreground/35 hover:bg-muted-foreground/60"}`}
+                  />
+                ))}
+              </span>
+            </Carousel>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-background overflow-hidden">
@@ -920,7 +1224,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
                     {stats.mediaPorFaixa.map((entry) => (
                       <Cell 
                         key={`cell-total-${entry.faixa}`} 
-                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")} 
+                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "48 30% 34%")}
                         fillOpacity={0.5}
                       />
                     ))}
@@ -935,7 +1239,7 @@ export default function EstatisticasReunioes({ __forceMobile, __forceDesktop }: 
                     {stats.mediaPorFaixa.map((entry) => (
                       <Cell
                         key={`cell-media-${entry.faixa}`}
-                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "158 64% 52%")}
+                        fill={FAIXA_COLORS[entry.faixa] || resolveHslFromCssVar("--primary", "48 30% 34%")}
                       />
                     ))}
                   </Bar>

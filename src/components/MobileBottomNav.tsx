@@ -8,8 +8,6 @@ import {
   Home,
   LayoutGrid,
   MapPin,
-  Search,
-  Settings,
   StickyNote,
   Users,
 } from "lucide-react";
@@ -35,9 +33,7 @@ const MENU_PAGES: DockItem[] = [
   { id: "notas", label: "Notas", url: "/notas", icon: StickyNote },
   { id: "visitas", label: "Visitas", url: "/visitas", icon: MapPin },
   { id: "estatisticas", label: "Estat\u00edsticas", url: "/estatisticas", icon: BarChart3 },
-  { id: "busca", label: "Busca", url: "/busca", icon: Search },
   { id: "cargos", label: "Cargos", url: "/cargos", icon: Award },
-  { id: "config", label: "Config.", url: "/configuracoes", icon: Settings },
 ];
 
 export function MobileBottomNav() {
@@ -111,7 +107,7 @@ export function MobileBottomNav() {
             sideOffset={12}
             className="w-[calc(100vw-2rem)] max-w-[22rem] rounded-3xl border border-border/55 bg-background/98 p-3 shadow-[var(--shadow-card)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/94"
           >
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-4 gap-2">
               {MENU_PAGES.map((item) => {
                 const Icon = item.icon;
 

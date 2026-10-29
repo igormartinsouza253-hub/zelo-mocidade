@@ -252,9 +252,9 @@ export function GroupSettingsSection() {
 
   if (!activeGroupId) {
     return (
-      <Card>
-        <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
-          <CardTitle className="text-sm md:text-lg flex items-center gap-2">
+      <Card className="rounded-2xl border-border/60 bg-card/70 shadow-none">
+        <CardHeader className="px-4 pb-3 pt-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
             <Users className="h-4 w-4 md:h-5 md:w-5" />
             Grupo
           </CardTitle>
@@ -262,7 +262,7 @@ export function GroupSettingsSection() {
             Você ainda não está em um grupo. Para usar o app, escolha um grupo gestor.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pb-3 md:pb-6 px-3 md:px-6">
+        <CardContent className="px-4 pb-4 pt-0">
           <Button type="button" onClick={() => navigate("/grupo")}>Escolher grupo</Button>
         </CardContent>
       </Card>
@@ -271,9 +271,9 @@ export function GroupSettingsSection() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-3 md:pb-6 pt-3 md:pt-6 px-3 md:px-6">
-          <CardTitle className="text-sm md:text-lg flex items-center gap-2">
+      <Card className="rounded-2xl border-border/60 bg-card/70 shadow-none">
+        <CardHeader className="px-4 pb-3 pt-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
             <Users className="h-4 w-4 md:h-5 md:w-5" />
             {title}
             <Badge variant="secondary" className="ml-auto">{count}</Badge>
@@ -282,7 +282,7 @@ export function GroupSettingsSection() {
             Gerencie nome, senha e membros do grupo.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pb-3 md:pb-6 px-3 md:px-6 space-y-4">
+        <CardContent className="space-y-4 px-4 pb-4 pt-0">
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -294,7 +294,7 @@ export function GroupSettingsSection() {
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-3 space-y-3">
+          <div className="space-y-3 rounded-2xl border border-border/55 bg-background/50 p-4">
             <div className="space-y-2">
               <Label className="text-xs md:text-sm">Nome do grupo</Label>
               <Input
@@ -314,7 +314,7 @@ export function GroupSettingsSection() {
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-3 space-y-3">
+          <div className="space-y-3 rounded-2xl border border-border/55 bg-background/50 p-4">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               <p className="text-sm font-medium">Senha do grupo</p>
@@ -349,20 +349,20 @@ export function GroupSettingsSection() {
             </Button>
           </div>
 
-          <div className="rounded-md border border-border p-3">
-            <p className="mb-2 text-sm font-medium">Membros do grupo</p>
+          <div className="rounded-2xl border border-border/55 bg-background/50 p-4">
+            <p className="mb-3 text-sm font-semibold">Membros do grupo</p>
             {loading ? (
               <p className="text-xs text-muted-foreground">Carregando membros...</p>
             ) : members.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum membro encontrado.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="grid gap-2 xl:grid-cols-2">
                 {members.map((member) => {
                   const isCurrentUser = member.userId === user?.id;
                   const isSaving = savingMemberId === member.userId;
 
                   return (
-                    <li key={member.userId} className="rounded-md border border-border p-2 space-y-2">
+                    <li key={member.userId} className="space-y-2 rounded-xl border border-border/45 bg-secondary/45 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm text-foreground truncate">{member.username}</span>
                         <Badge variant={member.role === "admin" ? "default" : "secondary"}>
@@ -411,8 +411,8 @@ export function GroupSettingsSection() {
           </div>
 
           {isAdmin && (
-            <div className="rounded-md border border-border p-3">
-              <p className="mb-2 text-sm font-medium">Solicitações para entrar no grupo</p>
+            <div className="rounded-2xl border border-border/55 bg-background/50 p-4">
+              <p className="mb-3 text-sm font-semibold">Solicitações para entrar no grupo</p>
 
               {loadingJoinRequests ? (
                 <p className="text-xs text-muted-foreground">Carregando solicitações...</p>
@@ -424,7 +424,7 @@ export function GroupSettingsSection() {
                     const isProcessing = joinActionId === request.id;
 
                     return (
-                      <li key={request.id} className="rounded-md border border-border p-2 space-y-2">
+                      <li key={request.id} className="space-y-2 rounded-xl border border-border/45 bg-secondary/45 p-3">
                         <div className="space-y-0.5">
                           <p className="text-sm text-foreground truncate">{request.username}</p>
                           <p className="text-xs text-muted-foreground">

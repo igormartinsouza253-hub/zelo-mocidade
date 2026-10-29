@@ -183,6 +183,32 @@
   box-shadow: var(--shadow-card);
 }
 
+/* Na visão mensal, os eventos funcionam como marcadores de cor. Os detalhes
+   permanecem na lista lateral e no clique, evitando poluir as células. */
+.calendar-mockup-month .rbc-row-segment {
+  display: flex;
+  justify-content: flex-end;
+  padding-inline: 0.45rem;
+}
+
+.calendar-mockup-month .rbc-event {
+  width: 1.65rem;
+  min-width: 1.65rem;
+  max-width: 1.65rem;
+  height: 0.48rem;
+  min-height: 0.48rem;
+  padding: 0;
+  border-width: 0;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.calendar-mockup-month .rbc-event-content {
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 .calendar-desktop-modern .rbc-show-more {
   margin-top: 0.2rem;
   border-radius: calc(var(--radius) - 3px);

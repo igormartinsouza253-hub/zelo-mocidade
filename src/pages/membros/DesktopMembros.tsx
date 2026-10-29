@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Plus,
@@ -89,8 +89,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const [membros, setMembros] = useState<Membro[]>([]);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(() => {
-    const saved = localStorage.getItem("membros_show_inactive");
-    return saved ? saved === "true" : false;
+    return false;
   });
   const [sortBy, setSortBy] = useState<SortOption>(() => {
     return (localStorage.getItem("membros_sort") as SortOption) || "nome";
@@ -100,12 +99,10 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   });
   const [cargosDisponiveis, setCargosDisponiveis] = useState<Cargo[]>([]);
   const [selectedCargos, setSelectedCargos] = useState<string[]>(() => {
-    const saved = localStorage.getItem("membros_filters_cargos");
-    return saved ? JSON.parse(saved) : [];
+    return [];
   });
   const [selectedFaixas, setSelectedFaixas] = useState<string[]>(() => {
-    const saved = localStorage.getItem("membros_filters_faixas");
-    return saved ? JSON.parse(saved) : [];
+    return [];
   });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -120,17 +117,21 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
   const navigate = useNavigate();
-  const isMobile = __forceMobile ? true : __forceDesktop ? false : useIsMobile();
-  const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
+  const detectedMobile = useIsMobile();
+  const isMobile = __forceMobile ? true : __forceDesktop ? false : detectedMobile;
+  const faixasEtarias = useMemo(() => ["Crianças", "Meninos", "Meninas", "Moços", "Moças"], []);
   const { setConfig } = usePageHeader();
   const { activeGroupId, isAdmin } = useActiveGroup();
+  const filteredMemberCount = useMemo(() => membros.filter((membro) => {
+    if (!showInactive && membro.ativo === false) return false;
+    const term = search.toLowerCase().trim();
+    const matchesSearch = !term || membro.nome.toLowerCase().includes(term) || (membro.telefone ?? "").toLowerCase().includes(term) || (membro.faixa_etaria ?? "").toLowerCase().includes(term) || (membro.cargos ?? []).some((cargo) => cargo.toLowerCase().includes(term));
+    const matchesCargo = selectedCargos.length === 0 || selectedCargos.some((cargo) => membro.cargos?.includes(cargo));
+    const matchesFaixa = selectedFaixas.length === 0 || selectedFaixas.includes(membro.faixa_etaria);
+    return matchesSearch && matchesCargo && matchesFaixa;
+  }).length, [membros, search, selectedCargos, selectedFaixas, showInactive]);
 
   const hasSelected = selectedIds.length > 0;
-
-  useEffect(() => {
-    loadMembros();
-    loadCargos();
-  }, [activeGroupId]);
 
   useEffect(() => {
     localStorage.setItem("membros_sort", sortBy);
@@ -141,16 +142,10 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   }, [sortDirection]);
 
   useEffect(() => {
-    localStorage.setItem("membros_show_inactive", String(showInactive));
-  }, [showInactive]);
-
-  useEffect(() => {
-    localStorage.setItem("membros_filters_cargos", JSON.stringify(selectedCargos));
-  }, [selectedCargos]);
-
-  useEffect(() => {
-    localStorage.setItem("membros_filters_faixas", JSON.stringify(selectedFaixas));
-  }, [selectedFaixas]);
+    localStorage.removeItem("membros_show_inactive");
+    localStorage.removeItem("membros_filters_cargos");
+    localStorage.removeItem("membros_filters_faixas");
+  }, []);
 
   useEffect(() => {
     if (isMobile) return;
@@ -182,7 +177,7 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
 
   useEffect(() => {
     setConfig({
-      title: `Membros · ${membros.length}`,
+      title: `Membros · ${filteredMemberCount}`,
       icon: Users,
       breadcrumbs: [
         { label: "Início", href: "/" },
@@ -497,11 +492,13 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     selectionMode,
     selectedIds,
     deleting,
-    membros.length,
+    filteredMemberCount,
     selectedMembro,
+    faixasEtarias,
+    showInactive,
   ]);
 
-  const loadCargos = async () => {
+  const loadCargos = useCallback(async () => {
     if (!activeGroupId) {
       setCargosDisponiveis([]);
       return;
@@ -518,9 +515,9 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     } catch (error) {
       console.error("Erro ao carregar cargos:", error);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadMembros = async () => {
+  const loadMembros = useCallback(async () => {
     if (!activeGroupId) {
       setMembros([]);
       setLoadingMembros(false);
@@ -612,7 +609,12 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
     } finally {
       setLoadingMembros(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    void loadMembros();
+    void loadCargos();
+  }, [loadCargos, loadMembros]);
 
   const calcularIdade = (dataNascimento: string | null) => {
     if (!dataNascimento) return null;
@@ -737,6 +739,12 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
       return matchesSearch && matchesCargo && matchesFaixa;
     }),
   );
+
+  const activeMobileFilters = [
+    ...selectedCargos.map((cargo) => ({ label: cargo, remove: () => removeCargo(cargo) })),
+    ...selectedFaixas.map((faixa) => ({ label: faixa, remove: () => removeFaixa(faixa) })),
+    ...(showInactive ? [{ label: "Inativos", remove: () => setShowInactive(false) }] : []),
+  ];
 
   const allSelected =
     filteredMembros.length > 0 && filteredMembros.every((m) => selectedIds.includes(m.id));
@@ -877,6 +885,19 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
   return (
     <div className="h-full w-full bg-background overflow-hidden">
       <div className="flex flex-col h-full px-3 py-3 md:px-4 md:py-4 gap-0">
+        {isMobile && activeMobileFilters.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Filtros selecionados">
+            {activeMobileFilters.map((filter) => (
+              <Badge key={filter.label} variant="secondary" className="gap-1 rounded-full px-2.5 py-1 text-xs">
+                {filter.label}
+                <button type="button" aria-label={`Remover filtro ${filter.label}`} onClick={filter.remove}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            <button type="button" className="px-1 text-xs text-muted-foreground underline" onClick={() => { clearFilters(); setShowInactive(false); }}>Limpar</button>
+          </div>
+        )}
         {/* Chips de filtros (Desktop): mantém visível sem duplicar botões */}
         {!isMobile && (selectedCargos.length > 0 || selectedFaixas.length > 0 || showInactive) && (
           <div className="mb-3 flex flex-wrap gap-2">
@@ -943,7 +964,6 @@ const Membros = ({ __forceMobile, __forceDesktop }: { __forceMobile?: boolean; _
             >
               {Array.from({ length: 6 }).map((_, idx) => (
                 <Skeleton
-                  // eslint-disable-next-line react/no-array-index-key
                   key={idx}
                   className={cn(
                     "h-12 md:h-14",

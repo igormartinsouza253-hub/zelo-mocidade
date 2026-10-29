@@ -113,6 +113,7 @@ export function DesktopDashboard({
   const aniversariantesWidget = (size: "md" | "lg" = "lg") => (
     <ExpandableWidget
       title="Aniversariantes"
+      expandedContentClassName="h-[min(44vh,330px)] min-h-[290px]"
       renderExpanded={() => <AniversariantesWidget size="lg" aniversariantes={aniversariantes} desktopDashboard />}
     >
       <AniversariantesWidget size={size} aniversariantes={aniversariantes} desktopDashboard />

@@ -496,7 +496,7 @@ export default function Cargos() {
       </section>
 
       <Dialog open={!!selectedCargo} onOpenChange={(open) => !open && setSelectedCargo(null)}>
-        <DialogContent className="left-1/2 flex max-h-[calc(100dvh-2rem)] w-[calc(100dvw-1rem)] max-w-[calc(100dvw-1rem)] flex-col overflow-hidden rounded-3xl p-0 sm:max-w-md">
+        <DialogContent className="left-1/2 flex max-h-[calc(100dvh-2rem)] w-[calc(100dvw-2rem)] max-w-[calc(100dvw-2rem)] flex-col overflow-hidden rounded-2xl p-0 sm:max-w-md">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex min-w-0 items-center gap-2 px-5 pt-5">
               <Users className="h-4 w-4 text-primary" />

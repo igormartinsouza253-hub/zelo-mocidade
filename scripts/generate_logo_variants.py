@@ -9,7 +9,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageOps
 SIZE = 512
 PADDING = 44
 CORNER_RADIUS = 76
-BRAND_BLUE = (54, 169, 225, 255)
+BRAND_OLIVE = (119, 110, 68, 255)
 BLACK = (9, 12, 16, 255)
 WHITE = (255, 255, 255, 255)
 
@@ -109,53 +109,69 @@ def main() -> None:
         type=Path,
         help="Master opcional da marca reduzida; se omitido, deriva telhado + Z do master principal.",
     )
+    parser.add_argument(
+        "--app-icon-source",
+        type=Path,
+        help="Imagem quadrada opcional para a marca compacta oficial dos ícones instaláveis.",
+    )
     args = parser.parse_args()
 
     assets = args.workspace / "src" / "assets"
     public = args.workspace / "public"
     alpha = extract_mark(args.source)
-    compact_alpha = extract_mark(args.compact_source) if args.compact_source else compact_mark(alpha)
+    compact_alpha = (
+        extract_mark(args.app_icon_source)
+        if args.app_icon_source
+        else extract_mark(args.compact_source)
+        if args.compact_source
+        else compact_mark(alpha)
+    )
 
     transparent_black = transparent_mark(alpha, BLACK)
     transparent_white = transparent_mark(alpha, WHITE)
     black_white = rounded_variant(alpha, BLACK, WHITE)
     white_black = rounded_variant(alpha, WHITE, BLACK)
-    color_white = rounded_variant(alpha, BRAND_BLUE, WHITE)
+    color_olive = rounded_variant(alpha, BRAND_OLIVE, WHITE)
     compact_transparent_black = transparent_mark(compact_alpha, BLACK)
     compact_transparent_white = transparent_mark(compact_alpha, WHITE)
     compact_black_white = rounded_variant(compact_alpha, BLACK, WHITE)
     compact_white_black = rounded_variant(compact_alpha, WHITE, BLACK)
-    compact_color_white = rounded_variant(compact_alpha, BRAND_BLUE, WHITE)
+    compact_color_olive = rounded_variant(compact_alpha, BRAND_OLIVE, WHITE)
 
     outputs = {
         assets / "logo-zelo-black-white.png": black_white,
         assets / "logo-zelo-white-black.png": white_black,
-        assets / "logo-zelo-color-white.png": color_white,
+        assets / "logo-zelo-color-white.png": color_olive,
         assets / "logo-zelo-transparent-black.png": transparent_black,
         assets / "logo-zelo-transparent-white.png": transparent_white,
         assets / "logo-zelo-compact-black-white.png": compact_black_white,
         assets / "logo-zelo-compact-white-black.png": compact_white_black,
-        assets / "logo-zelo-compact-color-white.png": compact_color_white,
+        assets / "logo-zelo-compact-color-white.png": compact_color_olive,
         assets / "logo-zelo-compact-transparent-black.png": compact_transparent_black,
         assets / "logo-zelo-compact-transparent-white.png": compact_transparent_white,
         # Compatibilidade com os imports existentes.
-        assets / "logo-zelo-theme.png": color_white,
+        assets / "logo-zelo-theme.png": color_olive,
         assets / "logo-zelo-transparent.png": transparent_white,
         assets / "logo-zelo-black.png": transparent_black,
         assets / "logo-zelo-white.png": transparent_white,
         public / "logo-zelo-transparent.png": transparent_black,
         public / "logo-zelo-transparent-white.png": transparent_white,
-        public / "pwa-512.png": compact_color_white,
+        public / "pwa-512.png": compact_color_olive,
     }
 
     for path, image in outputs.items():
         save_png(image, path)
 
     # Ícones instaláveis e favicon priorizam a leitura da marca compacta.
-    pwa_192 = compact_color_white.resize((192, 192), Image.Resampling.LANCZOS)
+    pwa_192 = compact_color_olive.resize((192, 192), Image.Resampling.LANCZOS)
     save_png(pwa_192, public / "pwa-192.png")
 
-    favicon = compact_color_white.convert("RGBA")
+    # Keep the stable icon URLs used by installed PWAs. The v2 filenames were
+    # previously generated from a different logo and retained stale browser caches.
+    save_png(pwa_192, public / "zelo-app-icon-192-v2.png")
+    save_png(compact_color_olive, public / "zelo-app-icon-512-v2.png")
+
+    favicon = compact_color_olive.convert("RGBA")
     favicon.save(
         public / "favicon.ico",
         format="ICO",

@@ -1,6 +1,6 @@
 import { Calendar, Search, Settings, StickyNote, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,7 +81,7 @@ export function GlobalSearchBar() {
     setSuggestions(initial);
   }, []);
 
-  const loadSuggestions = async (value: string) => {
+  const loadSuggestions = useCallback(async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) {
       const recents = buildRecentSuggestions();
@@ -210,7 +210,7 @@ export function GlobalSearchBar() {
       setIsOpen(recents.length > 0);
       setHighlightedIndex(recents.length > 0 ? 0 : -1);
     }
-  };
+  }, [activeGroupId]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -228,7 +228,7 @@ export function GlobalSearchBar() {
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [query]);
+  }, [loadSuggestions, query]);
 
   const performSearch = (value: string) => {
     const trimmed = value.trim();

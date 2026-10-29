@@ -6,6 +6,8 @@ import { ThemeProvider } from "next-themes";
 import { AppRoutes } from "@/routes/AppRoutes";
 import { useThemeColorMeta } from "@/hooks/useThemeColorMeta";
 import { ActiveGroupProvider } from "@/hooks/useActiveGroup";
+import { OfflineProvider } from "@/hooks/useOfflineMode";
+import { OfflineSynchronizer } from "@/components/OfflineSynchronizer";
 
 const queryClient = new QueryClient();
 
@@ -17,11 +19,14 @@ const App = () => {
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <ActiveGroupProvider>
-            <AppRoutes />
-          </ActiveGroupProvider>
-        </BrowserRouter>
+        <OfflineProvider>
+          <BrowserRouter>
+            <ActiveGroupProvider>
+              <OfflineSynchronizer />
+              <AppRoutes />
+            </ActiveGroupProvider>
+          </BrowserRouter>
+        </OfflineProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, RefreshCw, Search, ShieldAlert, Trash2, UserX, Users } from "lucide-react";
+import { Crown, RefreshCw, Search, ShieldAlert, Trash2, UserX, Users, MessageSquareText, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const SUPER_ADMIN_EMAIL = "igor.ccb.mts@gmail.com";
+type FeedbackItem = { id: string; user_id: string; group_id: string | null; category: string; title: string; description: string; reproduction_steps: string | null; status: string; created_at: string; profiles?: { username: string | null; email: string | null } | null };
 
 type SuperAdminGroup = {
   id: string;
@@ -63,7 +64,11 @@ function formatDate(value?: string | null) {
   });
 }
 
-export default function SuperAdminUsuarios() {
+type SuperAdminUsuariosProps = {
+  embedded?: boolean;
+};
+
+export default function SuperAdminUsuarios({ embedded = false }: SuperAdminUsuariosProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [users, setUsers] = useState<SuperAdminUser[]>([]);
@@ -71,7 +76,9 @@ export default function SuperAdminUsuarios() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<SuperAdminUser | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ user: SuperAdminUser; group: SuperAdminGroup } | null>(null);
-  const isAllowed = (user?.email ?? "").toLowerCase() === SUPER_ADMIN_EMAIL;
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const isAllowed = user?.app_metadata?.super_admin === true;
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -92,8 +99,9 @@ export default function SuperAdminUsuarios() {
         body: { action: "super_admin_list" },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      setUsers(((data as any)?.users ?? []) as SuperAdminUser[]);
+      const response = data as { error?: string; users?: SuperAdminUser[] } | null;
+      if (response?.error) throw new Error(response.error);
+      setUsers(response?.users ?? []);
     } catch (error) {
       console.error("[SuperAdminUsuarios] load", error);
       toast.error("Não foi possível carregar os usuários.");
@@ -102,16 +110,33 @@ export default function SuperAdminUsuarios() {
     }
   };
 
+  const loadFeedback = async () => {
+    if (!isAllowed) return;
+    setFeedbackLoading(true);
+    const { data, error } = await supabase.from("user_feedback" as any).select("*").order("created_at", { ascending: false }).limit(100);
+    if (error) { console.error("[SuperAdminUsuarios] feedback", error); toast.error("Não foi possível carregar os feedbacks."); }
+    setFeedback((data ?? []) as unknown as FeedbackItem[]);
+    setFeedbackLoading(false);
+  };
+
+  const updateFeedbackStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from("user_feedback" as any).update({ status }).eq("id", id);
+    if (error) { toast.error("Não foi possível atualizar o status."); return; }
+    setFeedback((items) => items.map((item) => item.id === id ? { ...item, status } : item));
+    toast.success("Status atualizado.");
+  };
+
   useEffect(() => {
     if (!user) return;
-    if (!isAllowed) {
+    if (!isAllowed && !embedded) {
       toast.error("Acesso restrito ao super administrador.");
       navigate("/configuracoes", { replace: true });
       return;
     }
     void loadUsers();
+    void loadFeedback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAllowed]);
+  }, [user?.id, isAllowed, embedded, navigate]);
 
   const removeFromGroup = async () => {
     if (!removeTarget) return;
@@ -124,7 +149,8 @@ export default function SuperAdminUsuarios() {
         },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const response = data as { error?: string } | null;
+      if (response?.error) throw new Error(response.error);
       toast.success("Usuário removido do grupo.");
       setRemoveTarget(null);
       void loadUsers();
@@ -141,7 +167,8 @@ export default function SuperAdminUsuarios() {
         body: { action: "super_admin_delete_user", user_id: deleteTarget.id },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const response = data as { error?: string } | null;
+      if (response?.error) throw new Error(response.error);
       toast.success("Usuário excluído do app.");
       setDeleteTarget(null);
       void loadUsers();
@@ -154,16 +181,16 @@ export default function SuperAdminUsuarios() {
   if (!isAllowed) return null;
 
   return (
-    <div className="settings-mobile min-h-screen bg-background px-3 pb-28 pt-3">
-      <div className="mx-auto max-w-md space-y-3">
-        <Card className="border-primary/40 bg-primary/5">
-          <CardHeader className="pb-3 pt-3 px-3">
-            <CardTitle className="flex items-center gap-2 text-sm">
+    <div className={embedded ? "w-full" : "settings-mobile min-h-screen bg-background px-3 pb-28 pt-3"}>
+      <div className={embedded ? "w-full space-y-3" : "mx-auto max-w-md space-y-3"}>
+        <Card className="rounded-2xl border-primary/35 bg-primary/5 shadow-none">
+          <CardHeader className="px-4 pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Crown className="h-4 w-4 text-primary" />
               Super administração
             </CardTitle>
             <CardDescription className="text-xs">
-              Acesso exclusivo da conta {SUPER_ADMIN_EMAIL}.
+              Acesso exclusivo para contas autorizadas pelo administrador da plataforma.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 pb-3 px-3">
@@ -182,15 +209,15 @@ export default function SuperAdminUsuarios() {
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-2xl border border-border/50 bg-background/60 p-2">
+              <div className="rounded-xl border border-border/50 bg-background/60 p-2">
                 <p className="text-lg font-bold">{users.length}</p>
                 <p className="text-[10px] text-muted-foreground">Usuários</p>
               </div>
-              <div className="rounded-2xl border border-border/50 bg-background/60 p-2">
+              <div className="rounded-xl border border-border/50 bg-background/60 p-2">
                 <p className="text-lg font-bold">{users.filter((item) => item.online).length}</p>
                 <p className="text-[10px] text-muted-foreground">Online</p>
               </div>
-              <div className="rounded-2xl border border-border/50 bg-background/60 p-2">
+              <div className="rounded-xl border border-border/50 bg-background/60 p-2">
                 <p className="text-lg font-bold">{users.reduce((sum, item) => sum + item.groups.length, 0)}</p>
                 <p className="text-[10px] text-muted-foreground">Vínculos</p>
               </div>
@@ -198,7 +225,7 @@ export default function SuperAdminUsuarios() {
           </CardContent>
         </Card>
 
-        <div className="space-y-2">
+        <div className={embedded ? "grid gap-3 xl:grid-cols-2" : "space-y-2"}>
           {loading ? (
             <Card>
               <CardContent className="p-4 text-center text-sm text-muted-foreground">Carregando usuários...</CardContent>
@@ -212,7 +239,7 @@ export default function SuperAdminUsuarios() {
               const name = displayName(item);
               const isSelf = item.id === user?.id;
               return (
-                <Card key={item.id}>
+                <Card key={item.id} className="rounded-2xl border-border/60 shadow-none">
                   <CardContent className="space-y-3 p-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-12 w-12 rounded-2xl">
@@ -280,6 +307,16 @@ export default function SuperAdminUsuarios() {
             })
           )}
         </div>
+
+        <Card className="rounded-2xl border-border/60 shadow-none">
+          <CardHeader className="px-4 pb-3 pt-4"><CardTitle className="flex items-center gap-2 text-base"><MessageSquareText className="h-4 w-4" />Feedbacks recebidos <Badge variant="secondary">{feedback.length}</Badge></CardTitle><CardDescription className="text-xs">Ideias, erros e relatos enviados por usuários.</CardDescription></CardHeader>
+          <CardContent className="space-y-2 px-3 pb-3">
+            {feedbackLoading ? <p className="p-3 text-sm text-muted-foreground">Carregando feedbacks…</p> : feedback.length === 0 ? <p className="p-3 text-sm text-muted-foreground">Nenhum feedback recebido ainda.</p> : feedback.map((item) => <div key={item.id} className="space-y-2 rounded-xl border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge variant={item.category === "bug" ? "destructive" : "secondary"}>{item.category === "bug" ? "Bug ou erro" : item.category === "idea" ? "Ideia" : "Outro"}</Badge><span className="text-xs text-muted-foreground">{formatDate(item.created_at)}</span></div><Select value={item.status} onValueChange={(value) => void updateFeedbackStatus(item.id, value)}><SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="new">Novo</SelectItem><SelectItem value="in_progress">Em andamento</SelectItem><SelectItem value="resolved">Resolvido</SelectItem><SelectItem value="closed">Fechado</SelectItem></SelectContent></Select></div>
+              <h3 className="text-sm font-semibold">{item.title}</h3><p className="whitespace-pre-wrap text-sm text-muted-foreground">{item.description}</p>{item.reproduction_steps && <p className="whitespace-pre-wrap rounded-lg bg-muted/30 p-2 text-xs"><strong>Como reproduzir:</strong> {item.reproduction_steps}</p>}<p className="text-[11px] text-muted-foreground">Usuário: {item.user_id}{item.group_id ? ` · Grupo: ${item.group_id}` : ""}</p>
+            </div>)}
+          </CardContent>
+        </Card>
       </div>
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>

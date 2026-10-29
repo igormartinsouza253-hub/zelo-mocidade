@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useActiveGroup } from "@/hooks/useActiveGroup";
 
 interface Membro {
   id: string;
@@ -19,21 +20,22 @@ interface Membro {
 const MembrosGrupo = () => {
   const { faixa } = useParams<{ faixa: string }>();
   const navigate = useNavigate();
+  const { activeGroupId } = useActiveGroup();
   const [membros, setMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (faixa) {
-      loadMembros();
+  const loadMembros = useCallback(async () => {
+    if (!faixa || !activeGroupId) {
+      setMembros([]);
+      setLoading(false);
+      return;
     }
-  }, [faixa]);
-
-  const loadMembros = async () => {
     try {
       setLoading(true);
       const { data: membrosData, error } = await supabase
         .from("membros")
         .select("*")
+        .eq("group_id", activeGroupId)
         .eq("faixa_etaria", faixa)
         .order("nome");
 
@@ -44,7 +46,8 @@ const MembrosGrupo = () => {
           const { count } = await supabase
             .from("presencas")
             .select("*", { count: "exact", head: true })
-            .eq("membro_id", membro.id);
+            .eq("membro_id", membro.id)
+            .eq("group_id", activeGroupId);
 
           return {
             ...membro,
@@ -59,7 +62,11 @@ const MembrosGrupo = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeGroupId, faixa]);
+
+  useEffect(() => {
+    void loadMembros();
+  }, [loadMembros]);
 
   const calcularIdade = (dataNascimento: string | null) => {
     if (!dataNascimento) return null;

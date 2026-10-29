@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, Send, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -18,11 +18,18 @@ const DEFAULT_PREFS = {
   enabled: true,
   birthdays_enabled: true,
   notes_enabled: true,
+  chat_enabled: true,
   group_requests_enabled: true,
   events_enabled: true,
+  absences_enabled: true,
 };
 
 type NotificationPrefs = typeof DEFAULT_PREFS;
+
+function decodeBase64Url(value: string) {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+}
 
 type NotificationRow = {
   id: string;
@@ -49,6 +56,8 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read_at).length,
@@ -64,6 +73,14 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
       return `/calendario?eventId=${encodeURIComponent(item.entity_id)}`;
     }
 
+    if (item.entity_type === "birthday" && item.entity_id) {
+      return `/notificacoes/abrir?id=${encodeURIComponent(item.id)}`;
+    }
+
+    if (item.entity_type?.startsWith("absence_") || item.type.startsWith("absence_")) {
+      return `/notificacoes/abrir?id=${encodeURIComponent(item.id)}`;
+    }
+
     return "/configuracoes?section=notifications";
   };
 
@@ -72,7 +89,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
 
     const { data, error } = await supabase
       .from("notification_preferences")
-      .select("enabled, birthdays_enabled, notes_enabled, group_requests_enabled, events_enabled")
+      .select("enabled, birthdays_enabled, notes_enabled, chat_enabled, group_requests_enabled, events_enabled, absences_enabled")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -93,8 +110,10 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
       enabled: data.enabled ?? true,
       birthdays_enabled: data.birthdays_enabled ?? true,
       notes_enabled: data.notes_enabled ?? true,
+      chat_enabled: data.chat_enabled ?? true,
       group_requests_enabled: data.group_requests_enabled ?? true,
       events_enabled: data.events_enabled ?? true,
+      absences_enabled: data.absences_enabled ?? true,
     });
   };
 
@@ -106,6 +125,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
         .from("notifications")
         .select("id, title, message, type, created_at, read_at, entity_type, entity_id, metadata")
         .eq("user_id", user.id)
+        .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -120,8 +140,8 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   };
 
   const requestBrowserNotificationPermission = async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      toast.error("Este dispositivo não oferece suporte a notificações.");
+    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      toast.error("Este dispositivo ou navegador não oferece suporte a notificações push.");
       return false;
     }
 
@@ -142,6 +162,37 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
     return false;
   };
 
+  const syncPushSubscription = async (enabled: boolean) => {
+    if (!user || !pushSupported) return false;
+    const registration = await navigator.serviceWorker.ready;
+    const current = await registration.pushManager.getSubscription();
+    if (!enabled) {
+      if (current) {
+        await supabase.functions.invoke("send-web-push", { body: { action: "unsubscribe", endpoint: current.endpoint } });
+        await current.unsubscribe();
+      }
+      setPushSubscribed(false);
+      return true;
+    }
+
+    const { data, error } = await supabase.functions.invoke("send-web-push", { body: { action: "public-key" } });
+    if (error || !data?.publicKey) throw new Error("Push indisponível: configure VAPID no Supabase e implante a função send-web-push.");
+    const applicationServerKey = decodeBase64Url(data.publicKey);
+    let subscription = current;
+    if (subscription && subscription.options.applicationServerKey) {
+      const currentKey = new Uint8Array(subscription.options.applicationServerKey);
+      if (currentKey.length !== applicationServerKey.length || currentKey.some((byte, index) => byte !== applicationServerKey[index])) {
+        await subscription.unsubscribe();
+        subscription = null;
+      }
+    }
+    if (!subscription) subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+    const { error: subscribeError } = await supabase.functions.invoke("send-web-push", { body: { action: "subscribe", subscription: subscription.toJSON() } });
+    if (subscribeError) throw subscribeError;
+    setPushSubscribed(true);
+    return true;
+  };
+
   const savePreference = async (next: Partial<NotificationPrefs>) => {
     if (!user) return;
 
@@ -151,6 +202,15 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
         setPrefs((prev) => ({ ...prev, enabled: false }));
         return;
       }
+      try {
+        await syncPushSubscription(true);
+      } catch (error) {
+        console.error("[NotificationSettingsSection] push subscription", error);
+        toast.error(error instanceof Error ? error.message : "Não foi possível ativar notificações neste dispositivo.");
+        return;
+      }
+    } else if (next.enabled === false) {
+      await syncPushSubscription(false).catch(() => undefined);
     }
 
     const merged = { ...prefs, ...next };
@@ -169,6 +229,43 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
       setSaving(false);
     }
   };
+
+  const enableThisDevice = async () => {
+    if (!prefs.enabled) {
+      toast.error("Ative primeiro a opção geral de notificações.");
+      return;
+    }
+    const granted = await requestBrowserNotificationPermission();
+    if (!granted) return;
+    try {
+      await syncPushSubscription(true);
+      toast.success("Este dispositivo está pronto para receber notificações push.");
+    } catch (error) {
+      console.error("[NotificationSettingsSection] enableThisDevice", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível ativar push neste dispositivo.");
+    }
+  };
+
+  const sendTestPush = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("send-web-push", { body: { action: "send-test" } });
+      if (error) throw error;
+      if (!data?.devices) {
+        toast.error("Nenhum dispositivo está inscrito para receber push.");
+        setPushSubscribed(false);
+        return;
+      }
+      if (!data?.sent) throw new Error("O servidor não conseguiu entregar o push de teste.");
+      toast.success("Push enviado. Confira a central de notificações do dispositivo.");
+    } catch (error) {
+      console.error("[NotificationSettingsSection] sendTestPush", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o push de teste.");
+    }
+  };
+
+  useEffect(() => {
+    // Compatibilidade com navegadores sem suporte a push fica verificada abaixo.
+  }, []);
 
   const markOneAsRead = async (id: string) => {
     const nowIso = new Date().toISOString();
@@ -210,11 +307,23 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   }, [user?.id]);
 
   useEffect(() => {
+    const supported = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    setPushSupported(supported);
+    if (!supported) return;
+    void navigator.serviceWorker.ready.then((registration) => registration.pushManager.getSubscription()).then((subscription) => setPushSubscribed(!!subscription)).catch(() => setPushSubscribed(false));
+  }, []);
+
+  useEffect(() => {
     if (!user || !activeGroupId) return;
     void supabase.rpc("generate_today_birthday_notifications" as any, {
       _group_id: activeGroupId,
       _recipient_user_id: user.id,
     } as any);
+  }, [activeGroupId, user]);
+
+  useEffect(() => {
+    if (!user || !activeGroupId) return;
+    void supabase.rpc("generate_absence_notifications" as any, { _group_id: activeGroupId, _recipient_user_id: user.id } as any);
   }, [activeGroupId, user]);
 
   useEffect(() => {
@@ -251,7 +360,7 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
   }, [user]);
 
   return (
-    <Card className={compact ? "overflow-hidden rounded-3xl border-border/50 shadow-[var(--shadow-card)]" : undefined}>
+    <Card className={compact ? "overflow-hidden rounded-xl border-border/60 shadow-none" : undefined}>
       <CardHeader className={compact ? "pb-3 pt-3 px-3" : undefined}>
         <CardTitle className={compact ? "text-sm flex items-center gap-2" : "flex items-center gap-2"}>
           <Bell className={compact ? "h-4 w-4" : "h-5 w-5"} />
@@ -259,18 +368,23 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
           {unreadCount > 0 && <Badge className="ml-auto">{unreadCount}</Badge>}
         </CardTitle>
         <CardDescription className={compact ? "text-xs" : undefined}>
-          Mensagens curtas e objetivas para aniversários, notas, solicitações e eventos.
+          Receba avisos no dispositivo e acompanhe as novidades do seu grupo.
         </CardDescription>
       </CardHeader>
 
       <CardContent className={compact ? "space-y-4 pb-3 px-3" : "space-y-4"}>
-        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/10 p-3">
+        <div className={`${compact ? "rounded-lg" : "rounded-xl"} space-y-3 border border-border/50 bg-muted/10 p-3`}>
           <div className="flex items-center justify-between">
             <Label className={compact ? "text-xs" : "text-sm"}>Ativar notificações</Label>
             <Switch checked={prefs.enabled} disabled={saving} onCheckedChange={(checked) => void savePreference({ enabled: checked })} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              {pushSupported ? (pushSubscribed ? "Este dispositivo está inscrito para receber avisos push." : "Ative para receber avisos neste dispositivo, inclusive com o app fechado. O navegador precisa permitir notificações.") : "Este navegador não oferece suporte a push. Você ainda verá notificações dentro do app."}
+            </p>
+            {pushSupported && prefs.enabled && !pushSubscribed && <div className="sm:col-span-2"><Button type="button" variant="outline" size={compact ? "sm" : "default"} disabled={saving} onClick={() => void enableThisDevice()}><Smartphone className="mr-2 h-4 w-4" />Ativar neste dispositivo</Button></div>}
+            {pushSupported && prefs.enabled && pushSubscribed && <div className="sm:col-span-2"><Button type="button" variant="outline" size={compact ? "sm" : "default"} disabled={saving} onClick={() => void sendTestPush()}><Send className="mr-2 h-4 w-4" />Enviar notificação de teste</Button></div>}
             <div className="flex items-center justify-between gap-2">
               <Label className={compact ? "text-xs" : "text-sm"}>Aniversariantes</Label>
               <Switch
@@ -288,6 +402,10 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
               />
             </div>
             <div className="flex items-center justify-between gap-2">
+              <Label className={compact ? "text-xs" : "text-sm"}>Mensagens no chat</Label>
+              <Switch checked={prefs.chat_enabled} disabled={saving || !prefs.enabled} onCheckedChange={(checked) => void savePreference({ chat_enabled: checked })} />
+            </div>
+            <div className="flex items-center justify-between gap-2">
               <Label className={compact ? "text-xs" : "text-sm"}>Solicitações de grupo</Label>
               <Switch
                 checked={prefs.group_requests_enabled}
@@ -302,6 +420,10 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
                 disabled={saving || !prefs.enabled}
                 onCheckedChange={(checked) => void savePreference({ events_enabled: checked })}
               />
+            </div>
+            <div className="flex items-center justify-between gap-2 sm:col-span-2">
+              <Label className={compact ? "text-xs" : "text-sm"}>Acompanhamento de presença</Label>
+              <Switch checked={prefs.absences_enabled} disabled={saving || !prefs.enabled} onCheckedChange={(checked) => void savePreference({ absences_enabled: checked })} />
             </div>
           </div>
         </div>
@@ -342,7 +464,8 @@ export function NotificationSettingsSection({ compact = false }: NotificationSet
                       if (!item.read_at) void markOneAsRead(item.id);
                       navigate(resolveNotificationHref(item));
                     }}
-                    className="w-full rounded-2xl border border-border/50 bg-muted/10 p-3 text-left transition-colors hover:bg-accent/40"
+                    style={{ borderRadius: compact ? "10px" : "12px" }}
+                    className={`${compact ? "rounded-lg" : "rounded-xl"} w-full border border-border/50 bg-muted/10 p-3 text-left transition-colors hover:bg-accent/40`}
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <p className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>{item.title}</p>

@@ -21,6 +21,10 @@ import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { MeetingDateInput } from "@/components/reunioes/MeetingDateInput";
 import { PrayerMemberPicker } from "@/components/reunioes/PrayerMemberPicker";
 import { dateToString } from "@/lib/date-utils";
+import { useAuth } from "@/hooks/useAuth";
+import { OfflineFormStatus } from "@/components/OfflineFormStatus";
+import { deleteOfflineDraft, enqueueOfflineMutation, readOfflineDraft, saveOfflineDraft } from "@/offline/offlineDb";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
 
 // Lista de livros da Bíblia com seus capítulos
 const bibliaLivros: Record<string, number> = {
@@ -118,6 +122,8 @@ const NovaReuniao = () => {
   const textareaClass = "rounded-2xl border-border/60 bg-background/70 text-base";
   const cardClass = "h-full rounded-3xl border-border/50 bg-card/95 shadow-[var(--shadow-soft)]";
   const { activeGroupId } = useActiveGroup();
+  const { user } = useAuth();
+  const { status } = useOfflineMode();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
@@ -140,6 +146,35 @@ const NovaReuniao = () => {
     quem_atendeu: "",
     palavra_referencia: "",
   });
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [queued, setQueued] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId) return;
+    let cancelled = false;
+    void readOfflineDraft(user.id, activeGroupId, "meeting").then((draft) => {
+      if (cancelled) return;
+      if (!draft) { setDraftReady(true); return; }
+      const value = draft.value as { formData?: typeof formData; selectedMembros?: string[]; membrosQueOraram?: string[] };
+      if (value.formData) setFormData(value.formData);
+      if (value.selectedMembros) setSelectedMembros(value.selectedMembros);
+      if (value.membrosQueOraram) setMembrosQueOraram(value.membrosQueOraram);
+      setDraftSaved(true);
+      setDraftReady(true);
+    }).catch((error) => console.warn("Não foi possível restaurar a reunião salva:", error));
+    return () => { cancelled = true; };
+  }, [activeGroupId, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId || !draftReady) return;
+    const timeout = window.setTimeout(() => {
+      void saveOfflineDraft(user.id, activeGroupId, "meeting", { formData, selectedMembros, membrosQueOraram })
+        .then(() => setDraftSaved(true))
+        .catch((error) => console.warn("Não foi possível salvar o rascunho da reunião:", error));
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [activeGroupId, draftReady, formData, membrosQueOraram, selectedMembros, user?.id]);
 
   const faixasEtarias = ["Crianças", "Meninos", "Meninas", "Moços", "Moças"];
   const { setConfig } = usePageHeader();
@@ -327,15 +362,42 @@ const NovaReuniao = () => {
       return;
     }
 
+    const meetingId = crypto.randomUUID();
+    const buildOfflineRows = (userId: string) => {
+      const memberById = new Map(membros.map((member) => [member.id, member] as const));
+      return {
+        meeting: {
+          id: meetingId,
+          group_id: activeGroupId,
+          created_by_user_id: userId,
+          data: formData.data,
+          tema: formData.tema,
+          observacoes: formData.observacoes,
+          numero_visitas: formData.numero_visitas,
+          recitativos_individuais: formData.recitativos_individuais || 0,
+          quem_atendeu: formData.quem_atendeu || null,
+          palavra_referencia: formData.palavra_referencia || null,
+          oracoes: null,
+        },
+        presencas: selectedMembros.map((memberId) => {
+          const member = memberById.get(memberId);
+          return { id: crypto.randomUUID(), group_id: activeGroupId, reuniao_id: meetingId, membro_id: memberId, orou: membrosQueOraramSet.has(memberId), membro_nome: member?.nome ?? null, membro_faixa_etaria: member?.faixa_etaria ?? null, membro_cargos: member?.cargos ?? null };
+        }),
+      };
+    };
+
     setLoading(true);
 
     try {
       const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user?.id) throw new Error("Sessão indisponível.");
+      const offlineRows = buildOfflineRows(authData.user.id);
 
       const { data: reuniao, error: reuniaoError } = await supabase
         .from("reunioes")
         .insert([
           {
+            id: meetingId,
             group_id: activeGroupId,
             created_by_user_id: authData.user?.id ?? null,
             data: formData.data,
@@ -354,21 +416,9 @@ const NovaReuniao = () => {
 
       if (reuniaoError) throw reuniaoError;
 
+      let presencas: Array<{ id: string; group_id: string; reuniao_id: string; membro_id: string; orou: boolean; membro_nome: string | null; membro_faixa_etaria: string | null; membro_cargos: string[] | null }> = [];
       if (selectedMembros.length > 0) {
-        const memberById = new Map(membros.map((m) => [m.id, m] as const));
-
-        const presencas = selectedMembros.map((membroId) => {
-          const membro = memberById.get(membroId);
-          return {
-            group_id: activeGroupId,
-            reuniao_id: reuniao.id,
-            membro_id: membroId,
-            orou: membrosQueOraramSet.has(membroId),
-            membro_nome: membro?.nome ?? null,
-            membro_faixa_etaria: membro?.faixa_etaria ?? null,
-            membro_cargos: membro?.cargos ?? null,
-          };
-        });
+        presencas = offlineRows.presencas;
 
         const { error: presencasError } = await supabase
           .from("presencas")
@@ -377,11 +427,28 @@ const NovaReuniao = () => {
         if (presencasError) throw presencasError;
       }
 
+      await deleteOfflineDraft(user!.id, activeGroupId, "meeting");
+
       toast.success("Reunião registrada com sucesso!");
       navigate("/reunioes");
     } catch (error) {
       console.error("Erro ao registrar reunião:", error);
-      toast.error("Erro ao registrar reunião");
+      if (user?.id && activeGroupId && (status !== "online" || !navigator.onLine)) {
+        const offlineRows = buildOfflineRows(user.id);
+        await enqueueOfflineMutation({
+          key: `${user.id}:${meetingId}`,
+          userId: user.id,
+          groupId: activeGroupId,
+          createdAt: new Date().toISOString(),
+          steps: [{ table: "reunioes", rows: [offlineRows.meeting] }, { table: "presencas", rows: offlineRows.presencas }],
+        });
+        await deleteOfflineDraft(user.id, activeGroupId, "meeting");
+        setQueued(true);
+        toast.info("Reunião salva no dispositivo e aguardando publicação.");
+        navigate("/reunioes");
+      } else {
+        toast.error("Erro ao registrar reunião. O rascunho foi mantido neste dispositivo.");
+      }
     } finally {
       setLoading(false);
     }
@@ -392,6 +459,7 @@ const NovaReuniao = () => {
       <div className={cn("w-full px-3 md:px-6 py-3 md:py-6", isMobile && "h-full overflow-y-auto scrollbar-none")}
       >
         <form ref={formRef} onSubmit={handleSubmit} className={cn("space-y-4", isMobile && "space-y-3")}>
+          <OfflineFormStatus saved={draftSaved} queued={queued} />
           <div className="flex flex-col gap-3 md:gap-4 md:flex-row md:items-stretch md:min-h-[360px]">
             <div className="md:flex-1 md:min-h-0">
               <Card className={cardClass}>
@@ -515,6 +583,23 @@ const NovaReuniao = () => {
                       Formato: Livro Capítulo:Versículo
                     </p>
                   </div>
+
+                  {!isMobile && (
+                    <div className="grid w-full grid-cols-2 gap-3 border-t border-border/45 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full rounded-xl"
+                        onClick={() => navigate("/reunioes")}
+                        disabled={loading}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" className="w-full rounded-xl" disabled={loading}>
+                        {loading ? "Salvando..." : "Salvar reunião"}
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Input de oração removido: agora é marcado diretamente na lista de presença */}
                 </CardContent>
@@ -774,10 +859,7 @@ const NovaReuniao = () => {
             </div>
           </div>
 
-          {/* Espaçador para não esconder o fim do formulário atrás da barra fixa */}
           <div className="h-[calc(env(safe-area-inset-bottom)+12rem)] md:hidden" aria-hidden="true" />
-
-          {/* Ações movidas para a barra superior */}
         </form>
       </div>
 

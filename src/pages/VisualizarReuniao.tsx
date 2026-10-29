@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { cn } from "@/lib/utils";
+
+const ENABLE_MEETING_SUMMARY_SLIDES = false;
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { useIsMobile } from "@/hooks/use-mobile";
 interface Membro {
@@ -60,6 +62,12 @@ interface ChartData {
   color: string;
 }
 
+interface BarChartData {
+  faixa: string;
+  total: number;
+  presentes: number;
+}
+
 const FAIXA_COLORS: Record<string, string> = {
   "Crianças": "hsl(var(--faixa-criancas))",
   "Meninos": "hsl(var(--faixa-meninos))",
@@ -80,7 +88,7 @@ const VisualizarReuniao = () => {
   const [reuniao, setReuniao] = useState<ReuniaoData | null>(null);
   const [membrosPresentes, setMembrosPresentes] = useState<Membro[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
-  const [barChartData, setBarChartData] = useState<any[]>([]);
+  const [barChartData, setBarChartData] = useState<BarChartData[]>([]);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [selectedSlide, setSelectedSlide] = useState(0);
@@ -90,12 +98,6 @@ const VisualizarReuniao = () => {
   // Filtros e ordenação
   const [selectedFaixas, setSelectedFaixas] = useState<string[]>([]);
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
-
-  useEffect(() => {
-    if (id && activeGroupId) {
-      loadReuniao();
-    }
-  }, [activeGroupId, id]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -108,8 +110,8 @@ const VisualizarReuniao = () => {
     };
   }, [carouselApi]);
 
-  const loadReuniao = async () => {
-    if (!activeGroupId) return;
+  const loadReuniao = useCallback(async () => {
+    if (!activeGroupId || !id) return;
 
     try {
       const { data: reuniaoData, error: reuniaoError } = await supabase
@@ -162,7 +164,7 @@ const VisualizarReuniao = () => {
       // tenta usar snapshot primeiro; se faltar (dados antigos), faz fallback no cadastro atual
       let membrosList: Membro[] = (presencas || [])
         .filter((p) => Boolean(p.membro_id))
-        .map((p: any) => ({
+        .map((p) => ({
           id: p.membro_id,
           nome: p.membro_nome || "(sem nome)",
           faixa_etaria: p.membro_faixa_etaria || "",
@@ -256,7 +258,11 @@ const VisualizarReuniao = () => {
       console.error("Erro ao carregar reunião:", error);
       navigate("/reunioes");
     }
-  };
+  }, [activeGroupId, id, navigate]);
+
+  useEffect(() => {
+    void loadReuniao();
+  }, [loadReuniao]);
 
   const getTotalParticipantes = () => {
     return membrosPresentes.length + (reuniao?.numero_visitas || 0);
@@ -597,7 +603,7 @@ const VisualizarReuniao = () => {
                       </div>
                     </CarouselItem>
 
-                    {false && (
+                    {ENABLE_MEETING_SUMMARY_SLIDES && (
                     <CarouselItem className="flex h-full pl-0">
                       <div className="grid h-full w-full grid-cols-2 gap-3 overflow-hidden rounded-[1.25rem] bg-background/45 p-3">
                         <div className="rounded-2xl bg-primary px-4 py-3 text-primary-foreground">
@@ -956,7 +962,7 @@ const VisualizarReuniao = () => {
                     </div>
                   </CarouselItem>
 
-                  {false && (
+                  {ENABLE_MEETING_SUMMARY_SLIDES && (
                   <CarouselItem className="flex">
                     <div className="h-[320px] w-full overflow-y-auto rounded-[1.25rem] bg-background/45 p-2.5 scrollbar-none">
                       <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Resumo</h3>

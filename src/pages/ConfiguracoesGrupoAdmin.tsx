@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
@@ -44,7 +44,15 @@ function createInviteToken() {
     .replace(/=+$/g, "");
 }
 
-export default function ConfiguracoesGrupoAdmin() {
+type ConfiguracoesGrupoAdminProps = {
+  embedded?: boolean;
+  advancedOnly?: boolean;
+};
+
+export default function ConfiguracoesGrupoAdmin({
+  embedded = false,
+  advancedOnly = false,
+}: ConfiguracoesGrupoAdminProps) {
   const navigate = useNavigate();
   const { loading: loadingActiveGroup, activeGroupId, activeGroup, isAdmin, refresh } = useActiveGroup();
   const { setConfig } = usePageHeader();
@@ -87,6 +95,7 @@ export default function ConfiguracoesGrupoAdmin() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (embedded) return;
     setConfig({
       title: "Administração do Grupo",
       icon: Shield,
@@ -99,31 +108,13 @@ export default function ConfiguracoesGrupoAdmin() {
       backTo: "/configuracoes",
     });
     return () => setConfig(null);
-  }, [setConfig]);
+  }, [embedded, setConfig]);
 
   useEffect(() => {
     supabase.auth.getUser().then((u) => setCurrentUserId(u.data.user?.id ?? null));
   }, []);
 
-  useEffect(() => {
-    if (loadingActiveGroup) return;
-    if (!activeGroupId || !isAdmin) {
-      navigate("/configuracoes");
-      return;
-    }
-    loadGroupData();
-    loadMembers();
-    loadGroupOwner();
-    void loadPresence();
-  }, [activeGroupId, isAdmin, loadingActiveGroup]);
-
-  useEffect(() => {
-    if (loadingActiveGroup || !activeGroupId || !isAdmin) return;
-    const id = window.setInterval(() => void loadPresence(), 30000);
-    return () => window.clearInterval(id);
-  }, [activeGroupId, isAdmin, loadingActiveGroup]);
-
-  const loadGroupData = async () => {
+  const loadGroupData = useCallback(async () => {
     if (!activeGroupId) return;
     try {
       const { data, error } = await supabase
@@ -135,15 +126,15 @@ export default function ConfiguracoesGrupoAdmin() {
       if (data) {
         setGroupName(data.name || "");
         setGroupDesc(data.description || "");
-        setGroupPhotoPath((data as any).photo_url ?? null);
+        setGroupPhotoPath(data.photo_url ?? null);
       }
     } catch (e) {
       console.error(e);
       toast.error("Erro ao carregar dados do grupo");
     }
-  };
+  }, [activeGroupId]);
 
-  const refreshGroupPhotoUrl = async (path: string | null) => {
+  const refreshGroupPhotoUrl = useCallback(async (path: string | null) => {
     if (!path) {
       setGroupPhotoUrl(null);
       return;
@@ -158,12 +149,12 @@ export default function ConfiguracoesGrupoAdmin() {
       console.error(e);
       setGroupPhotoUrl(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void refreshGroupPhotoUrl(groupPhotoPath);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupPhotoPath]);
+
+  }, [groupPhotoPath, refreshGroupPhotoUrl]);
 
   const handleGroupPhotoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -198,7 +189,7 @@ export default function ConfiguracoesGrupoAdmin() {
 
       const { error: updateError } = await supabase
         .from("management_groups")
-        .update({ photo_url: filePath } as any)
+        .update({ photo_url: filePath })
         .eq("id", activeGroupId);
       if (updateError) throw updateError;
 
@@ -215,7 +206,7 @@ export default function ConfiguracoesGrupoAdmin() {
     }
   };
 
-  const loadPresence = async () => {
+  const loadPresence = useCallback(async () => {
     if (!activeGroupId) return;
     try {
       const { data, error } = await supabase
@@ -225,16 +216,16 @@ export default function ConfiguracoesGrupoAdmin() {
       if (error) throw error;
 
       const next: Record<string, PresenceRow> = {};
-      (data as any[] | null)?.forEach((row) => {
-        if (row?.user_id) next[row.user_id] = row as PresenceRow;
+      data?.forEach((row) => {
+        if (row.user_id) next[row.user_id] = row;
       });
       setPresenceByUserId(next);
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadGroupOwner = async () => {
+  const loadGroupOwner = useCallback(async () => {
     if (!activeGroupId) return;
     try {
       const { data, error } = await supabase
@@ -247,26 +238,60 @@ export default function ConfiguracoesGrupoAdmin() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     if (!activeGroupId) return;
     setLoadingMembers(true);
     try {
-      const { data, error } = await supabase
+      const { data: memberships, error } = await supabase
         .from("group_members")
-        .select("id, user_id, role, created_at, profiles!inner(username, email)")
+        .select("id, user_id, role, created_at")
         .eq("group_id", activeGroupId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      setMembers((data as any) ?? []);
+
+      const userIds = memberships?.map((membership) => membership.user_id) ?? [];
+      const { data: profiles, error: profilesError } = userIds.length
+        ? await supabase.from("profiles").select("id, username, email").in("id", userIds)
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+
+      const typedProfiles = profiles as Array<{ id: string; username: string; email: string | null }>;
+      const profileById = new Map<string, GroupMember["profiles"]>();
+      typedProfiles.forEach((profile) => profileById.set(profile.id, profile));
+      setMembers(
+        (memberships ?? []).map((membership) => ({
+          ...membership,
+          profiles: profileById.get(membership.user_id),
+        })),
+      );
     } catch (e) {
       console.error(e);
       toast.error("Erro ao carregar membros");
     } finally {
       setLoadingMembers(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    if (loadingActiveGroup) return;
+    if (!activeGroupId || !isAdmin) {
+      if (embedded) return;
+      navigate("/configuracoes");
+      return;
+    }
+    void loadGroupData();
+    void loadMembers();
+    void loadGroupOwner();
+    void loadPresence();
+  }, [activeGroupId, embedded, isAdmin, loadGroupData, loadGroupOwner, loadMembers, loadPresence, loadingActiveGroup, navigate]);
+
+  useEffect(() => {
+    if (loadingActiveGroup || !activeGroupId || !isAdmin) return;
+    const id = window.setInterval(() => void loadPresence(), 30000);
+    return () => window.clearInterval(id);
+  }, [activeGroupId, isAdmin, loadPresence, loadingActiveGroup]);
 
   const handleUpdateInfo = async () => {
     if (!activeGroupId) return;
@@ -380,14 +405,14 @@ export default function ConfiguracoesGrupoAdmin() {
     setCreatingInvite(true);
     try {
       const token = createInviteToken();
-      let { error } = await supabase.rpc("create_group_invite" as any, {
+      let { error } = await supabase.rpc("create_group_invite", {
         _group_id: activeGroupId,
         _token: token,
         _expires_in_minutes: 10,
       });
 
       if (error && String(error.message ?? "").toLowerCase().includes("_expires_in_minutes")) {
-        const fallback = await supabase.rpc("create_group_invite" as any, {
+        const fallback = await supabase.rpc("create_group_invite", {
           _group_id: activeGroupId,
           _token: token,
           _expires_in_hours: 1,
@@ -464,8 +489,175 @@ export default function ConfiguracoesGrupoAdmin() {
 
   const isCreator = createdBy === currentUserId;
 
+  if (advancedOnly) {
+    return (
+      <div className="space-y-3">
+        <Card className="rounded-2xl border-primary/30 bg-primary/5 shadow-none">
+          <CardHeader className="px-4 pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Shield className="h-4 w-4 text-primary" />
+              Administração avançada
+            </CardTitle>
+            <CardDescription>
+              Recursos exclusivos para administradores do grupo {activeGroup?.name}.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        <div className="grid gap-3 xl:grid-cols-2">
+          <Card className="rounded-2xl border-border/60 shadow-none">
+            <CardHeader className="px-4 pb-3 pt-4">
+              <CardTitle className="text-base font-semibold">Identidade do grupo</CardTitle>
+              <CardDescription>Atualize a foto e a descrição apresentadas aos membros.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 px-4 pb-4 pt-0">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border/55 bg-secondary/35 p-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar className="h-12 w-12 border border-border">
+                    <AvatarImage src={groupPhotoUrl || undefined} />
+                    <AvatarFallback className="bg-accent font-semibold text-foreground">
+                      {(activeGroup?.name || "G").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">Foto do grupo</p>
+                    <p className="truncate text-xs text-muted-foreground">Visível para todos os membros</p>
+                  </div>
+                </div>
+                <label className="inline-flex shrink-0">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleGroupPhotoFileChange}
+                    disabled={photoSaving}
+                  />
+                  <Button variant="outline" size="sm" disabled={photoSaving} className="gap-2" asChild>
+                    <span>
+                      <Camera className="h-4 w-4" />
+                      {photoSaving ? "Salvando..." : "Alterar"}
+                    </span>
+                  </Button>
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Textarea
+                  value={groupDesc}
+                  onChange={(event) => setGroupDesc(event.target.value)}
+                  placeholder="Conte brevemente sobre este grupo"
+                  className="min-h-24 resize-none"
+                />
+              </div>
+              <Button disabled={updatingInfo} onClick={handleUpdateInfo}>
+                {updatingInfo ? "Salvando..." : "Salvar identidade"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-border/60 shadow-none">
+            <CardHeader className="px-4 pb-3 pt-4">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <Link2 className="h-4 w-4" />
+                Convite temporário
+              </CardTitle>
+              <CardDescription>
+                Gere um link que permite entrar diretamente no grupo durante 10 minutos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 px-4 pb-4 pt-0">
+              <Button type="button" onClick={handleCreateInvite} disabled={creatingInvite} className="gap-2">
+                <Link2 className="h-4 w-4" />
+                {creatingInvite ? "Gerando..." : "Gerar link de convite"}
+              </Button>
+              {inviteLink ? (
+                <div className="flex flex-col gap-2 rounded-xl border border-border/55 bg-secondary/35 p-3">
+                  <Input value={inviteLink} readOnly className="text-xs" />
+                  <Button type="button" variant="outline" size="sm" onClick={handleCopyInvite} className="gap-2 self-start">
+                    <Copy className="h-4 w-4" />
+                    Copiar link
+                  </Button>
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+                  Nenhum convite temporário foi gerado nesta sessão.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="rounded-2xl border-border/60 shadow-none">
+          <CardHeader className="px-4 pb-3 pt-4">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Crown className="h-4 w-4" />
+              Propriedade do grupo
+            </CardTitle>
+            <CardDescription>
+              Apenas o criador pode transferir a propriedade definitiva para outro membro.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 px-4 pb-4 pt-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className="space-y-2">
+              <Label>Novo proprietário</Label>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                value={newOwnerId}
+                onChange={(event) => setNewOwnerId(event.target.value)}
+                disabled={!isCreator}
+              >
+                <option value="">{isCreator ? "Selecione um membro..." : "Disponível apenas para o criador"}</option>
+                {members
+                  .filter((member) => member.user_id !== createdBy)
+                  .map((member) => (
+                    <option key={member.id} value={member.user_id}>
+                      {member.profiles?.username || "Usuário"} ({member.profiles?.email || "—"})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <Button
+              disabled={!isCreator || !newOwnerId || transferring}
+              variant="destructive"
+              onClick={() => setConfirmTransferOpen(true)}
+            >
+              Transferir propriedade
+            </Button>
+          </CardContent>
+        </Card>
+
+        <AlertDialog open={confirmTransferOpen} onOpenChange={setConfirmTransferOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Transferir propriedade do grupo?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O novo proprietário terá controle total sobre o grupo. Essa ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleTransferOwnership} disabled={transferring}>
+                {transferring ? "Transferindo..." : "Sim, transferir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {photoImageSrc && (
+          <ImageCropDialog
+            open={photoDialogOpen}
+            onOpenChange={setPhotoDialogOpen}
+            imageSrc={photoImageSrc}
+            onCropComplete={handleGroupPhotoCropped}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full w-full bg-background">
+    <div className={embedded ? "h-full w-full" : "h-full w-full bg-background"}>
       <div className="mx-auto w-full max-w-4xl px-3 md:px-6 lg:px-8 py-4 md:py-6 space-y-4">
         <Card>
           <CardHeader>
@@ -477,7 +669,7 @@ export default function ConfiguracoesGrupoAdmin() {
           </CardHeader>
         </Card>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
           <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="info">Informações</TabsTrigger>
             <TabsTrigger value="senha">Senha</TabsTrigger>

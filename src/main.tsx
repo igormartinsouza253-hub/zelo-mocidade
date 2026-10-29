@@ -14,7 +14,11 @@ async function clearAppCaches() {
 
   if ("caches" in window) {
     const cacheNames = await caches.keys();
-    await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+    await Promise.all(
+      cacheNames
+        .filter((cacheName) => !cacheName.startsWith("zelo-offline-media"))
+        .map((cacheName) => caches.delete(cacheName)),
+    );
   }
 }
 
@@ -33,6 +37,7 @@ function isChunkLoadError(reason: unknown) {
 
 async function recoverFromStaleApp() {
   if (sessionStorage.getItem(RECOVERY_FLAG) === "1") return;
+  if (navigator.onLine === false) return;
 
   sessionStorage.setItem(RECOVERY_FLAG, "1");
   await clearAppCaches();
@@ -54,14 +59,38 @@ window.addEventListener("unhandledrejection", (event) => {
 
 // Evita comportamento inesperado no preview/dev (cache/auto-update servindo bundles antigos).
 // Mantemos PWA apenas em producao real (app publicada), nunca no dominio id-preview.
-const isPreviewHost =
-  typeof window !== "undefined" && window.location.hostname.startsWith("id-preview--");
+const isPreviewHost = typeof window !== "undefined" && (
+  window.location.hostname.startsWith("id-preview--") ||
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "::1"
+);
 
 if (import.meta.env.PROD && !isPreviewHost) {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      void updateSW(true);
+      window.dispatchEvent(new CustomEvent("zelo-update-ready", { detail: { update: updateSW } }));
+    },
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+
+      const checkForUpdate = () => {
+        if (document.visibilityState !== "visible" || navigator.onLine === false) return;
+        void registration.update().catch((error) => {
+          console.warn("Não foi possível verificar atualizações agora.", error);
+        });
+      };
+
+      const intervalId = window.setInterval(checkForUpdate, 60 * 60 * 1000);
+      window.addEventListener("focus", checkForUpdate);
+      document.addEventListener("visibilitychange", checkForUpdate);
+      window.addEventListener("pagehide", () => {
+        window.clearInterval(intervalId);
+        window.removeEventListener("focus", checkForUpdate);
+        document.removeEventListener("visibilitychange", checkForUpdate);
+      }, { once: true });
+      checkForUpdate();
     },
     onOfflineReady() {
       sessionStorage.removeItem(RECOVERY_FLAG);

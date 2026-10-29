@@ -34,11 +34,11 @@ export function useCurrentProfile() {
         setProfile({
           username:
             data?.username ||
-            (user.user_metadata as any)?.username ||
+            (typeof user.user_metadata?.username === "string" ? user.user_metadata.username : null) ||
             user.email?.split("@")[0] ||
             null,
           email: data?.email ?? user.email ?? null,
-          avatar_url: (data as any)?.avatar_url ?? null,
+          avatar_url: data?.avatar_url ?? null,
         });
       } catch (err) {
         console.error("Erro ao carregar perfil atual:", err);

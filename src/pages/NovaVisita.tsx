@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,10 @@ import { usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { MobileActionBar } from "@/components/mobile/MobileActionBar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
+import { OfflineFormStatus } from "@/components/OfflineFormStatus";
+import { deleteOfflineDraft, enqueueOfflineMutation, readOfflineDraft, saveOfflineDraft } from "@/offline/offlineDb";
 
 interface Membro {
   id: string;
@@ -50,6 +54,8 @@ const NovaVisita = () => {
   const [searchParams] = useSearchParams();
   const { setConfig } = usePageHeader();
   const { activeGroupId } = useActiveGroup();
+  const { user } = useAuth();
+  const { status } = useOfflineMode();
 
   const [membros, setMembros] = useState<Membro[]>([]);
   const [loadingMembros, setLoadingMembros] = useState(true);
@@ -65,6 +71,29 @@ const NovaVisita = () => {
   const [observacoes, setObservacoes] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [linkedEventoId, setLinkedEventoId] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [queued, setQueued] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId || searchParams.get("id")) { setDraftReady(true); return; }
+    let cancelled = false;
+    void readOfflineDraft(user.id, activeGroupId, "visit").then((draft) => {
+      if (cancelled) return;
+      if (draft) {
+        const value = draft.value as { tipoVisita: "passada" | "futura"; membroVisitadoId: string; dataVisitaDate: string; dataVisitaTime: string; motivo: string; membrosPresentesIds: string[]; observacoes: string };
+        setTipoVisita(value.tipoVisita); setMembroVisitadoId(value.membroVisitadoId); setDataVisitaDate(value.dataVisitaDate); setDataVisitaTime(value.dataVisitaTime); setMotivo(value.motivo); setMembrosPresentesIds(value.membrosPresentesIds); setObservacoes(value.observacoes); setDraftSaved(true);
+      }
+      setDraftReady(true);
+    }).catch((error) => console.warn("Não foi possível restaurar a visita salva:", error));
+    return () => { cancelled = true; };
+  }, [activeGroupId, searchParams, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !activeGroupId || !draftReady || searchParams.get("id")) return;
+    const timeout = window.setTimeout(() => void saveOfflineDraft(user.id, activeGroupId, "visit", { tipoVisita, membroVisitadoId, dataVisitaDate, dataVisitaTime, motivo, membrosPresentesIds, observacoes }).then(() => setDraftSaved(true)).catch((error) => console.warn("Não foi possível salvar a visita:", error)), 350);
+    return () => window.clearTimeout(timeout);
+  }, [activeGroupId, dataVisitaDate, dataVisitaTime, draftReady, membroVisitadoId, membrosPresentesIds, motivo, observacoes, searchParams, tipoVisita, user?.id]);
 
   useEffect(() => {
     const baseBreadcrumbs = [
@@ -85,33 +114,7 @@ const NovaVisita = () => {
     return () => setConfig(null);
   }, [editingId, setConfig]);
 
-  useEffect(() => {
-    if (!activeGroupId) return;
-    void loadMembros();
-  }, [activeGroupId]);
-
-  useEffect(() => {
-    const id = searchParams.get("id");
-    const membroId = searchParams.get("membroId");
-    const eventoId = searchParams.get("eventoId");
-    const data = searchParams.get("data");
-
-    if (eventoId) setLinkedEventoId(eventoId);
-
-    if (id) {
-      setEditingId(id);
-      void loadVisita(id);
-    } else if (membroId) {
-      setMembroVisitadoId(membroId);
-    }
-
-    if (!id && data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-      setDataVisitaDate(data);
-      setTipoVisita(isDatePast(data) ? "passada" : "futura");
-    }
-  }, [searchParams, activeGroupId]);
-
-  const loadMembros = async () => {
+  const loadMembros = useCallback(async () => {
     if (!activeGroupId) return;
 
     try {
@@ -130,7 +133,7 @@ const NovaVisita = () => {
     } finally {
       setLoadingMembros(false);
     }
-  };
+  }, [activeGroupId]);
 
   const isoToDateInput = (iso: string) => {
     const d = new Date(iso);
@@ -165,7 +168,7 @@ const NovaVisita = () => {
     return selected.getTime() < todayStart.getTime();
   };
 
-  const loadVisita = async (id: string) => {
+  const loadVisita = useCallback(async (id: string) => {
     if (!activeGroupId) return;
 
     try {
@@ -193,7 +196,32 @@ const NovaVisita = () => {
     } finally {
       setLoadingVisita(false);
     }
-  };
+  }, [activeGroupId]);
+
+  useEffect(() => {
+    void loadMembros();
+  }, [loadMembros]);
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const membroId = searchParams.get("membroId");
+    const eventoId = searchParams.get("eventoId");
+    const data = searchParams.get("data");
+
+    if (eventoId) setLinkedEventoId(eventoId);
+
+    if (id) {
+      setEditingId(id);
+      void loadVisita(id);
+    } else if (membroId) {
+      setMembroVisitadoId(membroId);
+    }
+
+    if (!id && data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      setDataVisitaDate(data);
+      setTipoVisita(isDatePast(data) ? "passada" : "futura");
+    }
+  }, [loadVisita, searchParams]);
 
   const toggleMembroPresente = (id: string) => {
     setMembrosPresentesIds((prev) =>
@@ -265,6 +293,7 @@ const NovaVisita = () => {
       setSaving(true);
 
       const payload = {
+        id: crypto.randomUUID(),
         group_id: activeGroupId,
         membro_visitado_id: membroVisitadoId,
         motivo: motivo.trim(),
@@ -296,6 +325,7 @@ const NovaVisita = () => {
         if (error) throw error;
         toast.success("Visita registrada com sucesso");
         visitaIdToLink = data?.id ?? null;
+        await deleteOfflineDraft(user.id, activeGroupId, "visit");
       }
 
       // Se esta visita veio de uma visita agendada na Agenda, vincula o evento ao registro.
@@ -310,7 +340,14 @@ const NovaVisita = () => {
       navigate("/visitas");
     } catch (error) {
       console.error("Erro ao salvar visita:", error);
-      toast.error("Erro ao salvar visita");
+      if (!editingId && user?.id && activeGroupId && (status !== "online" || !navigator.onLine)) {
+        const visitId = crypto.randomUUID();
+        await enqueueOfflineMutation({ key: `${user.id}:${visitId}`, userId: user.id, groupId: activeGroupId, createdAt: new Date().toISOString(), steps: [{ table: "visitas", rows: [{ id: visitId, group_id: activeGroupId, membro_visitado_id: membroVisitadoId, motivo: motivo.trim(), membros_presentes: membrosPresentesIds, observacoes: observacoes.trim() || null, is_past: computedIsPast, data_visita: dataVisitaIso }] }] });
+        await deleteOfflineDraft(user.id, activeGroupId, "visit");
+        setQueued(true);
+        toast.info("Visita salva no dispositivo e aguardando publicação.");
+        navigate("/visitas");
+      } else toast.error("Erro ao salvar visita. O rascunho foi mantido neste dispositivo.");
     } finally {
       setSaving(false);
     }
@@ -324,6 +361,7 @@ const NovaVisita = () => {
   return (
     <div className="w-full min-h-full flex justify-start bg-background">
       <div className={cn("w-full px-3 py-3 md:px-6 md:py-6", isMobile && "h-full overflow-y-auto pb-28 scrollbar-none")}>
+        <OfflineFormStatus saved={draftSaved} queued={queued} />
         {/* No mobile, o header (voltar+título) vem da barra superior do layout */}
         {!isMobile && (
           <div className="flex items-center gap-4 mb-6">

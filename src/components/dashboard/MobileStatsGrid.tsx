@@ -69,10 +69,10 @@ export function MobileStatsGrid({
         {items.map((item) => (
           <Card
             key={item.label}
-            className="overflow-hidden rounded-3xl border-border/55 bg-card/90 text-card-foreground shadow-[var(--shadow-card)]"
+            className="overflow-hidden rounded-[18px] border-border/55 bg-card text-card-foreground shadow-none"
           >
             <CardContent className="p-3 flex items-center gap-2.5">
-              <div className="h-9 w-9 shrink-0 rounded-2xl bg-muted flex items-center justify-center">
+              <div className="h-9 w-9 shrink-0 rounded-[11px] bg-muted/70 flex items-center justify-center">
                 <item.icon className="h-4 w-4 text-foreground" />
               </div>
 

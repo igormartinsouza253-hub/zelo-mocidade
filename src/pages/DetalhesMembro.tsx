@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,12 +187,6 @@ const DetalhesMembro = () => {
   }, [setConfig]);
 
   useEffect(() => {
-    loadMembro();
-    loadCargos();
-    loadPresencas();
-  }, [id, activeGroupId]);
-
-  useEffect(() => {
     if (!showDateDialog) return;
     const digits = birthInput.replace(/\D/g, "");
     setDateDraft({
@@ -202,7 +196,7 @@ const DetalhesMembro = () => {
     });
   }, [birthInput, showDateDialog]);
 
-  const loadCargos = async () => {
+  const loadCargos = useCallback(async () => {
     if (!activeGroupId) {
       setCargosDisponiveis([]);
       setCargosLoading(false);
@@ -224,9 +218,9 @@ const DetalhesMembro = () => {
     } finally {
       setCargosLoading(false);
     }
-  };
+  }, [activeGroupId]);
 
-  const loadMembro = async () => {
+  const loadMembro = useCallback(async () => {
     if (!activeGroupId) return;
 
     try {
@@ -257,9 +251,9 @@ const DetalhesMembro = () => {
       toast.error("Erro ao carregar dados do membro");
       navigate("/membros");
     }
-  };
+  }, [activeGroupId, id, navigate]);
 
-  const loadPresencas = async () => {
+  const loadPresencas = useCallback(async () => {
     if (!activeGroupId) {
       setTotalPresencas(0);
       return;
@@ -277,7 +271,13 @@ const DetalhesMembro = () => {
     } catch (error) {
       console.error("Erro ao carregar presenças:", error);
     }
-  };
+  }, [activeGroupId, id]);
+
+  useEffect(() => {
+    void loadMembro();
+    void loadCargos();
+    void loadPresencas();
+  }, [loadCargos, loadMembro, loadPresencas]);
 
   const processPhotoFile = (file: File) => {
     if (!file) return;

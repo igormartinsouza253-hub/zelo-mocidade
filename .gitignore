@@ -1,4 +1,5 @@
 # Logs
+.secrets/
 logs
 *.log
 npm-debug.log*
@@ -27,3 +28,6 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+playwright-report/
+test-results/
+.secrets/

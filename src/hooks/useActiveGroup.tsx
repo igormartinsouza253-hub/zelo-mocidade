@@ -11,6 +11,8 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isOfflineReadOnly } from "@/offline/connectivity";
+import { getLatestSnapshot, readGroupTable } from "@/offline/offlineDb";
 
 export type ActiveGroup = {
   id: string;
@@ -223,7 +225,6 @@ function useActiveGroupState(): ActiveGroupContextValue {
       setGroups([]);
       setRole(null);
       setLoadedUserId(null);
-      clearActiveGroupCache();
       setLoading(false);
       return false;
     }
@@ -239,11 +240,62 @@ function useActiveGroupState(): ActiveGroupContextValue {
       });
     }
 
+    if (isOfflineReadOnly() && cachedForUser) {
+      applyCacheSnapshot(cachedForUser, {
+        setActiveGroupId,
+        setActiveGroup,
+        setGroups,
+        setRole,
+        setLoadedUserId,
+      });
+      setLoading(false);
+      return true;
+    }
+
+    if (isOfflineReadOnly()) {
+      setLoading(true);
+      try {
+        const latestSnapshot = await getLatestSnapshot(user.id);
+        if (!latestSnapshot) return false;
+
+        const [groupRows, membershipRows] = await Promise.all([
+          readGroupTable(user.id, latestSnapshot.groupId, "management_groups"),
+          readGroupTable(user.id, latestSnapshot.groupId, "group_members"),
+        ]);
+        const groupRow = groupRows.find((row) => row.id === latestSnapshot.groupId);
+        if (!groupRow || typeof groupRow.name !== "string") return false;
+
+        const membership = membershipRows.find((row) => row.user_id === user.id);
+        const snapshot: ActiveGroupCache = {
+          userId: user.id,
+          group: {
+            id: latestSnapshot.groupId,
+            name: groupRow.name,
+            description: typeof groupRow.description === "string" ? groupRow.description : null,
+          },
+          role: membership?.role === "admin" ? "admin" : membership?.role === "member" ? "member" : null,
+          cachedAt: latestSnapshot.synchronizedAt,
+        };
+        writeActiveGroupCache(user.id, snapshot.group, snapshot.role);
+        applyCacheSnapshot(snapshot, {
+          setActiveGroupId,
+          setActiveGroup,
+          setGroups,
+          setRole,
+          setLoadedUserId,
+        });
+        return true;
+      } finally {
+        setLoadedUserId(user.id);
+        setLoading(false);
+      }
+    }
+
     setLoading(true);
 
     try {
       const { data, error } = await withTimeout(
-        supabase.rpc("get_my_group_context" as any),
+        supabase.rpc("get_my_group_context"),
         "Tempo limite ao carregar os grupos da conta.",
       );
 
@@ -298,8 +350,36 @@ function useActiveGroupState(): ActiveGroupContextValue {
       const requestSeq = ++requestSeqRef.current;
       setLoading(true);
       try {
+        if (isOfflineReadOnly()) {
+          const [groupRows, membershipRows] = await Promise.all([
+            readGroupTable(user.id, groupId, "management_groups"),
+            readGroupTable(user.id, groupId, "group_members"),
+          ]);
+          const groupRow = groupRows.find((row) => row.id === groupId);
+          const membership = membershipRows.find((row) => row.user_id === user.id);
+          if (!groupRow || typeof groupRow.name !== "string" || !membership) {
+            throw new Error("Este grupo não está disponível offline para esta conta.");
+          }
+
+          const nextGroup: ActiveGroup = {
+            id: groupId,
+            name: groupRow.name,
+            description: typeof groupRow.description === "string" ? groupRow.description : null,
+          };
+          const nextRole: GroupRole | null =
+            membership.role === "admin" ? "admin" : membership.role === "member" ? "member" : null;
+          setActiveGroupId(groupId);
+          setActiveGroup(nextGroup);
+          setGroups((currentGroups) => currentGroups.some((group) => group.id === groupId)
+            ? currentGroups
+            : [nextGroup, ...currentGroups]);
+          setRole(nextRole);
+          writeActiveGroupCache(user.id, nextGroup, nextRole);
+          return;
+        }
+
         const { data, error } = await withTimeout(
-          supabase.rpc("set_active_group_for_current_user" as any, {
+          supabase.rpc("set_active_group_for_current_user", {
             _group_id: groupId,
           }),
           "Tempo limite ao ativar o grupo.",

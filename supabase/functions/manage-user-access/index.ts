@@ -7,8 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BOOTSTRAP_ADMIN_EMAIL = "igor.ccb.mts@gmail.com";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -50,7 +48,7 @@ serve(async (req) => {
 
     const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
     const callerId = claimsData?.claims?.sub;
-    const callerEmail = typeof claimsData?.claims?.email === "string" ? claimsData.claims.email : null;
+    const appMetadata = claimsData?.claims?.app_metadata as Record<string, unknown> | undefined;
 
     if (claimsError || !callerId) {
       return new Response(
@@ -59,7 +57,7 @@ serve(async (req) => {
       );
     }
 
-    const caller = { id: callerId, email: callerEmail };
+    const caller = { id: callerId };
 
     // Service role client for privileged DB/admin operations
     const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -74,7 +72,7 @@ serve(async (req) => {
       user_id?: string;
       group_id?: string;
     };
-    const isSuperAdminCaller = (caller.email ?? "").toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
+    const isSuperAdminCaller = appMetadata?.super_admin === true;
 
     // Self-approve: allow any authenticated user to ensure they have the base 'user' role.
     // This is safe because it does not grant elevated privileges.
@@ -85,33 +83,6 @@ serve(async (req) => {
 
       if (insertError && insertError.code !== "23505") {
         console.error("Error inserting bootstrap user role:", insertError);
-        return new Response(
-          JSON.stringify({ error: "Erro ao conceder acesso" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ success: true }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Bootstrap: allow a pre-approved email to self-promote to admin
-    if (action === "bootstrap_admin") {
-      if (!isSuperAdminCaller) {
-        return new Response(
-          JSON.stringify({ error: "Operação não permitida" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-
-      const { error: insertError } = await serviceClient
-        .from("user_roles")
-        .insert({ user_id: caller.id, role: "admin" });
-
-      if (insertError && insertError.code !== "23505") {
-        console.error("Error inserting bootstrap admin role:", insertError);
         return new Response(
           JSON.stringify({ error: "Erro ao conceder acesso" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

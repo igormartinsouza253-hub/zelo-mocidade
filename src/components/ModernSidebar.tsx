@@ -91,8 +91,8 @@ export function ModernSidebar({
 }: ModernSidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [lockedExpanded, setLockedExpanded] = useState<boolean | null>(null);
-  const expandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expandTimeoutRef = useRef<number | null>(null);
+  const collapseTimeoutRef = useRef<number | null>(null);
   const pointerInsideRef = useRef(false);
   const location = useLocation();
   const navigate = useNavigate();

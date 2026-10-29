@@ -21,6 +21,7 @@ import {
   UserPlus,
   SlidersHorizontal,
   FileText,
+  type LucideIcon,
 } from "lucide-react";
 import { DockPreferencesProvider } from "@/hooks/useDockPreferences";
 import { useEffect, useRef, useState } from "react";
@@ -28,7 +29,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ZeloLogo } from "@/components/ZeloLogo";
-import { ThemePresetId } from "@/lib/theme-presets";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,12 +42,16 @@ import { useCurrentProfile } from "@/hooks/useCurrentProfile";
 import { PageHeaderProvider, usePageHeader } from "@/components/layout/PageHeaderContext";
 import { useActiveGroup } from "@/hooks/useActiveGroup";
 import { HomeNotificationsDrawer } from "@/components/notifications/HomeNotificationsDrawer";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { useOfflineMode } from "@/hooks/useOfflineMode";
+import { MobileAppPrompt } from "@/components/MobileAppPrompt";
+import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-const routeTitles: Record<string, { title: string; icon: any }> = {
+const routeTitles: Record<string, { title: string; icon: LucideIcon }> = {
   "/": { title: "Início - Reuniões de Jovem", icon: Home },
   "/membros": { title: "Membros", icon: Users },
   "/reunioes": { title: "Reuniões", icon: Handshake },
@@ -118,11 +122,29 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const currentRoute = resolveRoute(location.pathname);
   const { config } = usePageHeader();
+  const [pendingUpdate, setPendingUpdate] = useState<(() => void) | null>(null);
   const effectiveTitle = (config?.title ?? currentRoute.title).split(" - ")[0];
+
+  useEffect(() => {
+    const onUpdateReady = (event: Event) => {
+      const update = (event as CustomEvent<{ update?: () => void }>).detail?.update;
+      if (update) {
+        setPendingUpdate(() => update);
+        toast("Nova versão do Zelo disponível", {
+          description: "Uma nova versão foi baixada com melhorias e correções.",
+          action: { label: "Atualizar agora", onClick: update },
+          duration: 12000,
+        });
+      }
+    };
+    window.addEventListener("zelo-update-ready", onUpdateReady);
+    return () => window.removeEventListener("zelo-update-ready", onUpdateReady);
+  }, []);
 
   const { user, signOut } = useAuth();
   const { profile } = useCurrentProfile();
   const { activeGroupId, activeGroup, loading: loadingGroup } = useActiveGroup();
+  const { isOffline } = useOfflineMode();
   const isViewportMobile = useIsMobile();
   const heartbeatWarningAtRef = useRef(0);
   // Arquitetura por breakpoint: Mobile (<md) e Desktop/Tablet (md+).
@@ -181,6 +203,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState(false);
+  const [activeNotification, setActiveNotification] = useState<{ id: string; title: string; message: string; entity_type: string | null; entity_id: string | null } | null>(null);
+  const promptedNotificationsRef = useRef(new Set<string>());
   const [desktopSearchOpen, setDesktopSearchOpen] = useState(false);
   const [desktopSearchQuery, setDesktopSearchQuery] = useState("");
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
@@ -256,6 +280,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
+        .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
         .is("read_at", null);
 
       if (!error && mounted) {
@@ -285,49 +310,20 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   useEffect(() => {
     if (!user?.id || !activeGroupId) return;
 
-    const showDeviceNotification = async (incoming: { id?: string; title?: string; message?: string; entity_type?: string | null; entity_id?: string | null }) => {
-      if (
-        typeof window === "undefined" ||
-        !("Notification" in window) ||
-        Notification.permission !== "granted" ||
-        !incoming.title ||
-        !incoming.message
-      ) {
-        return;
-      }
-
-      const notificationOptions: NotificationOptions = {
-        body: incoming.message,
-        tag: incoming.id ? `notification-${incoming.id}` : undefined,
-        icon: "/pwa-192.png",
-        badge: "/pwa-192.png",
-        data: {
-          url:
-            incoming.entity_type === "group_join_request"
-              ? "/grupo/info"
-              : incoming.entity_type === "visita" && incoming.entity_id
-                ? `/visitas/${incoming.entity_id}`
-                : "/configuracoes",
-        },
-      };
-
-      try {
-        if ("serviceWorker" in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          await registration.showNotification(incoming.title, notificationOptions);
-          return;
-        }
-      } catch (error) {
-        console.warn("Falha ao exibir notificação via Service Worker:", error);
-      }
-
-      new Notification(incoming.title, notificationOptions);
+    const resolveHref = (incoming: { id?: string; entity_type?: string | null; entity_id?: string | null }) => {
+      if (incoming.entity_type === "user_feedback") return "/configuracoes/super-admin";
+      if (incoming.entity_type === "group_join_request") return "/grupo/info";
+      if (incoming.entity_type === "nota" && incoming.entity_id) return `/notas/editar/${encodeURIComponent(incoming.entity_id)}`;
+      if (incoming.entity_type === "evento" && incoming.entity_id) return `/calendario?eventId=${encodeURIComponent(incoming.entity_id)}`;
+      if (incoming.entity_type === "visita" && incoming.entity_id) return `/visitas/${encodeURIComponent(incoming.entity_id)}`;
+      if ((incoming.entity_type === "birthday" || incoming.entity_type?.startsWith("absence_")) && incoming.id) return `/notificacoes/abrir?id=${encodeURIComponent(incoming.id)}`;
+      return `/notificacoes/abrir?id=${encodeURIComponent(incoming.id ?? "")}`;
     };
 
-    void supabase.rpc("generate_today_birthday_notifications" as any, {
+    void supabase.rpc("generate_today_birthday_notifications", {
       _group_id: activeGroupId,
       _recipient_user_id: user.id,
-    } as any);
+    });
 
     const channel = supabase
       .channel(`mobile-notifications:${user.id}`)
@@ -344,10 +340,15 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           if (!incoming?.title || !incoming?.message) return;
 
           if (document.visibilityState === "visible") {
-            toast(incoming.title, { description: incoming.message });
+            toast(incoming.title, {
+              description: incoming.message,
+              action: { label: "Ver", onClick: () => navigate(resolveHref(incoming)) },
+            });
+            return;
           }
 
-          void showDeviceNotification(incoming);
+          // A fila no banco é o emissor único de push. O Cron a processa mesmo
+          // quando o app está fechado, evitando push duplicado com Realtime.
         },
       )
       .subscribe();
@@ -355,7 +356,30 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, activeGroupId]);
+  }, [user?.id, activeGroupId, navigate]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let mounted = true;
+    const checkUnread = async () => {
+      const { data } = await supabase.from("notifications").select("id,title,message,entity_type,entity_id")
+        .eq("user_id", user.id).gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()).is("read_at", null).order("created_at", { ascending: false }).limit(20);
+      if (!mounted || !data?.length) return;
+      const next = data.find((item) => !promptedNotificationsRef.current.has(item.id));
+      if (!next) return;
+      promptedNotificationsRef.current.add(next.id);
+      setActiveNotification(next);
+    };
+    void checkUnread();
+    const onFocus = () => void checkUnread();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [user?.id]);
 
   // Heartbeat (presença por grupo): atualiza last_seen_at periodicamente no DB
   useEffect(() => {
@@ -376,7 +400,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               group_id: activeGroupId,
               user_id: user.id,
               last_seen_at: nowIso,
-            } as any,
+            },
             { onConflict: "group_id,user_id" },
           );
         if (error) throw error;
@@ -470,30 +494,6 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     };
   }, [user]);
 
-  // Aplica automaticamente o tema salvo como padrão para o usuário ao entrar no app
-  useEffect(() => {
-    if (!user) return;
-
-    const applyUserTheme = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_preferences")
-          .select("theme_preset, custom_theme")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (error || !data) return;
-
-        const { applyThemePreset } = await import("@/lib/theme-presets");
-        applyThemePreset("verde");
-      } catch (error) {
-        console.error("Erro ao aplicar tema padrão do usuário:", error);
-      }
-    };
-
-    void applyUserTheme();
-  }, [user]);
-
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -503,6 +503,16 @@ function AppLayoutShell({ children }: AppLayoutProps) {
       toast.error("Erro ao fazer logout");
     }
   };
+
+  useEffect(() => {
+    if (!isOffline) return;
+    const params = new URLSearchParams(location.search);
+    if (location.pathname === "/calendario" && params.has("new")) {
+      params.delete("new");
+      navigate({ pathname: "/calendario", search: params.toString() }, { replace: true });
+      toast.info("A criação de eventos fica indisponível enquanto você está offline.");
+    }
+  }, [isOffline, location.pathname, location.search, navigate]);
 
   const shouldHideMobileDock = (pathname: string) => {
     if (pathname.startsWith("/membros/visualizar/")) return true;
@@ -552,7 +562,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
 
   const handleDesktopBack = () => {
     const parentPath = resolveParentPath(location.pathname);
-    navigate(config?.backTo ?? parentPath ?? -1);
+    const target = config?.backTo ?? parentPath;
+    if (target) {
+      navigate(target);
+    } else {
+      navigate(-1);
+    }
   };
 
   const handleMobileBack = () => {
@@ -567,6 +582,7 @@ function AppLayoutShell({ children }: AppLayoutProps) {
     { label: "Visitas", path: "/visitas" },
     { label: "Notas", path: "/notas" },
     { label: "Estatísticas", path: "/estatisticas" },
+    { label: "Cargos", path: "/cargos" },
   ].find((item) => location.pathname.startsWith(item.path));
   const contextualPageLabel = location.pathname === "/membros/novo"
     ? "Novo Membro"
@@ -591,6 +607,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
   return (
     <>
        <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
+        <OfflineBanner />
+        {pendingUpdate && <div className="flex items-center justify-center gap-3 bg-primary px-3 py-2 text-xs text-primary-foreground" role="status"><span>Nova versão pronta. Atualize quando for conveniente.</span><button type="button" className="font-semibold underline" onClick={() => pendingUpdate()}>Atualizar agora</button><button type="button" aria-label="Adiar atualização" onClick={() => setPendingUpdate(null)}>Depois</button></div>}
         {/* Navegação principal desktop */}
         {!isMobileMode && (
           <header className="desktop-topbar relative hidden h-[68px] shrink-0 items-center px-[18px] md:flex">
@@ -614,7 +632,14 @@ function AppLayoutShell({ children }: AppLayoutProps) {
               ) : contextualCreate ? (
                 <button
                   type="button"
-                  onClick={() => navigate(contextualCreate.href)}
+                  onClick={() => {
+                    if (isOffline) {
+                      toast.info("Esta ação exige conexão. O modo offline é somente leitura.");
+                      return;
+                    }
+                    navigate(contextualCreate.href);
+                  }}
+                  disabled={isOffline}
                   className="flex h-8 items-center justify-center gap-2 rounded-[15px] bg-primary px-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                   aria-label={contextualCreate.label}
                 >
@@ -629,19 +654,19 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" sideOffset={10} className="w-52 rounded-xl p-1.5">
-                    <DropdownMenuItem onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/reunioes/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <Handshake className="mr-2 h-4 w-4" /> Nova reunião
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/membros/novo")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <UserPlus className="mr-2 h-4 w-4" /> Novo membro
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/calendario?new=1")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <CalendarPlus className="mr-2 h-4 w-4" /> Novo evento
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/visitas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <Handshake className="mr-2 h-4 w-4" /> Nova visita
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
+                    <DropdownMenuItem disabled={isOffline} onClick={() => navigate("/notas/nova")} className="h-10 cursor-pointer rounded-lg font-medium">
                       <FileText className="mr-2 h-4 w-4" /> Nova nota
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -673,11 +698,12 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                   <DropdownMenuItem onClick={() => navigate("/visitas")}>Visitas</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/notas")}>Notas</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/estatisticas")}>Estatísticas</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/cargos")}>Cargos</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </nav>
 
-            <div className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-[20px] border border-border bg-card px-2">
+            <div className="ml-auto flex h-11 shrink-0 items-center gap-3 rounded-[20px] border border-border bg-card px-2">
               {config?.desktopTopbarActions ? <div className="flex h-9 items-center">{config.desktopTopbarActions}</div> : null}
               <form onSubmit={submitDesktopSearch} className={`relative flex h-8 min-w-0 items-center rounded-[14px] transition-[width,background-color] duration-300 ${desktopSearchOpen ? "w-[230px] bg-secondary px-1" : "w-8"}`}>
                 <button type={desktopSearchOpen ? "submit" : "button"} onClick={() => !desktopSearchOpen && setDesktopSearchOpen(true)} className="topbar-icon h-8 w-8 shrink-0" aria-label={desktopSearchOpen ? "Pesquisar" : "Abrir pesquisa"}><Search /></button>
@@ -712,8 +738,8 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                 ) : null}
               </form>
               {scopedSearch?.menu ? <div className="topbar-page-tools flex h-9 items-center">{scopedSearch.menu}</div> : null}
-              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action relative ${isNotificationsDrawerOpen ? "is-active" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
-              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
+              <button type="button" onClick={() => setIsNotificationsDrawerOpen((open) => !open)} className={`topbar-expand-action topbar-square-action relative ${isNotificationsDrawerOpen ? "is-active keep-label" : ""}`} aria-label="Notificações"><Bell /><span className="topbar-action-label">Notificações</span>{unreadNotifications > 0 && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />}</button>
+              <button type="button" onClick={() => navigate("/configuracoes")} className={`topbar-expand-action topbar-square-action ${isSettingsPage ? "is-active keep-label" : ""}`} aria-label="Configurações"><Settings /><span className="topbar-action-label">Configurações</span></button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><button type="button" className="topbar-expand-action" aria-label="Conta"><Avatar className="topbar-action-avatar h-5 w-5"><AvatarImage src={profile?.avatar_url || undefined} /><AvatarFallback className="text-[9px]">{(profile?.username || user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback></Avatar><span className="topbar-action-label">Conta</span></button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end"><DropdownMenuItem onClick={handleSignOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent>
@@ -756,11 +782,11 @@ function AppLayoutShell({ children }: AppLayoutProps) {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="inline-flex items-center justify-center rounded-xl border border-border bg-card hover:bg-accent/60 transition-colors h-10 w-10"
+                            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent p-0 transition-opacity hover:opacity-85"
                             aria-label="Conta"
                           >
-                            <Avatar className="h-8 w-8 rounded-xl">
-                              <AvatarImage className="rounded-xl" src={profile?.avatar_url || undefined} />
+                            <Avatar className="h-10 w-10 rounded-xl">
+                              <AvatarImage className="rounded-xl object-cover" src={profile?.avatar_url || undefined} />
                               <AvatarFallback className="rounded-xl bg-accent text-foreground text-sm font-semibold">
                                 {(profile?.username || user?.email || "U").charAt(0).toUpperCase()}
                               </AvatarFallback>
@@ -848,6 +874,26 @@ function AppLayoutShell({ children }: AppLayoutProps) {
           userId={user.id}
         />
       ) : null}
+
+      {activeNotification && (
+        <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[70] mx-auto max-w-lg rounded-2xl border border-border bg-card p-4 shadow-xl" role="status">
+          <div className="flex items-start gap-3">
+            <Bell className="mt-1 h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{activeNotification.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{activeNotification.message}</p>
+              <div className="mt-3 flex gap-2">
+                <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground" onClick={() => { const href = activeNotification.entity_type === "user_feedback" ? "/configuracoes/super-admin" : activeNotification.entity_type === "nota" && activeNotification.entity_id ? `/notas/editar/${activeNotification.entity_id}` : activeNotification.entity_type === "evento" && activeNotification.entity_id ? `/calendario?eventId=${activeNotification.entity_id}` : activeNotification.entity_type === "group_join_request" ? "/grupo/info" : `/notificacoes/abrir?id=${activeNotification.id}`; navigate(href); setActiveNotification(null); }}>Ver agora</button>
+                <button type="button" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted" onClick={() => setActiveNotification(null)}>Depois</button>
+              </div>
+            </div>
+            <button type="button" aria-label="Fechar notificação" className="rounded p-1 text-muted-foreground" onClick={() => setActiveNotification(null)}>×</button>
+          </div>
+        </div>
+      )}
+
+      <MobileAppPrompt userId={user?.id} isMobile={isMobileMode} />
+      <OnboardingTutorial />
 
     </>
   );
